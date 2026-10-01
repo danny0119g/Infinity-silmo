@@ -578,7 +578,7 @@
     try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); subjFailed = false; } catch (e) { subjFailed = true; }
   }
 
-  // ---------- 기록 (날짜 구분 없이, 응시한 순서대로 계속 보관) ----------
+  // ---------- 오늘의 기록 (응시한 순서대로 보관, 하루가 지나면 초기화) ----------
   var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2", memAll = null;
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -638,6 +638,33 @@
     });
     return nums;
   }
+  // ---------- 하루가 지나면 초기화 ----------
+  // 기록은 "오늘 것"만 남긴다. 날짜가 바뀐 걸 알아채면 기록과 진행 중 정보를 지우고 페이지를 새로 불러온다. (선택한 과목은 유지)
+  var DAY_KEY = "examTimer.day.v1";
+  function todayStr() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function dayRollover(keepId) {                   // 날짜가 바뀌어 지웠으면 true. keepId: 방금 끝난 시험은 남김(자정을 넘겨 끝난 경우)
+    var t = todayStr(), stamp = null;
+    try { stamp = localStorage.getItem(DAY_KEY); } catch (e) { return false; }
+    if (stamp === t) return false;
+    if (stamp == null) { try { localStorage.setItem(DAY_KEY, t); } catch (e) {} return false; }   // 이전 버전에서 넘어온 기록은 오늘 것으로 봄
+    var keep = keepId ? loadAll().filter(function (r) { return r.id === keepId; }) : [];
+    saveAll(keep);
+    try { localStorage.removeItem(OLD_KEY); localStorage.setItem(DAY_KEY, t); } catch (e) {}
+    clearSession();
+    return true;
+  }
+  function sessionPending() { try { return !!localStorage.getItem(SESSION_KEY); } catch (e) { return false; } }
+  function checkNewDay(atStart) {
+    if (!atStart && (phase !== "idle" || stage.classList.contains("on"))) return;   // 시험 중에는 건드리지 않음
+    if (sessionPending()) return;
+    if (!dayRollover()) return;
+    if (atStart) return;
+    var ok = false;
+    try { ok = localStorage.getItem(DAY_KEY) === todayStr(); } catch (e) {}
+    if (ok) { location.reload(); return; }          // 하드 리셋
+    clearSelection(); focusSubject = ""; scoreExpanded = false; renderSlots(); renderToday();
+  }
+
   // 예전 버전의 기록(생1/지1)도 그대로 읽을 수 있게
   function recSlot(rec) { return rec.slot === 2 ? 2 : 1; }
   function recSubject(rec) { return rec.subject || (rec.key === "earth" ? "지구과학Ⅰ" : "생명과학Ⅰ"); }
@@ -802,12 +829,21 @@
     return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
   }
   function clearSelection() { selectedPoint = ""; chooser = null; }
-  // 과목마다 색: 처음 등장한 순서대로 정해서 그래프를 바꿔도, 기록이 늘어도 그대로
+  // 과목마다 고정 색 (기록이 늘거나 지워져도 바뀌지 않음)
+  var SUBJECT_COLORS = {
+    "생활과 윤리": "#4da3ff", "윤리와 사상": "#818cf8", "한국지리": "#3ddc97", "세계지리": "#2dd4bf",
+    "동아시아사": "#e08f5f", "세계사": "#cbd5e1", "경제": "#a3e635", "정치와 법": "#e879f9", "사회·문화": "#f87171",
+    "물리학Ⅰ": "#22d3ee", "화학Ⅰ": "#ff9f43", "생명과학Ⅰ": "#ff6b8b", "지구과학Ⅰ": "#a78bfa",
+    "물리학Ⅱ": "#67e8f9", "화학Ⅱ": "#fdba74", "생명과학Ⅱ": "#fda4af", "지구과학Ⅱ": "#d8b4fe"
+  };
   function colorMap(all) {
-    var color = {}, seen = 0;
+    var color = {};
     all.forEach(function (r) {
       var sub = recSubject(r);
-      if (!color[sub]) { color[sub] = PALETTE[seen % PALETTE.length]; seen++; }
+      if (color[sub]) return;
+      var c = SUBJECT_COLORS[sub];
+      if (!c) { var h = 0; for (var i = 0; i < sub.length; i++) h = (h * 31 + sub.charCodeAt(i)) >>> 0; c = PALETTE[h % PALETTE.length]; }
+      color[sub] = c;
     });
     return color;
   }
@@ -1326,6 +1362,7 @@
         if (gw - gp > 1 && gw < 12 * 3600) sleepCredit += gw - gp;
       }
       hiddenAt = null;
+      checkNewDay(false);
       if (home.style.display !== "none") renderToday();
       if (stage.classList.contains("on") && (phase === "running" || phase === "extra")) requestWake();
     }
@@ -1631,6 +1668,7 @@
     running = false;
     phase = "idle";
     clearSession();
+    dayRollover(recId);
     hideWarn(); closeAsk();
     releaseWake();
     stage.classList.remove("on");
@@ -1834,6 +1872,8 @@
     document.addEventListener("pointercancel", release, true);
   }, true);
 
+  checkNewDay(true);
+  setInterval(function () { checkNewDay(false); }, 60000);
   setHands(12 * 3600);
   updateFsIcon();
   renderSlots();
