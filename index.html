@@ -124,6 +124,11 @@
   }
   .legend .item.on { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.24); }
   .legend.has-focus .item:not(.on) { opacity: .42; }
+  .legend .fold {
+    margin-left: auto; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line);
+    background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; line-height: 1;
+  }
+  #chart .strip { cursor: pointer; }
   .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
   #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   #chart svg text { font-family: inherit; }
@@ -328,6 +333,7 @@
     .legend .item:not(.on):hover { background: rgba(255,255,255,.05); }
     .pointinfo .del:hover { border-color: var(--second); }
     .rf:hover { border-color: #5a606b; }
+    .legend .fold:hover { border-color: #5a606b; color: var(--text); }
     .pen:hover { border-color: var(--accent); color: var(--text); }
     .rec .del:hover { border-color: var(--second); }
     .chip:hover { border-color: var(--accent); }
@@ -631,7 +637,6 @@
     return b;
   }
 
-  var recFilter = "";
   // 다시 그리는 동안 페이지 전체의 스크롤 위치는 그대로 유지
   function keepPageScroll(fn) {
     var top = home.scrollTop;
@@ -668,18 +673,19 @@
     // 과목별로 따로 보기 (상자 위쪽 버튼)
     var color = colorMap(all), subs = [];
     all.forEach(function (r) { var nm = recSubject(r); if (subs.indexOf(nm) < 0) subs.push(nm); });
-    if (recFilter && subs.indexOf(recFilter) < 0) recFilter = "";
+    if (focusSubject && subs.indexOf(focusSubject) < 0) focusSubject = "";
     var rf = $("recFilter");
     rf.textContent = "";
     function filterChip(label, value, c) {
-      var on = recFilter === value;
+      var on = focusSubject === value;
       var bt = el("button", "rf" + (on ? " on" : ""));
       bt.type = "button"; bt.setAttribute("aria-pressed", on ? "true" : "false");
       if (c) { var d = el("span", "cdot"); d.style.background = c; bt.appendChild(d); }
       bt.appendChild(document.createTextNode(label));
       bt.addEventListener("click", function () {
-        recFilter = (value && recFilter === value) ? "" : value;
-        renderRecords(true);
+        focusSubject = (value && focusSubject === value) ? "" : value;   // 그래프도 같은 과목으로
+        clearSelection();
+        keepPageScroll(function () { renderRecords(true); renderChart(); });
         $("records").scrollTop = 0;
       });
       return bt;
@@ -693,7 +699,7 @@
     var ul = $("records"), keepTop = ul.scrollTop;
     ul.textContent = "";
     $("recordsEmpty").style.display = all.length ? "none" : "";
-    var shown = recFilter ? all.filter(function (r) { return recSubject(r) === recFilter; }) : all;
+    var shown = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
     shown.slice().reverse().forEach(function (rec) {
       var title = recSubject(rec) + " " + nums[rec.id] + "회";
       var li = el("li", "rec");
@@ -724,10 +730,12 @@
   }
 
   // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
-  // 점수 추이: 세로축 점수 (위로 갈수록 높음) / 시간 추이: 세로축 시간 (위로 갈수록 짧음)
+  // 점수 추이: 세로축 점수 (위로 갈수록 높음). 기본은 25~50점만 보이고 그 아래는 가려져 있다가 눌러서 펼침
+  // 시간 추이: 세로축 시간 (위로 갈수록 짧음)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
   var TOL = 1;                                   // 같은 회차에서 ±1점(시간은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
-  var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "";
+  var SCORE_CARD_BG = "#252c37";                 // 점수 그래프 카드 색 (가림막 그라데이션이 이 색으로 사라짐)
+  var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "", scoreExpanded = false;
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
@@ -750,16 +758,11 @@
     return color;
   }
   function mean(a) { var t = 0; a.forEach(function (v) { t += v; }); return t / a.length; }
-  function slopeOf(xs, ys) {                    // 최소제곱 직선의 기울기 (회차당 변화량)
-    var mx = mean(xs), my = mean(ys), num = 0, den = 0;
-    for (var i = 0; i < xs.length; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) * (xs[i] - mx); }
-    return den ? num / den : 0;
-  }
   // 추세곡선: 모든 점을 가까운 순서로 무게를 달리해 반영하는 가우시안 국소 직선 회귀.
-  // 한 줄로 끊김 없이 이어지는 부드러운 곡선이고, 점이 움푹 들어간 구간(꺾이는 곳)은 어느 정도 깊게 살아남음
+  // 폭(sig)이 넓을수록 매끈하고 좁을수록 점을 따라 깊게 파임
   function trendCurve(xs, ys) {
     var n = xs.length, span = xs[n - 1] - xs[0], gap = span / (n - 1) || 1;
-    var sig = 0.5 * gap, S = Math.max(80, (n - 1) * 12), out = [];
+    var sig = 0.85 * gap, S = Math.max(80, (n - 1) * 12), out = [];
     for (var i = 0; i <= S; i++) {
       var x = xs[0] + span * i / S, sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
       for (var j = 0; j < n; j++) {
@@ -783,7 +786,7 @@
     var allPts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
     function val(r) { return homer ? r.elapsed / 60 : r.score1; }
 
-    // 범례: 누르면 그 과목만 보기, 한 번 더 누르면 전체 보기
+    // 범례: 누르면 그 과목만 보기(응시 기록도 같은 과목으로), 한 번 더 누르면 전체 보기
     var names = [], hasPts = {};
     all.forEach(function (r) { var nm = recSubject(r); if (names.indexOf(nm) < 0) names.push(nm); });
     allPts.forEach(function (r) { hasPts[recSubject(r)] = true; });
@@ -801,10 +804,18 @@
       item.addEventListener("click", function () {
         focusSubject = on ? "" : name;
         clearSelection();
-        renderChart();
+        keepPageScroll(function () { renderRecords(true); renderChart(); });
+        $("records").scrollTop = 0;
       });
       legend.appendChild(item);
     });
+    // 펼쳐 본 점수 그래프를 다시 25~50점만 보이게 가림
+    if (!homer && scoreExpanded) {
+      var fold = el("button", "fold", "다시 가리기");
+      fold.type = "button";
+      fold.addEventListener("click", function () { scoreExpanded = false; clearSelection(); renderChart(); });
+      legend.appendChild(fold);
+    }
 
     var pts = focusSubject ? allPts.filter(function (r) { return recSubject(r) === focusSubject; }) : allPts;
     if (!pts.length) {
@@ -823,14 +834,12 @@
       series[sub].push({ n: nums[r.id], v: val(r), rec: r });
     });
 
-    // 한 과목만 볼 때: 평균·최고(최단)·추세 (점이 2개 이상이면 숫자, 3개 이상이면 추세곡선도)
+    // 한 과목만 볼 때: 평균·최고·최저 (점이 2개 이상), 3개 이상이면 추세곡선도
     var focus = !!focusSubject, stat = null;
     if (focus && series[focusSubject] && series[focusSubject].length >= 2) {
       var sl = series[focusSubject], sxs = sl.map(function (q) { return q.n; }), sys = sl.map(function (q) { return q.v; });
       stat = {
-        avg: mean(sys),
-        best: homer ? Math.min.apply(null, sys) : Math.max.apply(null, sys),
-        slope: sl.length >= 3 ? slopeOf(sxs, sys) : null,
+        avg: mean(sys), max: Math.max.apply(null, sys), min: Math.min.apply(null, sys),
         curve: sl.length >= 3 ? trendCurve(sxs, sys) : null
       };
     }
@@ -838,27 +847,28 @@
     var W = Math.max(280, Math.round(measuredW || 600));
     var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
+    var collapsed = !homer && !scoreExpanded;               // 25점 아래를 가리고 있는 상태
+    var G = collapsed ? 36 : 0;                             // 가려진(그라데이션) 구간의 높이
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
     var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
-    var plotW = W - L - R, plotH = H - T - B, innerW = plotW - PAD - PADR;
+    var plotW = W - L - R, plotH = H - T - B - G, innerW = plotW - PAD - PADR;
+    var yBottom = T + plotH;                                // 눈금의 맨 아래 (25점 / 0점 / 시간 맨 아래)
     var maxN = 1;
     pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
     function X(nn) { return maxN === 1 ? L + (plotW - PADR + PAD) / 2 : L + PAD + (nn - 1) * innerW / (maxN - 1); }
 
     // 세로축 범위
-    var vals = [];
-    pts.forEach(function (r) {
-      vals.push(val(r));
-      if (!homer && r.usedExtra && r.score2 != null) vals.push(r.score2);
-    });
-    if (stat && stat.curve) stat.curve.forEach(function (c) { vals.push(c[1]); });
-    if (homer) vals.push(30);                    // 본 시험 시간(30분)이 항상 보이게
-    var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), lo, hi, step;
+    var mn, mx, lo, hi, step;
     if (!homer) {
-      hi = 50; step = 10;
-      lo = Math.max(0, Math.floor((mn - 3) / 10) * 10);
-      if (hi - lo < 20) lo = hi - 20;
+      hi = 50;
+      if (collapsed) { lo = 25; step = 5; }                // 25점 이하는 범위 계산에서 무시 → 화면에는 25~50만
+      else { lo = 0; step = 10; }
     } else {
+      var vals = [];
+      pts.forEach(function (r) { vals.push(val(r)); });
+      if (stat && stat.curve) stat.curve.forEach(function (c) { vals.push(c[1]); });
+      vals.push(30);                               // 본 시험 시간(30분)이 항상 보이게
+      mn = Math.min.apply(null, vals); mx = Math.max.apply(null, vals);
       lo = Math.max(0, Math.floor(mn - 1)); hi = Math.ceil(mx + 1);
       if (hi - lo < 4) hi = lo + 4;
       step = niceStep(hi - lo);
@@ -866,6 +876,7 @@
     }
     function Y(v) { return homer ? T + (v - lo) / (hi - lo) * plotH : T + (hi - v) / (hi - lo) * plotH; }
     function fmtVal(v) { return homer ? Math.round(v) + "분" : String(v); }
+    function visible(y) { return !collapsed || y <= yBottom + 1; }   // 가려진 구간 안의 점은 숫자·선택 대상에서 제외
 
     var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": homer ? "과목별 시간 추이" : "과목별 점수 추이" });
     for (var t = lo; t <= hi; t += step) {
@@ -877,6 +888,22 @@
         : { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
       yl.textContent = homer ? t + "분" : t;
       svg.appendChild(yl);
+    }
+    // 데이터는 가려진 구간까지만 그리도록 잘라냄 (그 아래는 그라데이션으로 가림)
+    var uid = "c" + Math.random().toString(36).slice(2, 8), dg = svg;
+    if (collapsed) {
+      var defs = svgEl("defs", {});
+      var cp = svgEl("clipPath", { id: uid });
+      cp.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: yBottom + G }));
+      defs.appendChild(cp);
+      var lg = svgEl("linearGradient", { id: uid + "g", x1: 0, y1: 0, x2: 0, y2: 1 });
+      lg.appendChild(svgEl("stop", { offset: "0%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0 }));
+      lg.appendChild(svgEl("stop", { offset: "55%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0.78 }));
+      lg.appendChild(svgEl("stop", { offset: "100%", "stop-color": SCORE_CARD_BG, "stop-opacity": 1 }));
+      defs.appendChild(lg);
+      svg.appendChild(defs);
+      dg = svgEl("g", { "clip-path": "url(#" + uid + ")" });
+      svg.appendChild(dg);
     }
     // 시간 그래프: 본 시험 시간(30분) 기준선. 각 점에서 이 선까지 이어지는 세로선이 추가로 쓴 시간
     if (homer) {
@@ -910,25 +937,26 @@
     if (homer) {
       plist.forEach(function (pt) {
         if (Math.abs(pt.y - Y(30)) < 2) return;
-        svg.appendChild(svgEl("line", { x1: pt.x, x2: pt.x, y1: Y(30), y2: pt.y, stroke: pt.color, "stroke-width": 2, "stroke-opacity": 0.45, "stroke-linecap": "round" }));
+        dg.appendChild(svgEl("line", { x1: pt.x, x2: pt.x, y1: Y(30), y2: pt.y, stroke: pt.color, "stroke-width": 2, "stroke-opacity": 0.45, "stroke-linecap": "round" }));
       });
     }
     // 선 (과목별)
     order.forEach(function (name) {
       var list = series[name];
       if (list.length > 1) {
-        svg.appendChild(svgEl("polyline", {
+        dg.appendChild(svgEl("polyline", {
           points: list.map(function (q) { return X(q.n).toFixed(1) + "," + Y(q.v).toFixed(1); }).join(" "),
           fill: "none", stroke: color[name], "stroke-width": homer ? 2 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round",
           "stroke-opacity": stat && stat.curve ? 0.55 : 1
         }));
       }
     });
-    // 한 과목만 볼 때의 추세곡선
+    // 한 과목만 볼 때의 추세곡선 (점선)
     if (stat && stat.curve) {
-      var cd = stat.curve.map(function (c, i) { return (i ? "L" : "M") + X(c[0]).toFixed(1) + "," + Y(c[1]).toFixed(1); }).join(" ");
-      svg.appendChild(svgEl("path", { d: cd, fill: "none", stroke: color[focusSubject], "stroke-width": 8, "stroke-opacity": 0.16, "stroke-linecap": "round", "stroke-linejoin": "round" }));
-      svg.appendChild(svgEl("path", { d: cd, fill: "none", stroke: lighten(color[focusSubject], 0.35), "stroke-width": 3.2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+      dg.appendChild(svgEl("path", {
+        d: stat.curve.map(function (c, i) { return (i ? "L" : "M") + X(c[0]).toFixed(1) + "," + Y(c[1]).toFixed(1); }).join(" "),
+        fill: "none", stroke: lighten(color[focusSubject], 0.4), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "8 6"
+      }));
     }
 
     // 점수 그래프: 선택한 점 위에 호머식 점수를 연한 색 점으로 (다른 곳을 누르면 사라짐)
@@ -938,10 +966,10 @@
       homerDotY = hy;
       var hc = lighten(color[recSubject(selRec)], 0.55);
       if (Math.abs(hy - sy) > 7) {
-        svg.appendChild(svgEl("line", { x1: hx, x2: hx, y1: sy, y2: hy, stroke: hc, "stroke-width": 1.6, "stroke-dasharray": "3 3" }));
-        svg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 4.6, fill: hc, stroke: "#26292f", "stroke-width": 2 }));
+        dg.appendChild(svgEl("line", { x1: hx, x2: hx, y1: sy, y2: hy, stroke: hc, "stroke-width": 1.6, "stroke-dasharray": "3 3" }));
+        dg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 4.6, fill: hc, stroke: "#26292f", "stroke-width": 2 }));
       } else {
-        svg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 8.5, fill: "none", stroke: hc, "stroke-width": 2 }));
+        dg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 8.5, fill: "none", stroke: hc, "stroke-width": 2 }));
       }
       var hAbove = hy < sy || Math.abs(hy - sy) <= 7;
       var ht = svgEl("text", {
@@ -949,48 +977,46 @@
         stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
       });
       ht.textContent = selRec.score2;
-      svg.appendChild(ht);
+      dg.appendChild(ht);
     }
 
     // 점: 점수 그래프는 꽉 찬 동그라미, 시간 그래프는 속이 빈 동그라미
     var showAll = pts.length <= 12, labeled = {};
     plist.forEach(function (pt) {
       var selected = pt.rec.id === selectedPoint;
-      if (selected) svg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: homer ? 10 : 9, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
+      if (selected) dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: homer ? 10 : 9, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
       if (homer) {
-        svg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 5.2, fill: selected ? pt.color : "#26292f", stroke: pt.color, "stroke-width": 2.4 }));
+        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 5.2, fill: selected ? pt.color : "#26292f", stroke: pt.color, "stroke-width": 2.4 }));
       } else {
-        svg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 4.6, fill: pt.color, stroke: "#26292f", "stroke-width": 2 }));
+        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 4.6, fill: pt.color, stroke: "#26292f", "stroke-width": 2 }));
       }
-      if (showAll || pt.last || selected) {
+      if ((showAll || pt.last || selected) && visible(pt.y)) {
         var seenY = labeled[pt.n] || (labeled[pt.n] = []);
         var dup = seenY.some(function (yy) { return Math.abs(yy - pt.y) < 3; });   // 거의 같은 위치면 숫자는 한 번만
         if (!dup || selected) {
-          var above = pt.y === colTop[pt.n] ? (pt.y - 12 >= 10) : !(pt.y + 20 <= H - 12);
+          var above = pt.y === colTop[pt.n] ? (pt.y - 12 >= 10) : !(pt.y + 20 <= yBottom + 6);
           if (selected && homerDotY != null && homerDotY < pt.y) above = false;   // 호머식 점이 위에 있으면 숫자는 아래로
           var tx = svgEl("text", {
             x: pt.x, y: above ? pt.y - 12 : pt.y + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: pt.color,
             stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
           });
           tx.textContent = fmtVal(pt.v);
-          svg.appendChild(tx);
+          dg.appendChild(tx);
           seenY.push(pt.y);
         }
       }
     });
 
-    // 한 과목만 볼 때: 오른쪽 끝에 평균 등을 적어 둠
+    // 한 과목만 볼 때: 오른쪽 끝에 평균·최고·최저를 적어 둠 (시간 그래프는 최단·최장)
     if (stat) {
+      var u = homer ? "분" : "점", f1 = function (v) { return homer ? v.toFixed(1) : String(v); };
       var lines = [
-        "평균 " + stat.avg.toFixed(1) + (homer ? "분" : "점"),
-        (homer ? "최단 " + stat.best.toFixed(1) + "분" : "최고 " + stat.best + "점")
+        "평균 " + stat.avg.toFixed(1) + u,
+        (homer ? "최단 " : "최고 ") + f1(homer ? stat.min : stat.max) + u,
+        (homer ? "최장 " : "최저 ") + f1(homer ? stat.max : stat.min) + u
       ];
-      if (stat.slope != null) {
-        var sg = stat.slope >= 0 ? "+" : "-";
-        lines.push("추세 " + sg + Math.abs(stat.slope).toFixed(1) + (homer ? "분/회" : "/회"));
-      }
       var endY = Y(stat.curve ? stat.curve[stat.curve.length - 1][1] : series[focusSubject][series[focusSubject].length - 1].v);
-      var ty0 = Math.min(Math.max(endY - 18, T + 8), H - B - 8 - (lines.length - 1) * 15);
+      var ty0 = Math.min(Math.max(endY - 18, T + 8), yBottom - 8 - (lines.length - 1) * 15);
       var tcol = lighten(color[focusSubject], 0.3);
       lines.forEach(function (ln, i) {
         var st = svgEl("text", {
@@ -1002,8 +1028,25 @@
       });
     }
 
-    // 누르기 쉽도록 보이지 않는 원을 맨 위에
+    // 25점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
+    if (collapsed) {
+      svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "g)", "pointer-events": "none" }));
+      var strip = svgEl("rect", { x: 0, y: yBottom, width: W, height: G + 6, fill: "transparent", "class": "strip" });
+      strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "25점 아래까지 전체 보기");
+      strip.addEventListener("click", function (e) {
+        e.stopPropagation();
+        scoreExpanded = true; clearSelection();
+        renderChart();
+      });
+      svg.appendChild(strip);
+      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 8, "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: "#8b929d", "pointer-events": "none" });
+      hint.textContent = "눌러서 전체 보기";
+      svg.appendChild(hint);
+    }
+
+    // 누르기 쉽도록 보이지 않는 원을 맨 위에 (가려진 구간의 점은 제외)
     plist.forEach(function (pt) {
+      if (!visible(pt.y)) return;
       var c = svgEl("circle", { cx: pt.x, cy: pt.y, r: 14, fill: "transparent", "class": "hit" });
       c.addEventListener("click", function (e) {
         e.stopPropagation();
