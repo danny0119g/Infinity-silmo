@@ -80,29 +80,54 @@
   .trend { width: 100%; }
   .trendHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .trend h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
-  /* 전등 스위치처럼 좌우로 움직이는 상자 */
+  /* 좌우로 미끄러지는 스위치: 어두운 홈 위를 밝은 상자가 움직임 */
   .switch {
-    position: relative; flex: none; width: 200px; height: 40px; padding: 3px;
+    position: relative; flex: none; width: 208px; height: 42px; padding: 4px;
     display: grid; grid-template-columns: 1fr 1fr; align-items: stretch;
-    background: #141517; border: 1px solid var(--line); border-radius: 10px;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,.55);
+    border: 1px solid #343840; border-radius: 13px;
+    background: linear-gradient(180deg, #0e0f11, #17181b);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.05);
   }
   .switch .thumb {
-    position: absolute; top: 3px; left: 3px; width: calc(50% - 3px); height: calc(100% - 6px);
-    border-radius: 7px; pointer-events: none;
-    background: linear-gradient(#5aa5ff, #2f78e6);
-    box-shadow: 0 2px 5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.4);
-    transition: transform .22s cubic-bezier(.3,.8,.3,1);
+    position: absolute; top: 4px; left: 4px; width: calc(50% - 4px); height: calc(100% - 8px);
+    border-radius: 9px; pointer-events: none;
+    background: linear-gradient(180deg, #ffffff 0%, #e2e6ee 100%);
+    box-shadow: 0 6px 14px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.55), inset 0 1px 0 #fff;
+    transition: transform .3s cubic-bezier(.34,1.3,.5,1);
   }
   .switch[data-mode="homer"] .thumb { transform: translateX(100%); }
-  .switch:active .thumb { filter: brightness(.9); }
+  .switch:active .thumb { filter: brightness(.94); }
   .switch .lab {
-    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
-    font-size: 15px; font-weight: 800; color: var(--muted); transition: color .2s; pointer-events: none;
+    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+    font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: #767d89;
+    transition: color .25s; pointer-events: none;
   }
-  .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #fff; }
+  .switch .lab::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .4;
+    transition: background .25s, box-shadow .25s, opacity .25s;
+  }
+  .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #14161a; }
+  .switch[data-mode="score"] .lab.l::before { background: #3b8dff; opacity: 1; box-shadow: 0 0 0 3px rgba(59,141,255,.2); }
+  .switch[data-mode="homer"] .lab.r::before { background: #ff9f2e; opacity: 1; box-shadow: 0 0 0 3px rgba(255,159,46,.24); }
   .chartcard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0 6px 10px; font-size: 14px; font-weight: 700; }
+  .chartcard { transition: background .3s, border-color .3s; }
+  .chartcard[data-mode="score"] { background: linear-gradient(180deg, #232b37 0%, #26292f 58%); border-color: #333d4b; }
+  .chartcard[data-mode="homer"] { background: linear-gradient(180deg, #2f2a24 0%, #26292f 58%); border-color: #4b4033; }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 0 6px 10px; font-size: 14px; font-weight: 700; }
+  .legend .note { margin-left: auto; color: #c9a679; font-size: 13px; font-weight: 600; }
+  #chart { position: relative; }
+  .chooser {
+    position: absolute; z-index: 4; min-width: 150px; padding: 8px;
+    display: flex; flex-direction: column; gap: 6px;
+    background: #1b1d21; border: 1px solid #484e59; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.55);
+  }
+  .chooser .ct { font-size: 12px; color: var(--muted); padding: 0 4px 2px; }
+  .copt {
+    display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px;
+    border: 1px solid #3a3e46; background: #26292f; font-size: 14px; font-weight: 700; text-align: left; white-space: nowrap;
+  }
+  .copt:hover { border-color: var(--accent); }
+  .cdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .legend .item { display: inline-flex; align-items: center; gap: 7px; }
   .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
   #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -203,6 +228,7 @@
   .bar > *, .bottombar > * { pointer-events: auto; }
   .bar { top: 0; padding-top: max(var(--edge), env(safe-area-inset-top, 0px)); }
   .bottombar { bottom: 0; padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px)); }
+  #stage.fs .bar { padding-left: calc(var(--edge) + 72px); }
   #abandon { background: rgba(216,38,28,.20); border-color: rgba(240,104,94,.55); color: #ffb3ac; }
   #abandon:hover { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
   .tools { display: flex; gap: 8px; margin-left: auto; }
@@ -306,7 +332,7 @@
           <span class="thumb"></span><span class="lab l">점수</span><span class="lab r">호머식</span>
         </button>
       </div>
-      <div class="chartcard">
+      <div class="chartcard" id="chartCard" data-mode="score">
         <div class="legend" id="legend"></div>
         <div id="chart"></div>
         <div class="pointinfo" id="pointInfo"></div>
@@ -328,9 +354,9 @@
       <circle r="94" fill="var(--face)"/>
       <g id="ticks"></g>
       <g id="nums" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#17181a" text-anchor="middle" font-size="15"></g>
-      <g id="hour"><polygon points="-3.6,9 3.6,9 2.3,-28 0,-52 -2.3,-28" fill="#17181a" stroke="#17181a" stroke-width="0.6" stroke-linejoin="round"/></g>
-      <g id="minute"><polygon points="-2.7,13 2.7,13 1.5,-52 0,-80 -1.5,-52" fill="#17181a" stroke="#17181a" stroke-width="0.5" stroke-linejoin="round"/></g>
-      <g id="second"><polygon points="-1.1,28 1.1,28 0.6,-62 0,-86 -0.6,-62" fill="#d8261c"/></g>
+      <g id="hour"><polygon points="-2.9,5 2.9,5 2,-22 0.95,-36 0,-45 -0.95,-36 -2,-22" fill="#17181a" stroke="#17181a" stroke-width="0.5" stroke-linejoin="round"/></g>
+      <g id="minute"><polygon points="-2.3,7 2.3,7 1.55,-34 0.75,-55 0,-67 -0.75,-55 -1.55,-34" fill="#17181a" stroke="#17181a" stroke-width="0.4" stroke-linejoin="round"/></g>
+      <g id="second"><polygon points="-0.95,13 0.95,13 0.6,-46 0.3,-66 0,-77 -0.3,-66 -0.6,-46" fill="#d8261c"/></g>
       <circle r="4.6" fill="#17181a"/>
       <circle r="2.2" fill="#d8261c"/>
     </svg>
@@ -591,20 +617,26 @@
   }
 
   // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
-  // 점수 추이: 세로축 점수 / 호머식 추이: 세로축 시간(본 시험 응시 시간 + 추가 시간)
+  // 점수 추이: 세로축 점수 (위로 갈수록 높음) / 호머식 추이: 세로축 시간 (위로 갈수록 짧음)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
-  var selectedPoint = "", chartMode = "score";
+  var selectedPoint = "", chooser = "", chartMode = "score";
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
     return n;
   }
   function niceStep(range) { return range <= 6 ? 1 : range <= 14 ? 2 : range <= 30 ? 5 : 10; }
+  function lighten(hex, amt) {
+    var num = parseInt(hex.slice(1), 16), r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    function m(c) { return Math.round(c + (255 - c) * amt); }
+    return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
+  }
 
   function renderChart() {
     var box = $("chart"), legend = $("legend"), info = $("pointInfo");
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
     var homer = chartMode === "homer";
+    $("chartCard").setAttribute("data-mode", chartMode);
     var all = loadAll(), nums = attemptNumbers(all);
     var pts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
     if (!pts.length) {
@@ -634,6 +666,7 @@
       item.appendChild(sw); item.appendChild(document.createTextNode(name));
       legend.appendChild(item);
     });
+    if (homer) legend.appendChild(el("span", "note", "위로 갈수록 짧게 걸림"));
 
     var W = Math.max(280, Math.round(box.clientWidth || 600));
     var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
@@ -643,8 +676,13 @@
     pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
     function X(nn) { return maxN === 1 ? L + plotW / 2 : L + PAD + (nn - 1) * (plotW - 2 * PAD) / (maxN - 1); }
 
-    // 세로축 범위
-    var vals = pts.map(val), mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), lo, hi, step;
+    // 세로축 범위 (점수 그래프는 호머식 점수까지 포함해서 범위를 잡음)
+    var vals = [];
+    pts.forEach(function (r) {
+      vals.push(val(r));
+      if (!homer && r.usedExtra && r.score2 != null) vals.push(r.score2);
+    });
+    var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), lo, hi, step;
     if (!homer) {
       hi = 50; step = 10;
       lo = Math.max(0, Math.floor((mn - 3) / 10) * 10);
@@ -655,15 +693,25 @@
       step = niceStep(hi - lo);
       lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
     }
-    function Y(v) { return T + (hi - v) / (hi - lo) * plotH; }
+    // 점수는 위로 갈수록 높게, 시간은 위로 갈수록 짧게
+    function Y(v) { return homer ? T + (v - lo) / (hi - lo) * plotH : T + (hi - v) / (hi - lo) * plotH; }
     function fmtVal(v) { return homer ? Math.round(v) + "분" : String(v); }
 
     var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": homer ? "과목별 호머식 시간 추이" : "과목별 점수 추이" });
     for (var t = lo; t <= hi; t += step) {
-      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: "#3a3e46", "stroke-width": 1 }));
+      var gl = { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: homer ? "#52493c" : "#3a3e46", "stroke-width": 1 };
+      if (homer) gl["stroke-dasharray"] = "3 5";
+      svg.appendChild(svgEl("line", gl));
       var yl = svgEl("text", { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
       yl.textContent = homer ? t + "분" : t;
       svg.appendChild(yl);
+    }
+    // 호머식 그래프: 본 시험 시간(30분) 기준선
+    if (homer && lo < 30 && hi > 30) {
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(30), y2: Y(30), stroke: "#ff9f2e", "stroke-width": 1.2, "stroke-opacity": 0.6 }));
+      var rl = svgEl("text", { x: W - R, y: Y(30) - 5, "text-anchor": "end", "font-size": 11, "font-weight": 700, fill: "#ffb454" });
+      rl.textContent = "본 시험 30분";
+      svg.appendChild(rl);
     }
     // 가로축: 회차 (자리가 좁으면 건너뛰며 표시)
     var spacing = maxN > 1 ? (plotW - 2 * PAD) / (maxN - 1) : 100;
@@ -674,70 +722,147 @@
       svg.appendChild(xl);
     }
 
-    // 같은 회차에 점이 여러 개면 가장 높은 점만 위쪽에, 나머지는 아래쪽에 숫자를 써서 겹침을 피함
-    var topOfColumn = {};
-    pts.forEach(function (r) {
-      var c = nums[r.id];
-      if (topOfColumn[c] == null || val(r) > topOfColumn[c].v) topOfColumn[c] = { v: val(r), id: r.id };
-    });
-
-    var showAll = pts.length <= 12, hits = [];
+    // 같은 회차에서 값이 정확히 같은 점은 한 덩어리로 묶는다
+    var groups = {}, gOrder = [];
     order.forEach(function (name) {
-      var list = series[name], c = color[name];
+      series[name].forEach(function (q, k) {
+        var key = q.n + "|" + q.v.toFixed(3);
+        if (!groups[key]) { groups[key] = { key: key, n: q.n, x: X(q.n), y: Y(q.v), v: q.v, items: [], last: false }; gOrder.push(key); }
+        groups[key].items.push({ name: name, color: color[name], q: q });
+        if (k === series[name].length - 1) groups[key].last = true;
+      });
+    });
+    if (chooser && !groups[chooser]) chooser = "";
+    var colTop = {};                       // 각 회차에서 화면 맨 위에 있는 점 (숫자를 위쪽에 쓰고, 나머지는 아래쪽에)
+    gOrder.forEach(function (k) { var g = groups[k]; if (colTop[g.n] == null || g.y < colTop[g.n]) colTop[g.n] = g.y; });
+
+    // 선 (과목별)
+    order.forEach(function (name) {
+      var list = series[name];
       if (list.length > 1) {
         svg.appendChild(svgEl("polyline", {
           points: list.map(function (q) { return X(q.n).toFixed(1) + "," + Y(q.v).toFixed(1); }).join(" "),
-          fill: "none", stroke: c, "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
+          fill: "none", stroke: color[name], "stroke-width": homer ? 3 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
         }));
       }
-      list.forEach(function (q, k) {
-        var x = X(q.n), y = Y(q.v), sel = q.rec.id === selectedPoint;
-        if (sel) svg.appendChild(svgEl("circle", { cx: x, cy: y, r: 8, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
-        svg.appendChild(svgEl("circle", { cx: x, cy: y, r: 4.6, fill: c, stroke: "#26292f", "stroke-width": 2 }));
-        if (showAll || k === list.length - 1 || sel) {
-          var wantAbove = topOfColumn[q.n].id === q.rec.id;
-          var above = wantAbove ? (y - 10 >= 10) : !(y + 19 <= H - 12);
-          var tx = svgEl("text", {
-            x: x, y: above ? y - 10 : y + 19, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: c,
-            stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
-          });
-          tx.textContent = fmtVal(q.v);
-          svg.appendChild(tx);
-        }
-        hits.push({ x: x, y: y, id: q.rec.id });
+    });
+
+    var selRec = null;
+    pts.forEach(function (r) { if (r.id === selectedPoint) selRec = r; });
+
+    // 점수 그래프: 선택한 점 위에 호머식 점수를 연한 색 점으로
+    var homerDotY = null;
+    if (!homer && selRec && selRec.usedExtra && selRec.score2 != null) {
+      var hx = X(nums[selRec.id]), hy = Y(selRec.score2), sy = Y(selRec.score1);
+      homerDotY = hy;
+      var hc = lighten(color[recSubject(selRec)], 0.55);
+      if (Math.abs(hy - sy) > 7) {
+        svg.appendChild(svgEl("line", { x1: hx, x2: hx, y1: sy, y2: hy, stroke: hc, "stroke-width": 1.6, "stroke-dasharray": "3 3" }));
+        svg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 4.6, fill: hc, stroke: "#26292f", "stroke-width": 2 }));
+      } else {
+        svg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 8.5, fill: "none", stroke: hc, "stroke-width": 2 }));
+      }
+      var hAbove = hy < sy || Math.abs(hy - sy) <= 7;
+      var ht = svgEl("text", {
+        x: hx, y: hAbove ? hy - 12 : hy + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: hc,
+        stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
       });
+      ht.textContent = selRec.score2;
+      svg.appendChild(ht);
+    }
+
+    // 점: 점수 그래프는 동그라미, 호머식 그래프는 마름모
+    function marker(x, y, c) {
+      if (homer) {
+        return svgEl("polygon", { points: x + "," + (y - 6.6) + " " + (x + 6.6) + "," + y + " " + x + "," + (y + 6.6) + " " + (x - 6.6) + "," + y,
+          fill: c, stroke: "#26292f", "stroke-width": 2, "stroke-linejoin": "round" });
+      }
+      return svgEl("circle", { cx: x, cy: y, r: 4.6, fill: c, stroke: "#26292f", "stroke-width": 2 });
+    }
+    var showAll = pts.length <= 12;
+    gOrder.forEach(function (k) {
+      var g = groups[k], selected = g.items.some(function (it) { return it.q.rec.id === selectedPoint; });
+      for (var i = g.items.length - 1; i >= 1; i--) {      // 겹친 다른 과목은 바깥 고리로 표시
+        svg.appendChild(svgEl("circle", { cx: g.x, cy: g.y, r: 8 + (i - 1) * 3, fill: "none", stroke: g.items[i].color, "stroke-width": 2 }));
+      }
+      if (selected) svg.appendChild(svgEl("circle", { cx: g.x, cy: g.y, r: 9 + (g.items.length - 1) * 3 + (homer ? 2 : 0), fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
+      svg.appendChild(marker(g.x, g.y, g.items[0].color));
+      if (showAll || g.last || selected) {
+        var above = g.y === colTop[g.n] ? (g.y - 11 >= 10) : !(g.y + 20 <= H - 12);
+        if (selected && homerDotY != null && homerDotY < g.y) above = false;   // 호머식 점이 위에 있으면 숫자는 아래로
+        var tx = svgEl("text", {
+          x: g.x, y: above ? g.y - 12 : g.y + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: g.items[0].color,
+          stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+        });
+        tx.textContent = fmtVal(g.v);
+        svg.appendChild(tx);
+      }
     });
     // 누르기 쉽도록 보이지 않는 큰 원을 맨 위에
-    hits.forEach(function (h) {
-      var c = svgEl("circle", { cx: h.x, cy: h.y, r: 16, fill: "transparent", "class": "hit" });
-      c.addEventListener("click", function () {
-        selectedPoint = selectedPoint === h.id ? "" : h.id;
+    gOrder.forEach(function (k) {
+      var g = groups[k];
+      var c = svgEl("circle", { cx: g.x, cy: g.y, r: 16, fill: "transparent", "class": "hit" });
+      c.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (g.items.length > 1) {
+          chooser = chooser === g.key ? "" : g.key;          // 같은 값이면 어느 시험인지 고르는 작은 창
+        } else {
+          var id = g.items[0].q.rec.id;
+          selectedPoint = selectedPoint === id ? "" : id;
+          chooser = "";
+        }
         renderChart();
       });
       svg.appendChild(c);
     });
     box.appendChild(svg);
+    box.onclick = function () { if (chooser) { chooser = ""; renderChart(); } };
+
+    // 같은 값의 시험 중에서 고르는 창 (점 옆에 표시)
+    if (chooser) {
+      var cg = groups[chooser];
+      var pop = el("div", "chooser");
+      pop.appendChild(el("div", "ct", homer ? "같은 시간의 시험" : "같은 점수의 시험"));
+      cg.items.forEach(function (it) {
+        var bt = el("button", "copt");
+        var dot = el("span", "cdot"); dot.style.background = it.color;
+        bt.appendChild(dot);
+        bt.appendChild(document.createTextNode(it.name + " " + nums[it.q.rec.id] + "회"));
+        bt.addEventListener("click", function (e) {
+          e.stopPropagation();
+          selectedPoint = it.q.rec.id; chooser = "";
+          renderChart();
+        });
+        pop.appendChild(bt);
+      });
+      pop.addEventListener("click", function (e) { e.stopPropagation(); });
+      box.appendChild(pop);
+      var pw = pop.offsetWidth, ph = pop.offsetHeight;
+      var px = cg.x + 16;
+      if (px + pw > W - 4) px = cg.x - 16 - pw;
+      px = Math.max(4, px);
+      var py = Math.min(Math.max(cg.y - ph / 2, 4), Math.max(4, H - ph - 4));
+      pop.style.left = px + "px"; pop.style.top = py + "px";
+    }
 
     // 선택한 점의 내용
-    var rec = null;
-    pts.forEach(function (r) { if (r.id === selectedPoint) rec = r; });
-    if (rec) {
-      var name = recSubject(rec) + " " + nums[rec.id] + "회";
+    if (selRec) {
+      var name = recSubject(selRec) + " " + nums[selRec.id] + "회";
       var txt = el("span", "");
       if (!homer) {
-        txt.appendChild(el("strong", "", name + " " + rec.score1 + "점"));
-        if (rec.usedExtra && rec.score2 != null) txt.appendChild(document.createTextNode(", 호머식 " + rec.score2 + "점"));
+        txt.appendChild(el("strong", "", name + " " + selRec.score1 + "점"));
+        if (selRec.usedExtra && selRec.score2 != null) txt.appendChild(document.createTextNode(", 호머식 " + selRec.score2 + "점"));
       } else {
-        txt.appendChild(el("strong", "", name + " 총 " + fmtDur(rec.elapsed)));
+        txt.appendChild(el("strong", "", name + " 총 " + fmtDur(selRec.elapsed)));
         var detail = "";
-        if (rec.elapsed1 != null) detail = " (본 시험 " + fmtDur(rec.elapsed1) + " + 추가 " + fmtDur(Math.max(0, rec.elapsed - rec.elapsed1)) + ")";
-        if (rec.score2 != null) detail += ", 호머식 " + rec.score2 + "점";
+        if (selRec.elapsed1 != null) detail = " (본 시험 " + fmtDur(selRec.elapsed1) + " + 추가 " + fmtDur(Math.max(0, selRec.elapsed - selRec.elapsed1)) + ")";
+        if (selRec.score2 != null) detail += ", 호머식 " + selRec.score2 + "점";
         if (detail) txt.appendChild(document.createTextNode(detail));
       }
       var del = el("button", "del", "삭제");
       del.addEventListener("click", function () {
         ask(name + " 기록을 삭제하겠습니까?", "삭제", true, function () {
-          removeRec(rec.id); selectedPoint = ""; renderToday();
+          removeRec(selRec.id); selectedPoint = ""; chooser = ""; renderToday();
         });
       });
       info.appendChild(txt); info.appendChild(del);
@@ -752,7 +877,7 @@
     this.setAttribute("data-mode", chartMode);
     this.setAttribute("aria-checked", chartMode === "homer" ? "true" : "false");
     $("trendTitle").textContent = chartMode === "homer" ? "호머식 추이" : "점수 추이";
-    selectedPoint = "";
+    selectedPoint = ""; chooser = "";
     renderChart();
   });
   var resizeTimer = 0;
@@ -920,6 +1045,7 @@
   function updateFsIcon() {
     var b = $("fs"), on = isFullscreen();
     b.innerHTML = on ? ICON_SHRINK : ICON_EXPAND;
+    stage.classList.toggle("fs", on);
     b.setAttribute("aria-label", on ? "전체화면 해제" : "전체화면");
     b.setAttribute("title", on ? "전체화면 해제" : "전체화면");
   }
