@@ -2155,8 +2155,9 @@
       if (sendChat(peer, inp.value)) inp.value = "";
       try { inp.focus({ preventScroll: true }); } catch (err) { inp.focus(); }       // 보낸 뒤에도 키보드를 그대로 유지
     }
-    x.addEventListener("click", function (e) {                                       // 닫기는 항상 한 번 확인
+    x.addEventListener("click", function (e) {                                       // 닫기는 한 번 확인 (이미 끝난 대화 = 안내가 떠 있는 창은 바로 닫음)
       e.stopPropagation();
+      if (chats[peer] && chats[peer].ended) { closeChat(peer, null); return; }
       ask("대화를 닫겠습니까?\n상대에게도 대화가 닫혔다고 알려져요.", "닫기", false, function () { closeChat(peer, "bye"); });
     });
     send.addEventListener("mousedown", function (e) { e.preventDefault(); });        // 버튼을 눌러도 입력창의 포커스를 뺏지 않게
