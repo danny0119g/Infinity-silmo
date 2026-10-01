@@ -83,7 +83,7 @@
   /* 좌우로 미끄러지는 스위치 */
   .switch {
     position: relative; flex: none; width: 168px; height: 40px; padding: 3px;
-    touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
     display: grid; grid-template-columns: 1fr 1fr;
     background: #1c1e22; border: 1px solid #353a42; border-radius: 10px;
   }
@@ -1194,24 +1194,42 @@
     swDrag.side = side;
   }
   // 2단계: 처음엔 탭일 수도 있으니 가만히 두고, 가로로 몇 px 이상 움직여 "드래그"라고 판단되면 그때부터 따라옴
-  var DRAG_START = 6;
+  var DRAG_START = 6;          // 이 거리(px) 이상 가로로 움직이면 드래그로 봄
+  var FLICK_V = 0.15;          // px/ms: 이 속도 이상으로 휙 밀면 절반을 못 넘겨도 그 방향으로 넘어감
+  // 손을 떼기 직전 100ms 동안의 가로 속도 (px/ms, 오른쪽이 +)
+  function flickVelocity(d) {
+    var now = performance.now(), recent = d.samples.filter(function (q) { return now - q.t <= 120; });
+    if (recent.length < 2) return 0;
+    var first = recent[0], last = recent[recent.length - 1], dt = last.t - first.t;
+    if (dt <= 0 || now - last.t > 90) return 0;           // 손가락을 멈춘 채 떼면 속도 없음
+    return (last.x - first.x) / dt;
+  }
   function endSwitchDrag(commit, clientX) {
     if (!swDrag) return;
     var d = swDrag, side;
     swDrag = null;
-    if (d.dragging) side = d.side;                                                  // 드래그: 상자 중심이 절반을 넘은 쪽
-    else side = (clientX - d.g.left) > d.g.inner / 2 ? "homer" : "score";            // 탭: 누른 쪽 (이미 그쪽이면 변화 없음)
+    if (d.dragging) {
+      var vx = flickVelocity(d);
+      if (Math.abs(vx) >= FLICK_V) side = vx > 0 ? "homer" : "score";             // 빠르게 밀었으면 미는 방향으로
+      else side = d.side;                                                         // 아니면 상자 중심이 절반을 넘은 쪽
+    } else {
+      side = (clientX - d.g.left) > d.g.inner / 2 ? "homer" : "score";            // 탭: 누른 쪽 (이미 그쪽이면 변화 없음)
+    }
     swThumb.style.transition = ""; swThumb.style.transform = "";                   // 인라인 위치를 풀고 CSS 전환으로 자리잡기
     if (commit && side !== chartMode) switchChart(side);
     sw.setAttribute("data-pos", chartMode);
   }
   sw.addEventListener("pointerdown", function (e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    swDrag = { g: swapSwitchGeometry(), side: chartMode, id: e.pointerId, startX: e.clientX, dragging: false };
+    swDrag = { g: swapSwitchGeometry(), side: chartMode, id: e.pointerId, startX: e.clientX, lastX: e.clientX, dragging: false,
+               samples: [{ t: performance.now(), x: e.clientX }] };
     try { sw.setPointerCapture(e.pointerId); } catch (err) {}
   });
   sw.addEventListener("pointermove", function (e) {
     if (!swDrag || e.pointerId !== swDrag.id) return;
+    swDrag.lastX = e.clientX;
+    swDrag.samples.push({ t: performance.now(), x: e.clientX });
+    if (swDrag.samples.length > 30) swDrag.samples.shift();
     if (!swDrag.dragging) {
       if (Math.abs(e.clientX - swDrag.startX) < DRAG_START) return;                 // 아직 탭일 수 있음
       swDrag.dragging = true;
@@ -1221,7 +1239,8 @@
     followPointer(e.clientX, true);
   });
   sw.addEventListener("pointerup", function (e) { if (swDrag && e.pointerId === swDrag.id) endSwitchDrag(true, e.clientX); });
-  sw.addEventListener("pointercancel", function () { endSwitchDrag(false); });
+  // 손가락이 미끄러져 브라우저가 제스처를 가로채도, 이미 드래그 중이었다면 지금까지의 움직임으로 판단
+  sw.addEventListener("pointercancel", function () { if (swDrag) endSwitchDrag(swDrag.dragging, swDrag.lastX); });
   sw.addEventListener("click", function (e) {                                       // 키보드(스페이스/엔터)로는 반대쪽으로 전환
     if (e.detail !== 0) return;
     switchChart(chartMode === "score" ? "homer" : "score");
