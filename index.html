@@ -125,11 +125,7 @@
   }
   .legend .item.on { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.24); }
   .legend.has-focus .item:not(.on) { opacity: .42; }
-  .legend .fold {
-    margin-left: auto; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line);
-    background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; line-height: 1;
-  }
-  #chart .strip { cursor: pointer; }
+  #chart .strip, #chart .foldbtn { cursor: pointer; }
   .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
   #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   #chart svg text { font-family: inherit; }
@@ -339,7 +335,6 @@
     .pointinfo .del:hover { border-color: var(--second); }
     .rf:hover { border-color: #5a606b; }
     #recClear:hover { border-color: var(--second); }
-    .legend .fold:hover { border-color: #5a606b; color: var(--text); }
     .pen:hover { border-color: var(--accent); color: var(--text); }
     .rec .del:hover { border-color: var(--second); }
     .chip:hover { border-color: var(--accent); }
@@ -820,13 +815,6 @@
       });
       legend.appendChild(item);
     });
-    // 펼쳐 본 점수 그래프를 다시 25~50점만 보이게 가림
-    if (!homer && scoreExpanded) {
-      var fold = el("button", "fold", "다시 가리기");
-      fold.type = "button";
-      fold.addEventListener("click", function () { scoreExpanded = false; clearSelection(); renderChart(); });
-      legend.appendChild(fold);
-    }
 
     var pts = focusSubject ? allPts.filter(function (r) { return recSubject(r) === focusSubject; }) : allPts;
     if (!pts.length) {
@@ -1092,6 +1080,19 @@
       });
       svg.appendChild(c);
     });
+    // 펼친 상태: "눌러서 전체 보기" 글자가 있던 자리(가운데 아래)에 "다시 가리기"
+    if (!homer && scoreExpanded) {
+      var fx = L + plotW / 2, fy = H - B - 9;
+      var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
+      fg.appendChild(svgEl("rect", { x: fx - 48, y: fy - 17, width: 96, height: 26, rx: 13, fill: "#363d47", stroke: "#ffffff", "stroke-opacity": 0.22, "stroke-width": 1 }));
+      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#c6ccd6", "pointer-events": "none" });
+      ft.textContent = "다시 가리기";
+      fg.appendChild(ft);
+      var collapseAgain = function (e) { e.stopPropagation(); scoreExpanded = false; clearSelection(); renderChart(); };
+      fg.addEventListener("click", collapseAgain);
+      fg.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); collapseAgain(e); } });
+      svg.appendChild(fg);
+    }
     box.appendChild(svg);
 
     // 겹친 점 중에서 고르는 창 (점 옆에 표시)
