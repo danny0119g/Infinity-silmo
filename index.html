@@ -854,14 +854,16 @@
     }
 
     var W = Math.max(280, Math.round(measuredW || 600));
-    var H = Math.round(Math.max(250, Math.min(350, W * 0.56)));    // 세로를 넉넉히 해서 점수 변동이 잘 보이게
+    var Hc = Math.round(Math.max(250, Math.min(350, W * 0.56)));   // 세로를 넉넉히 해서 점수 변동이 잘 보이게
+    var E = homer ? 0 : 24;                                        // 점수 그래프 맨 아래, 그라데이션 밖에 두는 안내 글자 줄
+    var H = Hc + E;
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
     var collapsed = !homer && !scoreExpanded;               // 29점 아래를 가리고 있는 상태
     var G = collapsed ? 36 : 0;                             // 가려진(그라데이션) 구간의 높이
     var U = 34;                                             // 하얀 그라데이션이 29점 선 위쪽으로 올라오는 길이
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
     var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
-    var plotW = W - L - R, plotH = H - T - B - G, innerW = plotW - PAD - PADR;
+    var plotW = W - L - R, plotH = Hc - T - B - G, innerW = plotW - PAD - PADR;
     var yBottom = T + plotH;                                // 눈금의 맨 아래 (25점 / 0점 / 시간 맨 아래)
     var maxN = 1;
     pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
@@ -944,7 +946,7 @@
     var spacing = maxN > 1 ? innerW / (maxN - 1) : 100;
     var every = Math.max(1, Math.ceil(34 / spacing));
     for (var nn = 1; nn <= maxN; nn += every) {
-      var xl = svgEl("text", { x: X(nn), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
+      var xl = svgEl("text", { x: X(nn), y: Hc - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
       xl.textContent = nn + "회";
       svg.appendChild(xl);
     }
@@ -1087,29 +1089,18 @@
       });
       svg.appendChild(c);
     });
-    // 가린 상태의 "눌러서 전체 보기" 글자: 그라데이션 위에 맨 위층으로, 또렷하게 (살짝 위로)
-    var hintY = H - B - 17, hintX = L + plotW / 2;
-    if (collapsed) {
-      var hint = svgEl("text", {
-        x: hintX, y: hintY, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#f0f3f8",
-        stroke: "#222a35", "stroke-width": 3, "stroke-opacity": 0.85, "paint-order": "stroke", "pointer-events": "none"
-      });
-      hint.textContent = "눌러서 전체 보기";
-      svg.appendChild(hint);
-    }
-    // 펼친 상태: "눌러서 전체 보기" 글자가 있던 자리(가운데 아래)에 "다시 가리기"
-    if (!homer && scoreExpanded) {
-      var fx = hintX, fy = hintY;
-      var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
-      // 윤곽 없이 글자만 (누르는 영역은 보이지 않는 사각형)
-      fg.appendChild(svgEl("rect", { x: fx - 52, y: fy - 19, width: 104, height: 30, fill: "transparent" }));
-      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#aab1bc", "pointer-events": "none" });
-      ft.textContent = "다시 가리기";
-      fg.appendChild(ft);
-      var collapseAgain = function (e) { e.stopPropagation(); scoreExpanded = false; clearSelection(); renderChart(); };
-      fg.addEventListener("click", collapseAgain);
-      fg.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); collapseAgain(e); } });
-      svg.appendChild(fg);
+    // 안내 글자: 그라데이션 밖(회차 글자 아래 줄)에 두어 가려지지 않게. 가린 상태는 "눌러서 전체 보기", 펼친 상태는 "다시 가리기"
+    if (!homer) {
+      var hx0 = L + plotW / 2, hy0 = Hc + 17;
+      var toggleAll = function (e) { e.stopPropagation(); scoreExpanded = !scoreExpanded; clearSelection(); renderChart(); };
+      var hg2 = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": collapsed ? "29점 아래까지 전체 보기" : "29점 아래를 다시 가리기" });
+      hg2.appendChild(svgEl("rect", { x: hx0 - 60, y: Hc - 2, width: 120, height: E + 2, fill: "transparent" }));   // 누르는 영역 (보이지 않음)
+      var hint = svgEl("text", { x: hx0, y: hy0, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#b9c1cd", "pointer-events": "none" });
+      hint.textContent = collapsed ? "눌러서 전체 보기" : "다시 가리기";
+      hg2.appendChild(hint);
+      hg2.addEventListener("click", toggleAll);
+      hg2.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleAll(e); } });
+      svg.appendChild(hg2);
     }
     box.appendChild(svg);
 
