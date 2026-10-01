@@ -407,6 +407,21 @@
   .primary.danger { color: #f0908a; }
   .roomdlg .or { margin: 22px 0 12px; font-size: 14px; color: var(--muted); }
   .roomdlg .gap { margin-top: 22px; }
+  .roomdlg .rsec { margin-top: 18px; text-align: left; }
+  .roomdlg .rsec:first-child { margin-top: 4px; }
+  .roomdlg .rhead { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .roomdlg .rrow { display: flex; gap: 8px; }
+  .roomdlg .rrow .tinput { flex: 1; min-width: 0; font-size: 16px; padding: 10px; }
+  .roomdlg .rrow .tinput.nick { text-align: left; padding-left: 14px; }
+  .rbtn { flex: none; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 15px; font-weight: 700; }
+  .rlist { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .rline { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px 9px 14px; font-size: 16px; font-weight: 600; }
+  .rline + .rline { border-top: 1px solid var(--line); }
+  .sw { flex: none; min-width: 66px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #111214; color: var(--muted); font-size: 14px; font-weight: 700; }
+  .sw.on { background: rgba(61,139,253,.30); border-color: #3d6fb4; color: #cfe2ff; }
+  .rbtn.pressing, .sw.pressing { box-shadow: 0 0 0 2px var(--accent); }
+  .roomdlg .rsec.leave { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .roomdlg .rsec.leave .primary { margin-top: 0; }
   #roomErrMsg { min-height: 22px; margin: 12px 0 0; font-size: 14px; color: #ff8f86; }
   .primary.pressing { filter: brightness(1.12); }
 
@@ -755,15 +770,30 @@
     </div>
 
     <div id="roomInView" class="hidden">
-      <label class="flabel" for="roomCodeShow">초대 코드</label>
-      <input id="roomCodeShow" class="tinput code" type="text" readonly>
-      <button id="roomCopy" class="primary ghost">코드 복사</button>
-      <label class="flabel gap" for="nickEdit">내 닉네임</label>
-      <input id="nickEdit" class="tinput" type="text" maxlength="12" autocomplete="off">
-      <button id="nickSave" class="primary ghost">닉네임 저장</button>
-      <button id="shareToggle" class="primary ghost">내 점수 공개: 켜짐</button>
-      <button id="pushToggle" class="primary ghost hidden">채팅 알림: 꺼짐</button>
-      <button id="roomLeave" class="primary ghost danger">방 나가기</button>
+      <section class="rsec">
+        <h3 class="rhead">초대 코드</h3>
+        <div class="rrow">
+          <input id="roomCodeShow" class="tinput code" type="text" readonly aria-label="초대 코드">
+          <button id="roomCopy" class="rbtn">복사</button>
+        </div>
+      </section>
+      <section class="rsec">
+        <h3 class="rhead">내 닉네임</h3>
+        <div class="rrow">
+          <input id="nickEdit" class="tinput nick" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임">
+          <button id="nickSave" class="rbtn">저장</button>
+        </div>
+      </section>
+      <section class="rsec">
+        <h3 class="rhead">공개 · 알림</h3>
+        <div class="rlist">
+          <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on">켜짐</button></div>
+          <div class="rline hidden" id="pushLine"><span>채팅 알림</span><button id="pushToggle" class="sw">꺼짐</button></div>
+        </div>
+      </section>
+      <section class="rsec leave">
+        <button id="roomLeave" class="primary ghost danger">방 나가기</button>
+      </section>
     </div>
 
     <div id="roomErrMsg" role="alert"></div>
@@ -1781,7 +1811,8 @@
     if (!PUSH_URL || !room) return;
     try { fetch(PUSH_URL + "/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: room.code, from: getDeviceId(), to: peer, text: text }), keepalive: true }).catch(function () {}); } catch (e) {}
   }
-  function pushLabel() { return "채팅 알림: " + (!pushSupported() ? "홈 화면 앱에서만 가능" : (pushSub ? "켜짐" : "꺼짐")); }
+  function pushLabel() { return !pushSupported() ? "앱에서만" : (pushSub ? "켜짐" : "꺼짐"); }
+  function setSw(btn, on, text) { btn.textContent = text; btn.classList.toggle("on", !!on); }
   // [/채팅 알림]
   function myState() {
     var subs = { "_": 0 };                          // 빈 값은 서버가 지워 버리므로 자리 표시용 항목을 항상 넣음
@@ -2910,8 +2941,8 @@
     $("roomJoinView").classList.toggle("hidden", !!room);
     $("roomInView").classList.toggle("hidden", !room);
     if (room) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; }
-    $("shareToggle").textContent = "내 점수 공개: " + (shareOn() ? "켜짐" : "꺼짐");
-    $("pushToggle").classList.toggle("hidden", !PUSH_URL); $("pushToggle").textContent = pushLabel();
+    setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
+    $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
     roomModal.classList.add("on");
   }
   function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
@@ -2967,16 +2998,16 @@
   $("shareToggle").addEventListener("click", function () {
     var on = !shareOn();
     try { localStorage.setItem(SHARE_KEY, on ? "1" : "0"); } catch (e) {}
-    this.textContent = "내 점수 공개: " + (on ? "켜짐" : "꺼짐");
+    setSw(this, on, on ? "켜짐" : "꺼짐");
     lastSent = ""; scheduleSync();
     setRoomMsg(on ? "친구들이 내 점수를 볼 수 있어요." : "친구들에게 내 점수가 보이지 않아요.", false);
   });
   $("pushToggle").addEventListener("click", function () {
     var btn = this;
     if (!pushSupported()) { setRoomMsg("아이패드 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
-    if (pushSub) { disablePush().then(function () { btn.textContent = pushLabel(); setRoomMsg("채팅 알림을 껐어요.", false); }); return; }
-    enablePush().then(function () { btn.textContent = pushLabel(); setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
-      .catch(function (err) { btn.textContent = pushLabel(); setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 아이패드 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); });
+    if (pushSub) { disablePush().then(function () { setSw(btn, !!pushSub, pushLabel()); setRoomMsg("채팅 알림을 껐어요.", false); }); return; }
+    enablePush().then(function () { setSw(btn, !!pushSub, pushLabel()); setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
+      .catch(function (err) { setSw(btn, !!pushSub, pushLabel()); setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 아이패드 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); });
   });
   $("nickSave").addEventListener("click", function () {
     var name = cleanName(nickEdit.value);
@@ -3509,7 +3540,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .rbtn, .sw, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
