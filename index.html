@@ -1799,7 +1799,7 @@
         }
         if (!x.live && doneInfer[x.id]) x.live = { s: doneInfer[x.id].s, t: doneInfer[x.id].t, e: 2 };
       });
-      others = list;
+      others = list; pulled = true;
       var nowS = Date.now() / 1000, inb = [];
       if (mbox && typeof mbox === "object") Object.keys(mbox).forEach(function (from) {      // 나에게 온 점수 질문 / 답장
         var it = mbox[from];
@@ -2150,6 +2150,27 @@
   // 점수 물어보기 → 상대 답장 → 질문한 사람이 그 답장을 누르면, 서로의 카드 옆에 작은 채팅창이 열림 (앞의 두 마디 포함).
   // 둘 중 한 명이라도 실모를 시작하면 상대 창에 안내가 뜨고(입력창은 사라짐) 잠시 뒤 저절로 닫힘.
   var CHAT_ID = /^[a-z0-9]{6,20}$/, CHAT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  // 열려 있는 대화를 기기에 기억해 두었다가, 새로고침하면 상대가 아직 방에 있고 대화가 안 끝났을 때 다시 띄움
+  var CHATS_KEY = "examTimer.chats.v1", pulled = false;
+  function loadSavedChats() {
+    var r = {};
+    try {
+      var o = JSON.parse(localStorage.getItem(CHATS_KEY));
+      if (o && room && o.code === room.code && o.peers && typeof o.peers === "object") Object.keys(o.peers).forEach(function (id) {
+        if (CHAT_ID.test(id) && o.peers[id] && typeof o.peers[id].o === "number") r[id] = o.peers[id].o;
+      });
+    } catch (e) {}
+    return r;
+  }
+  var pendingRestore = loadSavedChats();
+  function saveChats() {
+    try {
+      if (!room) { localStorage.removeItem(CHATS_KEY); return; }
+      var peers = {};
+      Object.keys(chats).forEach(function (id) { if (!chats[id].ended) peers[id] = { o: chats[id].opened }; });
+      localStorage.setItem(CHATS_KEY, JSON.stringify({ code: room.code, peers: peers }));
+    } catch (e) {}
+  }
   function pairKey(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
   function chatNode(code, peer) { return "/rooms/" + code + "/chats/" + pairKey(getDeviceId(), peer); }
   function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
@@ -2217,6 +2238,7 @@
     send.addEventListener("click", function (e) { e.stopPropagation(); go(); });
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); go(); } });
     chats[peer] = c;
+    saveChats();
     $("chatLayer").appendChild(win);
     renderChatMsgs(c);
     return c;
@@ -2227,6 +2249,7 @@
     clearTimeout(c.timer);
     if (c.el.parentNode) c.el.parentNode.removeChild(c.el);
     delete chats[peer];
+    saveChats();
     chatClosedAt[peer] = Date.now() / 1000;
     if (profileM && profileM.id === peer) keepPageScroll(renderTogether);       // 열려 있는 프로필에 점수 물어보기 버튼이 다시 나올 수 있게
   }
@@ -2248,6 +2271,7 @@
     var c = chats[peer];
     if (!c || c.ended) return;
     c.ended = true;
+    saveChats();
     c.row.classList.add("hidden");
     c.notice.textContent = text; c.notice.classList.remove("hidden");
     c.input.blur();
@@ -2374,6 +2398,29 @@
       if (!c.ended || chats[peer]) placeNear(c.el, li);
     });
     invites.slice().forEach(function (iv) { handleInvite(iv, lis, byId); });
+    Object.keys(pendingRestore).forEach(function (peer) { restoreChat(peer, pendingRestore, lis, byId); });
+  }
+  function restoreChat(peer, pending, lis, byId) {
+    var m = byId[peer], li = lis[peer], opened = pending[peer];
+    if (chats[peer]) { delete pending[peer]; return; }
+    if (!m || !li) { if (pulled) { delete pending[peer]; saveChats(); } return; }       // 아직 목록을 못 받았으면 기다리고, 받았는데 없으면(상대가 나감) 포기
+    delete pending[peer];
+    if (!room || chatBlocked || isLive(m)) { saveChats(); return; }                       // 상대가 지금 시험 중이면 대화는 끝난 것
+    var code = room.code, me = getDeviceId();
+    dbFetch(chatNode(code, peer), { cache: "no-store" }).then(function (d) {
+      if (chats[peer] || !room || room.code !== code || !lastLis[peer]) return;
+      var msgs = {}, over = false;
+      if (d && typeof d === "object") Object.keys(d).forEach(function (k) {
+        var x = d[k];
+        if (!validMsg(x) || (x.f !== me && x.f !== peer)) return;
+        if (x.k === "sys") { if (x.f !== me) over = true; return; }
+        msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
+      });
+      if (over || !Object.keys(msgs).length) { saveChats(); return; }                    // 상대가 닫았거나 이미 정리된 대화는 다시 열지 않음
+      var c = buildChat(peer, m.name, msgs, lastLis[peer]);
+      c.sawServer = true; c.opened = opened;
+      saveChats();
+    }).catch(function () {});
   }
 
   function openProfile(m, anchor) {
