@@ -227,10 +227,11 @@
   #togetherBody .hint { padding: 6px 0; }
   .members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .mem {
-    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px;
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px 12px 12px;
   }
   .mem .info { min-width: 0; }
+  .avatar.memAv { width: 46px; height: 46px; font-size: 18px; flex: none; }
   .mem .head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 5px; }
   .mem .head .metag { margin-left: 4px; }
   .mem .nm { font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
@@ -1683,6 +1684,7 @@
 
   document.addEventListener("visibilitychange", function () {
     if (room) { lastSent = ""; enqueue(function () { return pushMe(true); }); }       // 화면을 보기 시작/그만둔 것을 바로 알려서 알림이 알맞게 오게 함
+    presenceSync();
     if (document.visibilityState === "hidden") {
       if (swDrag) endSwitchDrag(false, swDrag.lastX);
       hiddenAt = { p: performance.now(), w: Date.now() };
@@ -1843,7 +1845,7 @@
       if (key) subs[key] = Math.min(99, (subs[key] || 0) + c.count);
     });
     if (pushSub) subs["~푸시|" + pushSub] = 1;
-    if (document.visibilityState === "visible") subs["~온|" + (Math.floor(Date.now() / 15000) * 15)] = 1;     // 앱이 화면에 보이는 동안 남기는 신호: 서버가 이걸 보고 알림을 건너뜀
+    if (document.visibilityState === "visible") subs["~온|" + Math.floor(Date.now() / 1000)] = 1;     // 앱이 화면에 보이는 동안 남기는 신호: 서버가 이걸 보고 알림을 건너뜀
     if (shareOn()) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
     var st = { name: room.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
     if (lv) st.live = lv;
@@ -1920,7 +1922,7 @@
   }
   function handleKicked() {                           // 방장이 나를 내보냈을 때
     var code = room ? room.code : "";
-    saveRoom(null); others = []; hostId = ""; lastSent = ""; photoSent = ""; photoCache = {};
+    saveRoom(null); others = []; hostId = ""; lastSent = ""; photoSent = ""; photoCache = {}; photoBusy = {};
     closeProfile(); destroyAllChats();
     if (code) {
       enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
@@ -2045,11 +2047,15 @@
       var lt = liveText(m);
       if (lt) { var stl = el("div", "st"); stl.appendChild(el("span", "ldot")); stl.appendChild(document.createTextNode(lt)); info.appendChild(stl); }
       info.appendChild(el("div", "dt", m.subs.length ? m.subs.map(function (c) { return c.name + " " + c.count + "회"; }).join(", ") : "아직 응시 전"));
+      var mav = el("div", "avatar memAv"); mav.setAttribute("data-uid", m.uid); mav.setAttribute("data-name", m.name);       // 카톡처럼 닉네임 왼쪽에 프로필 사진
+      fillAvatar(mav, m);
+      li.appendChild(mav);
       li.appendChild(info);
       li.appendChild(el("div", "cnt", m.total + "개"));
       ul.appendChild(li);
     });
     box.appendChild(ul);
+    rest.forEach(function (m) { var pc = photoCache[m.uid]; if (!pc || Date.now() - pc.t >= 300000) loadFriendPhoto(m); });      // 친구 사진은 처음 한 번, 이후 5분마다 확인
     syncBubbles(lis);
     syncChats(lis, list);
     if (list.length === 1) box.appendChild(el("p", "hint", "친구가 초대 코드로 입장하면 여기에 나타나요."));
@@ -2182,14 +2188,23 @@
       av.textContent = m.name.charAt(0); av.style.background = avatarColor(m.name);
     }
   }
-  function loadFriendPhoto(m) {                       // 친구 프로필을 열 때 그 친구의 사진만 가져옴
+  var photoBusy = {};
+  function refreshListAvatars(uid) {                  // 목록 카드의 사진을 새로 받은 사진으로 바꿈
+    var avs = document.querySelectorAll('.memAv[data-uid="' + uid + '"]');
+    for (var i = 0; i < avs.length; i++) fillAvatar(avs[i], { uid: uid, me: false, name: avs[i].getAttribute("data-name") || "?" });
+  }
+  function loadFriendPhoto(m) {                       // 친구 사진을 가져옴 (목록은 5분, 프로필을 열면 1분 지난 것부터 다시)
     if (m.me || !room) return;
     var c = photoCache[m.uid], uid = m.uid, code = room.code;
-    if (c && Date.now() - c.t < 60000) return;
+    if ((c && Date.now() - c.t < 60000) || photoBusy[uid]) return;
+    photoBusy[uid] = true;
     dbFetch("/rooms/" + code + "/photos/" + uid, { cache: "no-store" }).then(function (d) {
+      photoBusy[uid] = false;
+      if (!room || room.code !== code) return;
       photoCache[uid] = { data: validPhoto(d) ? d : "", t: Date.now() };
+      refreshListAvatars(uid);
       if (profileKey === uid && profileM) { var av = document.querySelector("#profilePop .avatar"); if (av) fillAvatar(av, profileM); }
-    }).catch(function () { photoCache[uid] = { data: "", t: Date.now() - 50000 }; });    // 실패하면 10초 뒤 다시 시도
+    }).catch(function () { photoBusy[uid] = false; photoCache[uid] = { data: c ? c.data : "", t: Date.now() - 50000 }; });    // 실패하면 10초 뒤 다시 시도
   }
 
   // 펜 버튼 옆의 작은 메뉴 (수정 / 삭제)
@@ -2982,7 +2997,7 @@
       : Promise.resolve();
     check.then(function () {
       saveRoom({ code: code, name: name });
-      lastSent = ""; others = []; netErr = false; liveBlocked = false; photoSent = ""; photoBlocked = false; photoCache = {};
+      lastSent = ""; others = []; netErr = false; liveBlocked = false; photoSent = ""; photoBlocked = false; photoCache = {}; photoBusy = {};
       hostId = ""; hostBlocked = false; metaBlocked = false; prevLive = {}; doneInfer = {}; closePenMenu();
       try { localStorage.setItem("examTimer.shareNotice.v1", "1"); } catch (e) {}
       return enqueue(function () { return pushMe(true); });
@@ -3076,7 +3091,7 @@
       var code = room ? room.code : "", wasHost = isHost(), succ = others.length ? others[0] : null;
       closeAllChats("gone");
       saveRoom(null); others = []; hostId = ""; lastSent = ""; netErr = false;
-      photoSent = ""; photoCache = {};
+      photoSent = ""; photoCache = {}; photoBusy = {};
       if (code && wasHost) {                         // 방장이 나가면 다음 사람에게 넘기고, 혼자였다면 방 정보를 정리
         if (succ) enqueue(function () { return dbFetch("/rooms/" + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(succ.id) }).catch(function () {}); });
         else enqueue(function () { return dbFetch("/rooms/" + code + "/meta", { method: "DELETE" }).catch(function () {}); });
@@ -3609,7 +3624,18 @@
   checkNewDay(true);
   setInterval(function () { checkNewDay(false); }, 60000);
   setInterval(pollTick, 15000);
-  setInterval(function () { if (room && document.visibilityState === "visible") enqueue(function () { return pushMe(false); }); }, 15000);   // 보고 있다는 신호 갱신
+  // 앱이 화면에 보이는 동안에만 4초마다 "보는 중" 신호를 올림 (앱을 벗어나면 반복도 멈춤)
+  var presenceTimer = 0, presenceBusy = false;
+  function presenceTick() {
+    if (!room || presenceBusy || document.visibilityState !== "visible") return;
+    presenceBusy = true;
+    enqueue(function () { return pushMe(false); }).then(function () { presenceBusy = false; }, function () { presenceBusy = false; });
+  }
+  function presenceSync() {
+    if (document.visibilityState === "visible") { if (!presenceTimer) presenceTimer = setInterval(presenceTick, 4000); }
+    else if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = 0; }
+  }
+  presenceSync();
   setHands(12 * 3600);
   updateFsIcon();
   renderSlots();
