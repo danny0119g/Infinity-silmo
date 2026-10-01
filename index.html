@@ -2157,10 +2157,11 @@
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
   function msgText(m) { return m.k === "ask" ? "" : (m.x || ""); }
   function placeNear(node, anchor) {
-    if (!anchor || !anchor.getBoundingClientRect) return;
+    if (!anchor || !anchor.getBoundingClientRect || anchor.isConnected === false) return;       // 카드가 목록에서 사라졌으면 있던 자리에 그대로 둠
     var ae = document.activeElement;
     if (ae && ae.tagName === "INPUT" && node.contains(ae) && node.style.left) return;      // 입력 중에는 창을 건드리지 않음 (건드리면 아이패드 키보드가 튕겨 내려감)
     var vw = window.innerWidth, vh = window.innerHeight, r = anchor.getBoundingClientRect(), pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
+    if (!r.width && !r.height) return;                                                         // 숨겨진 상태(크기 0)에서는 계산하지 않음
     var B = vh - 8;
     if (node.classList.contains("chatwin") || node.classList.contains("bub")) B = Math.min(B, vh * 0.46);   // 입력칸이 키보드에 가려지지 않게 화면 위쪽 절반 안에: 가려지면 사파리가 화면을 억지로 밀어서 키보드가 튕김
     if (r.left - G - pw >= 8) { x = r.left - G - pw; y = r.top; }
@@ -2250,7 +2251,6 @@
     c.row.classList.add("hidden");
     c.notice.textContent = text; c.notice.classList.remove("hidden");
     c.input.blur();
-    placeNear(c.el, c.li);
     c.timer = setTimeout(function () { removeChat(peer); }, 3500);
   }
   function chatNoticeText(c, sys) {
