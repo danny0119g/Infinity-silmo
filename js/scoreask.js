@@ -10,7 +10,7 @@
       return dbFetch(ROOMS_ROOT + code + "/msgs/" + m.id + "/" + getDeviceId(), { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "ask", s: subj, t: now }) })
         .catch(function (err) {
           delete asked[m.id];
-          if (err && err.message === "http 401") { msgBlocked = true; notice("서버 규칙을 업데이트해야 점수를 물어볼 수 있어요."); }
+          if (err && err.message === "http 401") { if (!USE_V2) msgBlocked = true; notice("서버 규칙을 업데이트해야 점수를 물어볼 수 있어요."); }
           keepPageScroll(renderTogether);
         });
     });
@@ -86,7 +86,7 @@
     keepPageScroll(renderTogether);
     enqueue(function () {
       return dbFetch(ROOMS_ROOT + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: x, t: now }) })
-        .catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; });
+        .catch(function (err) { if (err && err.message === "http 401") if (!USE_V2) msgBlocked = true; });
     });
     enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
     return true;

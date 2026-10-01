@@ -70,7 +70,7 @@
     }
     return put(body).catch(function (err) {
       if (st.live && err && err.message === "http 401") {          // 서버 규칙이 live 칸을 막고 있으면 그것만 빼고 다시 올림
-        liveBlocked = true; delete st.live;
+        if (!USE_V2) liveBlocked = true; delete st.live;
         return put(JSON.stringify(st));
       }
       throw err;
@@ -98,7 +98,7 @@
     if (!force && (photoSentBy[code] === mine || photoBlocked)) return Promise.resolve();
     return dbFetch(ROOMS_ROOT + code + "/photos/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mine) })
       .then(function () { photoSentBy[code] = mine; photoBlocked = false; })
-      .catch(function (err) { if (err && err.message === "http 401") photoBlocked = true; });
+      .catch(function (err) { if (err && err.message === "http 401") if (!USE_V2) photoBlocked = true; });
   }
   function scheduleSync() {
     if (!room) return;
@@ -174,9 +174,9 @@
     var pm = dbFetch(ROOMS_ROOT + code + "/members", { cache: "no-store" });
     if (USE_V2) pm = pm.catch(function (err) { if (err && err.message === "http 401") { pm401 = true; return null; } throw err; });      // 새 구조: 멤버가 아니면(아직 옮겨지지 않은 방, 내보내진 방) 읽기가 막힘
     var pmeta = metaBlocked ? Promise.resolve(undefined)
-      : dbFetch(ROOMS_ROOT + code + "/meta", { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") metaBlocked = true; return undefined; });
+      : dbFetch(ROOMS_ROOT + code + "/meta", { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") if (!USE_V2) metaBlocked = true; return undefined; });
     var pin = msgBlocked ? Promise.resolve(undefined)
-      : dbFetch(ROOMS_ROOT + code + "/msgs/" + me, { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; return undefined; });
+      : dbFetch(ROOMS_ROOT + code + "/msgs/" + me, { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") if (!USE_V2) msgBlocked = true; return undefined; });
     return Promise.all([pm, pmeta, pin]).then(function (res) {
       var data = res[0], meta = res[1], mbox = res[2];
       if (!room || room.code !== code) return;

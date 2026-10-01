@@ -216,7 +216,7 @@
         .then(function () { notifyPush(peer, text); if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
         .catch(function (err) {
           if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
-          if (err && err.message === "http 401") chatBlocked = true;
+          if (err && err.message === "http 401") if (!USE_V2) chatBlocked = true;
         });
     });
     return true;
@@ -263,7 +263,7 @@
       c.busy = true;
       dbFetch(chatNode(code, peer), { cache: "no-store" })
         .then(function (d) { c.busy = false; if (chats[peer] === c) mergeChat(peer, d); })
-        .catch(function (err) { c.busy = false; if (err && err.message === "http 401") { chatBlocked = true; if (chats[peer] === c) endChat(peer, "서버 규칙 업데이트가 필요해요"); } });
+        .catch(function (err) { c.busy = false; if (err && err.message === "http 401") { if (!USE_V2) chatBlocked = true; if (chats[peer] === c) endChat(peer, "서버 규칙 업데이트가 필요해요"); } });
     });
   }
   setInterval(chatTick, 3000);
@@ -286,7 +286,7 @@
     enqueue(function () {                             // 서버에 앞의 두 마디를 먼저 올리고, 상대에게 "대화가 열렸다"고 알림
       return dbFetch(node, { method: "PUT", headers: JSONH, body: JSON.stringify(seeds) })
         .then(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + peer + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "chat", s: seeds[ka].s, t: nowS }) }); })
-        .catch(function (err) { if (err && err.message === "http 401") { chatBlocked = true; removeChat(peer); notice("서버 규칙을 업데이트해야 대화할 수 있어요."); } });
+        .catch(function (err) { if (err && err.message === "http 401") { if (!USE_V2) chatBlocked = true; removeChat(peer); notice("서버 규칙을 업데이트해야 대화할 수 있어요."); } });
     });
     keepPageScroll(renderTogether);
   }
