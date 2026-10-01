@@ -301,6 +301,21 @@
   .chatSend { flex: none; padding: 0 12px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
   .chatSend.pressing { filter: brightness(1.12); }
   .chatNotice { height: 55px; display: flex; align-items: center; justify-content: center; padding: 0 12px; text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); border-top: 1px solid var(--line); }
+  .pSpy { width: 100%; height: 38px; margin-top: 12px; border-radius: 10px; background: transparent; border: 1px solid #4a4f58; font-size: 14px; font-weight: 700; color: var(--text); }
+  .pSpy.pressing { border-color: var(--accent); }
+  @media (hover: hover) and (pointer: fine) { .pSpy:hover { border-color: var(--accent); } }
+  #spyPop {
+    position: fixed; z-index: 10; display: none; width: min(360px, calc(100vw - 16px)); padding: 14px;
+    background: #1b1d21; border: 1px solid #484e59; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.55);
+  }
+  #spyPop.on { display: block; }
+  .spyTitle { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+  .spyMsg { padding: 26px 8px; text-align: center; font-size: 14px; color: var(--muted); }
+  .spyLegend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; font-weight: 700; }
+  .spyLegend span { display: inline-flex; align-items: center; gap: 6px; }
+  .spyLegend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; }
+  #spyPop svg { display: block; width: 100%; height: auto; overflow: visible; }
+  #spyPop svg text { font-family: inherit; }
   .pActs { display: flex; gap: 8px; margin-top: 14px; }
   .pAct {
     height: 38px; border-radius: 10px; background: transparent; border: 1px solid #4a4f58;
@@ -603,6 +618,7 @@
     </aside>
   </main>
   <div id="profilePop" role="dialog" aria-label="프로필"></div>
+  <div id="spyPop"></div>
   <div id="askLayer"></div>
   <div id="chatLayer"></div>
   <input type="file" id="photoInput" accept="image/*" hidden>
@@ -699,7 +715,7 @@
 <div id="roomModal" role="dialog" aria-modal="true" aria-labelledby="roomTitle">
   <div class="dlg roomdlg">
     <p id="roomTitle">무수한 실모단</p>
-    <p class="once">닉네임·과목·응시 횟수만 공유돼요.<br>점수와 시간은 공유되지 않아요.</p>
+    <p class="once">닉네임·과목·응시 횟수·점수가 방 친구들에게 공유돼요.<br>점수 공개는 방 설정에서 끌 수 있어요.</p>
 
     <div id="roomJoinView">
       <label class="flabel" for="nickInput">닉네임</label>
@@ -717,6 +733,7 @@
       <label class="flabel gap" for="nickEdit">내 닉네임</label>
       <input id="nickEdit" class="tinput" type="text" maxlength="12" autocomplete="off">
       <button id="nickSave" class="primary ghost">닉네임 저장</button>
+      <button id="shareToggle" class="primary ghost">내 점수 공개: 켜짐</button>
       <button id="roomLeave" class="primary ghost danger">방 나가기</button>
     </div>
 
@@ -1688,12 +1705,29 @@
     });
     return order.map(function (k) { return { name: k, count: m[k] }; });
   }
+  // 내 점수 공개 여부 (기본: 켜짐)
+  var SHARE_KEY = "examTimer.share.v1";
+  function shareOn() { try { return localStorage.getItem(SHARE_KEY) !== "0"; } catch (e) { return true; } }
+  // 과목별 점수 목록을 "~과목|38,44:46,-,40" 꼴의 이름으로 만듦 (본점수[:호머식], 미입력은 -)
+  function scoreKeys() {
+    var by = {}, order = [];
+    loadAll().forEach(function (r) {
+      var sj = recSubject(r).replace(/[.$#\[\]\/|~,]/g, "").slice(0, 30);
+      if (!sj) return;
+      if (!by[sj]) { by[sj] = []; order.push(sj); }
+      var a = (r.score1 != null) ? String(r.score1) : "-";
+      if (r.usedExtra && r.score2 != null) a += ":" + r.score2;
+      by[sj].push(a);
+    });
+    return order.map(function (sj) { return "~" + sj + "|" + by[sj].slice(-30).join(","); });
+  }
   function myState() {
     var subs = { "_": 0 };                          // 빈 값은 서버가 지워 버리므로 자리 표시용 항목을 항상 넣음
     countsOf(loadAll()).forEach(function (c) {
       var key = c.name.replace(/[.$#\[\]\/]/g, "").slice(0, 30);
       if (key) subs[key] = Math.min(99, (subs[key] || 0) + c.count);
     });
+    if (shareOn()) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
     var st = { name: room.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
     if (lv) st.live = lv;
     return st;
@@ -1780,14 +1814,21 @@
       if (data && typeof data === "object") Object.keys(data).forEach(function (uid) {
         var m = data[uid];
         if (uid === me || !m || typeof m !== "object" || m.day !== t || typeof m.name !== "string") return;
-        var ss = (m.subjects && typeof m.subjects === "object") ? m.subjects : {}, subs = [], total = 0;
+        var ss = (m.subjects && typeof m.subjects === "object") ? m.subjects : {}, subs = [], total = 0, shared = false, series = [];
         Object.keys(ss).forEach(function (k) {
           var c = ss[k];
-          if (k !== "_" && typeof c === "number" && c > 0) { subs.push({ name: k, count: c }); total += c; }
+          if (k === "_") return;
+          if (k.charAt(0) === "~") {                       // 점수 공개 표시와 과목별 점수 목록
+            if (k === "~공개") { shared = true; return; }
+            var bar = k.indexOf("|");
+            if (bar > 1) series.push({ s: k.slice(1, bar), v: parseSeries(k.slice(bar + 1)) });
+            return;
+          }
+          if (typeof c === "number" && c > 0) { subs.push({ name: k, count: c }); total += c; }
         });
         var lv = null;
         if (m.live && typeof m.live === "object" && typeof m.live.s === "string" && typeof m.live.t === "number") lv = { s: m.live.s.slice(0, 30), t: m.live.t, e: (typeof m.live.e === "number") ? m.live.e : 0 };
-        list.push({ uid: uid, id: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv });
+        list.push({ uid: uid, id: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv, shared: shared, series: series });
       });
       list.sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });   // 실모를 많이 친 사람이 위로
       list.forEach(function (x) {                       // 응시 중이던 사람이 응시 중이 아니게 됐고 횟수가 줄지 않았으면(=탈주가 아니면) 방금 끝낸 것으로 봄
@@ -1823,8 +1864,22 @@
       netErr = false;
     }).catch(function () { netErr = true; });
   }
+  function parseSeries(str) {
+    return String(str).split(",").slice(0, 40).map(function (p) {
+      var m = /^(-|\d{1,2})(?::(\d{1,2}))?$/.exec(p);
+      if (!m) return { a: null, b: null };
+      var a = m[1] === "-" ? null : Number(m[1]), b = m[2] != null ? Number(m[2]) : null;
+      return { a: (a != null && a <= 50) ? a : null, b: (b != null && b <= 50) ? b : null };
+    });
+  }
   function pollTick() {
     if (!room || document.visibilityState !== "visible" || home.style.display === "none") return;
+    try {                                              // 점수 공유가 새로 생긴 걸 이미 방에 있던 사람에게 한 번만 알림
+      if (!localStorage.getItem("examTimer.shareNotice.v1")) {
+        localStorage.setItem("examTimer.shareNotice.v1", "1");
+        notice("이제 방 친구들이 내 점수를 볼 수 있어요.\n방 설정에서 \"내 점수 공개\"를 끌 수 있어요.");
+      }
+    } catch (e) {}
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }
   function renderTogether() {
@@ -1880,9 +1935,78 @@
   var CROWN_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 8l4.6 4.2L12 5l4.4 7.2L21 8l-1.8 10H4.8L3 8z"/><rect x="5" y="19.5" width="14" height="2" rx="1"/></svg>';
   var ARROW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   function isHost() { return !!hostId && hostId === getDeviceId(); }
+  // 점수 염탐: 그 친구의 점수 추이 그래프가 프로필 창 옆에 뜸
+  var spyKey = "";
+  function hideSpy() { var sp = $("spyPop"); if (sp) sp.classList.remove("on"); }
+  function placeSpy() {
+    var sp = $("spyPop"), pp = $("profilePop");
+    if (!sp.classList.contains("on") || !pp.classList.contains("on")) return;
+    var pr = pp.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, w = sp.offsetWidth, h = sp.offsetHeight, G = 10, x, y = pr.top;
+    if (pr.left - G - w >= 8) x = pr.left - G - w;
+    else if (pr.right + G + w <= vw - 8) x = pr.right + G;
+    else { x = Math.min(Math.max(8, pr.left), vw - w - 8); y = pr.bottom + 8; if (y + h > vh - 8) y = pr.top - h - 8; }
+    y = Math.max(8, Math.min(y, vh - h - 8));
+    sp.style.left = Math.round(x) + "px"; sp.style.top = Math.round(y) + "px";
+  }
+  function renderSpy(m) {
+    var sp = $("spyPop");
+    sp.textContent = "";
+    sp.classList.add("on");
+    sp.appendChild(el("div", "spyTitle", m.name + "님의 점수 추이"));
+    if (!m.shared) { sp.appendChild(el("div", "spyMsg", "이 친구는 점수를 공개하지 않았어요")); return; }
+    var data = (m.series || []).filter(function (x) { return x.v.some(function (p) { return p.a != null || p.b != null; }); });
+    if (!data.length) { sp.appendChild(el("div", "spyMsg", "아직 입력한 점수가 없어요")); return; }
+    var W = 332, H = 220, L = 30, R = 14, T = 16, B = 28, maxN = 1, lo = 50, hi = 50, count = 0;
+    data.forEach(function (x) {
+      if (x.v.length > maxN) maxN = x.v.length;
+      x.v.forEach(function (p) { [p.a, p.b].forEach(function (v) { if (v != null) { if (v < lo) lo = v; count++; } }); });
+    });
+    lo = Math.max(0, Math.floor((lo - 4) / 5) * 5);
+    if (hi - lo < 10) lo = hi - 10;
+    var step = (hi - lo) > 25 ? 10 : 5, gw = W - L - R, gh = H - T - B;
+    function X(n) { return maxN === 1 ? L + gw / 2 : L + (n - 1) * gw / (maxN - 1); }
+    function Y(v) { return T + (hi - v) / (hi - lo) * gh; }
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": m.name + "님의 점수 추이" });
+    for (var t = Math.ceil(lo / step) * step; t <= hi; t += step) {
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: "#3a3e46", "stroke-width": 1 }));
+      var yl = svgEl("text", { x: L - 6, y: Y(t) + 4, "text-anchor": "end", "font-size": 11, fill: "#9aa0aa" }); yl.textContent = t; svg.appendChild(yl);
+    }
+    var every = Math.max(1, Math.ceil(30 / (maxN > 1 ? gw / (maxN - 1) : 100)));
+    for (var n = 1; n <= maxN; n += every) {
+      var xl = svgEl("text", { x: X(n), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: "#9aa0aa" }); xl.textContent = n + "회"; svg.appendChild(xl);
+    }
+    var showAll = count <= 16;
+    data.forEach(function (x) {
+      var col = SUBJECT_COLORS[x.s] || "#9aa0aa", pts = [];
+      x.v.forEach(function (p, i) { if (p.a != null) pts.push({ n: i + 1, a: p.a, b: p.b }); else if (p.b != null) pts.push({ n: i + 1, a: null, b: p.b }); });
+      var line = pts.filter(function (p) { return p.a != null; });
+      if (line.length > 1) svg.appendChild(svgEl("polyline", { points: line.map(function (p) { return X(p.n).toFixed(1) + "," + Y(p.a).toFixed(1); }).join(" "), fill: "none", stroke: col, "stroke-width": 2.4, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      pts.forEach(function (p, idx) {
+        if (p.b != null) {                                // 호머식 점수: 연한 속 빈 점 + 점선
+          if (p.a != null) svg.appendChild(svgEl("line", { x1: X(p.n), x2: X(p.n), y1: Y(p.a), y2: Y(p.b), stroke: lighten(col, 0.5), "stroke-width": 1.4, "stroke-dasharray": "3 3" }));
+          svg.appendChild(svgEl("circle", { cx: X(p.n), cy: Y(p.b), r: 4, fill: "#1b1d21", stroke: lighten(col, 0.5), "stroke-width": 2 }));
+        }
+        if (p.a != null) {
+          svg.appendChild(svgEl("circle", { cx: X(p.n), cy: Y(p.a), r: 4.4, fill: col, stroke: "#1b1d21", "stroke-width": 2 }));
+          if (showAll || idx === pts.length - 1) {
+            var tx = svgEl("text", { x: X(p.n), y: Y(p.a) - 9, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col, stroke: "#1b1d21", "stroke-width": 3, "paint-order": "stroke" });
+            tx.textContent = p.a; svg.appendChild(tx);
+          }
+        }
+      });
+    });
+    sp.appendChild(svg);
+    var lg = el("div", "spyLegend");
+    data.forEach(function (x) { var it = el("span", "", x.s), sw = el("i"); sw.style.background = SUBJECT_COLORS[x.s] || "#9aa0aa"; it.insertBefore(sw, it.firstChild); lg.appendChild(it); });
+    sp.appendChild(lg);
+  }
+  function syncSpy(m) {                                // 프로필이 다시 그려질 때마다 그래프도 같이 갱신/위치 조정
+    if (!m.me && spyKey === m.uid) { renderSpy(m); placeSpy(); } else { hideSpy(); }
+  }
+  function toggleSpy(m) { spyKey = (spyKey === m.uid) ? "" : m.uid; keepPageScroll(renderTogether); }
   function clearOpenMark() { Array.prototype.forEach.call(document.querySelectorAll(".mem.open"), function (x) { x.classList.remove("open"); }); }
   function closeProfile() {
-    profileKey = ""; profileM = null; penMenuOpen = false;
+    profileKey = ""; profileM = null; penMenuOpen = false; spyKey = ""; hideSpy();
     var p = $("profilePop"); if (p) p.classList.remove("on");
     clearOpenMark();
   }
@@ -2481,6 +2605,12 @@
         pop.appendChild(aw);
       }
     }
+    if (!m.me) {                                        // 다른 사람 프로필: 점수 염탐하기
+      var sb = el("button", "pSpy", spyKey === m.uid ? "염탐 그만하기" : "점수 염탐하기");
+      sb.type = "button";
+      sb.addEventListener("click", function (e) { e.stopPropagation(); toggleSpy(m); });
+      pop.appendChild(sb);
+    }
     if (isHost() && !m.me) {                            // 방장만, 다른 사람의 프로필에서: 방장 넘기기(아이콘) + 추방
       var acts = el("div", "pActs"), xf = el("button", "pAct xfer"), kk = el("button", "pAct kick", "추방");
       xf.type = "button"; kk.type = "button";
@@ -2493,6 +2623,7 @@
     }
     if (m.me && (photoBlocked || liveBlocked || hostBlocked)) pop.appendChild(el("div", "pNote", "친구들에게 사진·응시 상태·방장 표시를 보여 주려면 서버 규칙 업데이트가 필요해요."));
     placeProfile(anchor);
+    syncSpy(m);
     loadFriendPhoto(m);
   }
 
@@ -2596,7 +2727,7 @@
   document.addEventListener("click", function (e) {
     if (!profileKey) return;
     var t = e.target;
-    if (t && t.closest && t.closest("#profilePop, #modal, #cropModal")) return;
+    if (t && t.closest && t.closest("#profilePop, #spyPop, #modal, #cropModal")) return;
     closeProfile();
   });
   home.addEventListener("scroll", closeProfile, { passive: true });
@@ -2612,6 +2743,7 @@
     $("roomJoinView").classList.toggle("hidden", !!room);
     $("roomInView").classList.toggle("hidden", !room);
     if (room) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; }
+    $("shareToggle").textContent = "내 점수 공개: " + (shareOn() ? "켜짐" : "꺼짐");
     roomModal.classList.add("on");
   }
   function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
@@ -2628,6 +2760,7 @@
       saveRoom({ code: code, name: name });
       lastSent = ""; others = []; netErr = false; liveBlocked = false; photoSent = ""; photoBlocked = false; photoCache = {};
       hostId = ""; hostBlocked = false; metaBlocked = false; prevLive = {}; doneInfer = {}; closePenMenu();
+      try { localStorage.setItem("examTimer.shareNotice.v1", "1"); } catch (e) {}
       return enqueue(function () { return pushMe(true); });
     }).then(function () {
       if (netErr) { saveRoom(null); throw new Error("net"); }
@@ -2662,6 +2795,13 @@
   codeInput.addEventListener("keydown", function (e) { if (e.key === "Enter") joinNow(); });
   codeInput.addEventListener("input", function () { codeInput.value = codeInput.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12); setRoomMsg(""); });
   nickInput.addEventListener("input", function () { setRoomMsg(""); });
+  $("shareToggle").addEventListener("click", function () {
+    var on = !shareOn();
+    try { localStorage.setItem(SHARE_KEY, on ? "1" : "0"); } catch (e) {}
+    this.textContent = "내 점수 공개: " + (on ? "켜짐" : "꺼짐");
+    lastSent = ""; scheduleSync();
+    setRoomMsg(on ? "친구들이 내 점수를 볼 수 있어요." : "친구들에게 내 점수가 보이지 않아요.", false);
+  });
   $("nickSave").addEventListener("click", function () {
     var name = cleanName(nickEdit.value);
     if (!name) { setRoomMsg("닉네임을 입력해 주세요."); return; }
@@ -3193,7 +3333,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
