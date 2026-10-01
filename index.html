@@ -860,6 +860,7 @@
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
     var collapsed = !homer && !scoreExpanded;               // 29점 아래를 가리고 있는 상태
     var G = collapsed ? 36 : 0;                             // 가려진(그라데이션) 구간의 높이
+    var U = 34;                                             // 하얀 그라데이션이 29점 선 위쪽으로 올라오는 길이
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
     var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
     var plotW = W - L - R, plotH = H - T - B - G, innerW = plotW - PAD - PADR;
@@ -917,7 +918,8 @@
       defs.appendChild(lg);
       var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 위쪽은 차트 배경과 이어지고, 아래로 갈수록 살짝 하얘짐
       wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#ffffff", "stop-opacity": 0 }));
-      wg.appendChild(svgEl("stop", { offset: "80%", "stop-color": "#ffffff", "stop-opacity": 0.13 }));
+      wg.appendChild(svgEl("stop", { offset: "50%", "stop-color": "#ffffff", "stop-opacity": 0.045 }));
+      wg.appendChild(svgEl("stop", { offset: "85%", "stop-color": "#ffffff", "stop-opacity": 0.13 }));
       wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#ffffff", "stop-opacity": 0.1 }));
       defs.appendChild(wg);
       var hg = svgEl("linearGradient", { id: uid + "h", x1: 0, y1: 0, x2: 1, y2: 0 });      // 눈금선 폭에 맞추고, 좌우 끝은 부드럽게 사라지게
@@ -926,8 +928,8 @@
       hg.appendChild(svgEl("stop", { offset: "90%", "stop-color": "#fff", "stop-opacity": 1 }));
       hg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#fff", "stop-opacity": 0 }));
       defs.appendChild(hg);
-      var mk = svgEl("mask", { id: uid + "m", maskUnits: "userSpaceOnUse", x: L, y: yBottom, width: plotW, height: G });
-      mk.appendChild(svgEl("rect", { x: L, y: yBottom, width: plotW, height: G, fill: "url(#" + uid + "h)" }));
+      var mk = svgEl("mask", { id: uid + "m", maskUnits: "userSpaceOnUse", x: L, y: yBottom - U, width: plotW, height: G + U });
+      mk.appendChild(svgEl("rect", { x: L, y: yBottom - U, width: plotW, height: G + U, fill: "url(#" + uid + "h)" }));
       defs.appendChild(mk);
       svg.appendChild(defs);
       dg = svgEl("g", { "clip-path": "url(#" + uid + ")" });
@@ -1059,8 +1061,8 @@
     // 29점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
     if (collapsed) {
       svg.appendChild(svgEl("rect", { x: L - 2, y: yBottom, width: plotW + 4, height: G, fill: "url(#" + uid + "g)", "pointer-events": "none" }));
-      svg.appendChild(svgEl("rect", { x: L, y: yBottom, width: plotW, height: G, fill: "url(#" + uid + "w)", mask: "url(#" + uid + "m)", "pointer-events": "none" }));
-      var strip = svgEl("rect", { x: L, y: yBottom, width: plotW, height: G + 6, fill: "transparent", "class": "strip" });
+      svg.appendChild(svgEl("rect", { x: L, y: yBottom - U, width: plotW, height: G + U, fill: "url(#" + uid + "w)", mask: "url(#" + uid + "m)", "pointer-events": "none" }));
+      var strip = svgEl("rect", { x: L, y: yBottom - 14, width: plotW, height: G + 20, fill: "transparent", "class": "strip" });
       strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "29점 아래까지 전체 보기");
       strip.addEventListener("click", function (e) {
         e.stopPropagation();
