@@ -226,7 +226,7 @@
   .mem .nm { font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
   .metag { flex: none; font-size: 12px; font-weight: 600; line-height: 1.3; color: #7b818c; border: 1px solid #343840; border-radius: 999px; padding: 2px 9px; }
   #profilePop {
-    position: fixed; z-index: 8; display: none; width: 240px; padding: 16px;
+    position: fixed; z-index: 8; display: none; width: 240px; padding: 16px; max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain;
     background: #1b1d21; border: 1px solid #484e59; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.55);
   }
   #profilePop.on { display: block; }
@@ -700,7 +700,7 @@
     </div>
 
     <div id="roomInView" class="hidden">
-      <label class="flabel" for="roomCodeShow">초대 코드 (친구에게 알려 주세요)</label>
+      <label class="flabel" for="roomCodeShow">초대 코드</label>
       <input id="roomCodeShow" class="tinput code" type="text" readonly>
       <button id="roomCopy" class="primary ghost">코드 복사</button>
       <label class="flabel gap" for="nickEdit">내 닉네임</label>
@@ -2868,6 +2868,7 @@
   function start(slot) {
     var subject = loadSubjects()[slot];
     if (!subject) return;
+    closeProfile();
     closeAllChats("exam");                           // 대화 중이던 상대에게 "실모를 치러 갔다"고 알리고 내 창은 닫음
     current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
     recId = newId();
