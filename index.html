@@ -285,6 +285,17 @@
   .cm.me { align-self: flex-end; background: rgba(61,139,253,.30); border-bottom-right-radius: 4px; }
   .cm.them { align-self: flex-start; background: #2b2f36; border-bottom-left-radius: 4px; }
   .cm.fail { opacity: .55; }
+  .cm.score { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; border: 1px solid transparent; }
+  .cmScore { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .cmBadge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+  .cmBadge svg { width: 13px; height: 13px; display: block; }
+  .cm.score.vg { background: rgba(61,220,151,.16); border-color: rgba(61,220,151,.55); color: #7ff0bd; }
+  .cm.score.vy { background: rgba(229,194,72,.16); border-color: rgba(229,194,72,.55); color: #f1d46a; }
+  .cm.score.vr { background: rgba(240,104,94,.16); border-color: rgba(240,104,94,.55); color: #ff9a92; }
+  .cm.score.vn { background: #2b2f36; border-color: #3a3e46; color: var(--muted); }
+  .vs { font-weight: 700; }
+  .vs.vg { color: #7ff0bd; } .vs.vy { color: #f1d46a; } .vs.vr { color: #ff9a92; } .vs.vn { color: var(--muted); }
+  .bubIn.bad { border-color: #e5483f; box-shadow: 0 0 0 2px rgba(229,72,63,.25); }
   .chatRow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
   .chatIn { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: #111214; color: var(--text); }
   .chatSend { flex: none; padding: 0 12px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
@@ -2012,17 +2023,45 @@
     keepPageScroll(renderTogether);
     enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
   }
-  function sendReply(it, text) {
-    text = String(text).replace(/\s+/g, " ").trim().slice(0, 60);
-    if (!room || !text) return;
+  // 점수 답장 형식: "38|g"  (g=방금 입력한 점수와 같음, y=호머식 점수와 같음, r=다름, n=확인할 점수가 없음)
+  var SCORE_FMT = /^(\d{1,2})\|([gyrn])$/;
+  function parseScore(x) { var m = SCORE_FMT.exec(x || ""); return m ? { n: Number(m[1]), v: m[2] } : null; }
+  var VLABEL = { g: "인증", y: "호머식입니다", r: "인증 안됨", n: "인증 불가" };
+  var VICON = {
+    g: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
+    r: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+    n: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12h7"/></svg>'
+  };
+  VICON.y = VICON.g;
+  // 묻힌 시험(그 과목에서 질문 시각 이전에 시작한 가장 최근 기록)에 내가 시험 끝에 입력한 점수와 비교. 나중에 연필로 채운 점수는 믿을 수 없으므로 제외
+  function verifyScore(subject, n, askT) {
+    var all = loadAll(), rec = null, limit = (askT || 0) * 1000 + 5000;
+    for (var i = all.length - 1; i >= 0; i--) {
+      if (recSubject(all[i]) !== subject) continue;
+      var st = parseInt(String(all[i].id).slice(0, 8), 36);
+      if (isFinite(st) && st > limit) continue;
+      rec = all[i]; break;
+    }
+    if (!rec) return "n";
+    var s1 = (rec.score1 != null && !rec.late1) ? rec.score1 : null, s2 = (rec.score2 != null && !rec.late2) ? rec.score2 : null;
+    if (s1 == null && s2 == null) return "n";
+    if (s1 === n) return "g";
+    if (s2 === n) return "y";
+    return "r";
+  }
+  function sendReply(it, raw) {                      // 점수(0~50 정수)만 보낼 수 있음. 성공하면 true
+    var txt = String(raw).trim();
+    if (!room || !/^\d{1,2}$/.test(txt) || Number(txt) > 50) return false;
+    var n = Number(txt), v = verifyScore(it.s, n, it.t);
     var code = room.code, me = getDeviceId(), now = Math.floor(Date.now() / 1000);
     dropMsg(it);
     keepPageScroll(renderTogether);
     enqueue(function () {
-      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: text, t: now }) })
+      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: n + "|" + v, t: now }) })
         .catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; });
     });
     enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+    return true;
   }
   function buildBubble(it, name) {
     var b = el("div", "bub " + it.k), main, x = el("button", "bubX", "✕");
@@ -2033,8 +2072,11 @@
     if (it.k === "reply") {
       main = el("button", "bubMain");
       main.type = "button";
-      main.appendChild(el("div", "bubQ", name + ": " + it.x));
-      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "눌러서 대화하기"));
+      var sc = parseScore(it.x), sub = el("div", "bubS", it.s ? it.s + " · " : "");
+      main.appendChild(el("div", "bubQ", name + ": " + (sc ? sc.n + "점" : it.x)));
+      if (sc) { sub.appendChild(el("span", "vs v" + sc.v, VLABEL[sc.v])); sub.appendChild(document.createTextNode(" · ")); }
+      sub.appendChild(document.createTextNode("눌러서 대화하기"));
+      main.appendChild(sub);
       main.addEventListener("click", function (e) { e.stopPropagation(); openChatFromReply(it); });
       b.appendChild(main);
     } else if (it.k === "decline") {
@@ -2046,13 +2088,15 @@
       main = el("button", "bubMain");
       main.type = "button";
       main.appendChild(el("div", "bubQ", name + "님이 점수를 물어봤어요"));
-      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "눌러서 답하기"));
+      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "눌러서 점수 보내기"));
       main.addEventListener("click", function (e) {
         e.stopPropagation();
         var row = el("div", "bubRow"), inp = el("input", "bubIn"), send = el("button", "bubSend", "보내기");
-        inp.type = "text"; inp.maxLength = 60; inp.placeholder = "점수나 한마디"; inp.setAttribute("autocomplete", "off");
+        inp.type = "text"; inp.maxLength = 2; inp.placeholder = "점수 (0~50)"; inp.setAttribute("autocomplete", "off");
+        inp.setAttribute("inputmode", "numeric"); inp.setAttribute("pattern", "[0-9]*");
+        inp.addEventListener("input", function () { inp.value = inp.value.replace(/\D/g, ""); inp.classList.remove("bad"); });
         send.type = "button";
-        function go() { sendReply(it, inp.value); }
+        function go() { if (!sendReply(it, inp.value)) { inp.classList.add("bad"); inp.focus(); } }       // 점수가 아니거나 50을 넘으면 빨간 테두리
         send.addEventListener("click", function (ev) { ev.stopPropagation(); go(); });
         inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && !ev.isComposing) { ev.preventDefault(); go(); } });
         row.appendChild(inp); row.appendChild(send);
@@ -2131,7 +2175,15 @@
     var keys = Object.keys(c.msgs).sort().slice(-40);
     box.textContent = "";
     keys.forEach(function (k) {
-      var m = c.msgs[k], tx = msgText(m);
+      var m = c.msgs[k], sc = (m.k === "reply") ? parseScore(m.x) : null;
+      if (sc) {                                        // 점수 답장: 초록=인증, 노랑=호머식, 빨강=인증 안됨, 회색=확인할 점수 없음
+        var sd = el("div", "cm score v" + sc.v + " " + (m.f === me ? "me" : "them")), bd = el("span", "cmBadge");
+        sd.appendChild(el("span", "cmScore", sc.n + "점"));
+        bd.innerHTML = VICON[sc.v]; bd.appendChild(document.createTextNode(VLABEL[sc.v]));
+        sd.appendChild(bd); box.appendChild(sd);
+        return;
+      }
+      var tx = msgText(m);
       if (!tx) return;
       var d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : ""));
       d.textContent = tx + (m.st === "fail" ? " (전송 안 됨)" : "");
@@ -2655,6 +2707,7 @@
     var all = loadAll(), rec = findRec(all, lateTarget.id);
     if (rec && rec[lateTarget.field] == null) {          // 이미 값이 있으면 덮어쓰지 않음 (한 번만)
       rec[lateTarget.field] = Number(v);
+      rec[lateTarget.field === "score1" ? "late1" : "late2"] = true;       // 시험 끝에 바로 입력한 점수가 아님
       saveAll(all);
     }
     closeLate();
