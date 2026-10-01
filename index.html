@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001140113">
+<meta name="app-version" content="20261001140424">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -3076,12 +3076,22 @@
     }
     keepPageScroll(renderTogether);
   });
+  var pushBusy = false;
   $("pushToggle").addEventListener("click", function () {
     var btn = this;
     if (!pushSupported()) { setRoomMsg("아이패드 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
-    if (pushSub) { disablePush().then(function () { setSw(btn, !!pushSub, pushLabel()); setRoomMsg("채팅 알림을 껐어요.", false); }); return; }
-    enablePush().then(function () { setSw(btn, !!pushSub, pushLabel()); setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
-      .catch(function (err) { setSw(btn, !!pushSub, pushLabel()); setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 아이패드 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); });
+    if (pushBusy) return;
+    pushBusy = true;
+    function done() { pushBusy = false; setSw(btn, !!pushSub, pushLabel()); }
+    if (pushSub) {                                   // 스위치는 먼저 움직이고, 실제 처리는 뒤에서
+      setSw(btn, false, "꺼짐");
+      disablePush().then(function () { setRoomMsg("채팅 알림을 껐어요.", false); }).catch(function () {}).then(done);
+      return;
+    }
+    setSw(btn, true, "켜짐");
+    enablePush().then(function () { setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
+      .catch(function (err) { setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 아이패드 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); })
+      .then(done);
   });
   $("nickSave").addEventListener("click", function () {
     var name = cleanName(nickEdit.value);
