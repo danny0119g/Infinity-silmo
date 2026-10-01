@@ -1277,6 +1277,8 @@
 
   // ---------- 확인 창 ----------
   var modalYes = $("modalYes"), onYes = null, onNo = null;
+  var holdSlot = null;                           // 확인 창이 떠 있는 동안 파란 테두리를 유지할 과목 카드
+  function releaseHold() { if (holdSlot) { holdSlot.classList.remove("pressing"); holdSlot = null; } }
   function ask(message, yesLabel, danger, cb, noCb) {
     $("modalMsg").textContent = message;
     modalYes.textContent = yesLabel;
@@ -1285,7 +1287,7 @@
     modal.classList.add("on");
     $("modalNo").focus();
   }
-  function closeAsk() { modal.classList.remove("on"); onYes = null; onNo = null; }
+  function closeAsk() { modal.classList.remove("on"); onYes = null; onNo = null; releaseHold(); }   // 아니오·Esc 등으로 닫히면 테두리가 원래대로 풀림
   modalYes.addEventListener("click", function () {
     var cb = onYes;
     closeAsk();
@@ -1670,6 +1672,8 @@
     $("slot" + slot).addEventListener("click", function () {
       var subject = loadSubjects()[slot];
       if (!subject) { openPicker(slot, "single"); return; }
+      releaseHold();
+      holdSlot = this; this.classList.add("pressing");        // 확인 창이 떠 있는 동안 파란 테두리 유지
       ask(subject + " 실모를 응시하겠습니까?", "예", false, function () { start(slot); });
     });
   });
@@ -1694,11 +1698,15 @@
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
-    var started = performance.now();
+    var started = performance.now(), isSlot = t.classList.contains("slot");
     t.classList.add("pressing");
     function release() {
       document.removeEventListener("pointerup", release, true);
       document.removeEventListener("pointercancel", release, true);
+      if (isSlot) {                                  // 과목 카드: 확인 창이 열려 붙잡혀 있으면 그대로, 아니면 잠시 뒤 해제
+        setTimeout(function () { if (holdSlot !== t) t.classList.remove("pressing"); }, 250);
+        return;
+      }
       setTimeout(function () { t.classList.remove("pressing"); }, Math.max(0, 160 - (performance.now() - started)));
     }
     document.addEventListener("pointerup", release, true);
