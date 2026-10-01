@@ -1614,6 +1614,27 @@
   var DONE_KEY = "examTimer.done.v1";
   function loadDone() { try { var d = JSON.parse(localStorage.getItem(DONE_KEY)); if (d && typeof d.s === "string" && typeof d.t === "number") return d; } catch (e) {} return null; }
   var lastDone = loadDone();
+  // 질문이 마무리된 기록 (상대가 거절했거나 이미 답했음): 그 사람이 다음 시험을 끝내기 전까지 점수 물어보기를 막음
+  var RES_KEY = "examTimer.resolved.v1";
+  function loadResolved() {
+    var r = {};
+    try {
+      var o = JSON.parse(localStorage.getItem(RES_KEY));
+      if (o && typeof o === "object") Object.keys(o).forEach(function (k) {
+        var v = o[k];
+        if (v && typeof v.t === "number" && (v.k === "decline" || v.k === "reply") && Date.now() / 1000 - v.t < 86400) r[k] = v;
+      });
+    } catch (e) {}
+    return r;
+  }
+  var resolved = loadResolved();
+  function markResolved(peer, t, k) {
+    var o = resolved[peer];
+    if (o && o.t >= t) return;
+    resolved[peer] = { t: t, k: k };
+    try { localStorage.setItem(RES_KEY, JSON.stringify(resolved)); } catch (e) {}
+  }
+  function askBlocked(m) { var r = resolved[m.id]; return !!(r && m.live && m.live.t <= r.t); }
   function markDone() {
     if (!current) return;
     lastDone = { s: String(current.subject).slice(0, 30), t: Math.floor(Date.now() / 1000) };
@@ -1770,10 +1791,10 @@
       var nowS = Date.now() / 1000, inb = [];
       if (mbox && typeof mbox === "object") Object.keys(mbox).forEach(function (from) {      // 나에게 온 점수 질문 / 답장
         var it = mbox[from];
-        if (!it || typeof it !== "object" || (it.k !== "ask" && it.k !== "reply" && it.k !== "chat") || typeof it.t !== "number" || nowS - it.t > 1800) return;
+        if (!it || typeof it !== "object" || (it.k !== "ask" && it.k !== "reply" && it.k !== "chat" && it.k !== "decline") || typeof it.t !== "number" || nowS - it.t > 1800) return;
         if (dismissedMsg[from + ":" + it.k + ":" + it.t]) return;
         inb.push({ from: from, k: it.k, s: typeof it.s === "string" ? it.s.slice(0, 30) : "", x: typeof it.x === "string" ? it.x.slice(0, 80) : "", t: it.t });
-        if (it.k === "reply") delete asked[from];
+        if (it.k === "reply" || it.k === "decline") { delete asked[from]; markResolved(from, it.t, it.k); }
       });
       inbox = inb.filter(function (x) { return x.k !== "chat"; });
       invites = inb.filter(function (x) { return x.k === "chat"; });
@@ -1945,7 +1966,7 @@
 
   // 점수 물어보기: 질문한 사람의 카드 옆에 말풍선이 뜨고, 눌러서 아무 말이나 적어 보내면 그대로 답장이 감
   function askScore(m) {
-    if (!room || !m.live || chats[m.id]) return;
+    if (!room || !m.live || chats[m.id] || askBlocked(m)) return;
     var code = room.code, now = Math.floor(Date.now() / 1000), subj = m.live.s;
     asked[m.id] = Date.now(); askMeta[m.id] = { s: subj, t: now };
     keepPageScroll(renderTogether);
@@ -1961,6 +1982,20 @@
   function dropMsg(it) {
     dismissedMsg[it.from + ":" + it.k + ":" + it.t] = true;
     inbox = inbox.filter(function (x) { return !(x.from === it.from && x.k === it.k && x.t === it.t); });       // 객체가 아니라 (보낸 사람, 종류, 시각)으로 찾음
+  }
+  function confirmDecline(it, name) {                // 실수로 닫는 일이 없게 한 번 더 확인
+    ask(name + "님의 점수 질문을 거절하겠습니까?\n상대에게 거절했다고 알려져요.", "거절", true, function () { declineAsk(it); });
+  }
+  function declineAsk(it) {
+    if (!room) return;
+    var code = room.code, me = getDeviceId(), now = Math.floor(Date.now() / 1000);
+    dropMsg(it);
+    keepPageScroll(renderTogether);
+    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () {
+      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "decline", s: String(it.s || "").slice(0, 30), t: now }) })
+        .catch(function (err) { if (err && err.message === "http 401") notice("서버 규칙을 업데이트하면 상대에게 거절했다고 알릴 수 있어요."); });
+    });
   }
   function silentDrop(it) {
     if (!room) return;
@@ -1990,13 +2025,18 @@
   function buildBubble(it, name) {
     var b = el("div", "bub " + it.k), main, x = el("button", "bubX", "✕");
     x.type = "button"; x.setAttribute("aria-label", "닫기");
-    x.addEventListener("click", function (e) { e.stopPropagation(); dismissMsg(it); });
+    x.addEventListener("click", function (e) { e.stopPropagation(); if (it.k === "ask") confirmDecline(it, name); else dismissMsg(it); });
     if (it.k === "reply") {
       main = el("button", "bubMain");
       main.type = "button";
       main.appendChild(el("div", "bubQ", name + ": " + it.x));
       main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "눌러서 대화하기"));
       main.addEventListener("click", function (e) { e.stopPropagation(); openChatFromReply(it); });
+      b.appendChild(main);
+    } else if (it.k === "decline") {
+      main = el("div", "bubMain");
+      main.appendChild(el("div", "bubQ", name + "님이 답변을 거절했어요"));
+      main.appendChild(el("div", "bubS", "다음 시험을 치고 나면 다시 물어볼 수 있어요"));
       b.appendChild(main);
     } else {
       main = el("button", "bubMain");
@@ -2077,7 +2117,7 @@
   function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
   function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
-  function msgText(m) { return m.k === "ask" ? (m.s || "") : (m.x || ""); }
+  function msgText(m) { return m.k === "ask" ? "" : (m.x || ""); }
   function placeNear(node, anchor) {
     if (!anchor || !anchor.getBoundingClientRect) return;
     var r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
@@ -2323,10 +2363,10 @@
     } else {                                            // 응시 중이 아님
       pop.appendChild(el("div", "pIdle", "현재 응시중이 아닙니다"));
       if (!m.me && justDone(m) && !chats[m.id]) {       // 방금(5분 이내) 끝냈다면: 점수 물어보기 (이미 대화 중이면 안 띄움)
-        var aw = el("div", "pAskWrap"), already = asked[m.id] && Date.now() - asked[m.id] < 300000;
-        aw.appendChild(el("div", "pAskSub", "방금 친 시험 · " + m.live.s));
-        var ab = el("button", "pAsk", already ? "물어봤어요" : "점수 물어보기");
-        ab.type = "button"; ab.disabled = !!already;
+        var aw = el("div", "pAskWrap"), already = asked[m.id] && Date.now() - asked[m.id] < 300000, blocked = askBlocked(m);
+        aw.appendChild(el("div", "pAskSub", "방금 친 시험 · " + m.live.s + (blocked ? (resolved[m.id].k === "decline" ? " · 답변을 거절했어요" : " · 이미 답을 받았어요") : "")));
+        var ab = el("button", "pAsk", already && !blocked ? "물어봤어요" : "점수 물어보기");
+        ab.type = "button"; ab.disabled = !!already || blocked;
         ab.addEventListener("click", function (e) { e.stopPropagation(); askScore(m); });
         aw.appendChild(ab);
         pop.appendChild(aw);
