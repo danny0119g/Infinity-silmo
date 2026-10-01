@@ -163,7 +163,9 @@
   .bar { top: 0; padding-top: max(var(--edge), env(safe-area-inset-top, 0px)); }
   .bottombar { bottom: 0; padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px)); }
   #abandon:hover { border-color: var(--second); }
-  .tools { display: flex; gap: 8px; }
+  .tools { display: flex; gap: 8px; margin-left: auto; }
+  .pill.icon { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .pill.icon svg { width: 20px; height: 20px; display: block; }
   #remain {
     font-size: 20px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
     visibility: hidden; pointer-events: none;
@@ -282,7 +284,7 @@
     <button class="pill" id="abandon">탈주하기</button>
     <div class="tools">
       <button class="pill" id="toggleRemain">남은 시간 보기</button>
-      <button class="pill" id="fs">전체화면</button>
+      <button class="pill icon" id="fs" type="button" aria-label="전체화면" title="전체화면"></button>
     </div>
   </div>
   <div class="bottombar">
@@ -685,7 +687,18 @@
   }
 
   // ---------- 전체 화면 ----------
+  // 늘리기: 오른쪽 위·왼쪽 아래로 향하는 화살표 / 줄이기: 안쪽으로 향하는 반대 화살표
+  var ICON_EXPAND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+  var ICON_SHRINK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
   function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function updateFsIcon() {
+    var b = $("fs"), on = isFullscreen();
+    b.innerHTML = on ? ICON_SHRINK : ICON_EXPAND;
+    b.setAttribute("aria-label", on ? "전체화면 해제" : "전체화면");
+    b.setAttribute("title", on ? "전체화면 해제" : "전체화면");
+  }
+  document.addEventListener("fullscreenchange", updateFsIcon);
+  document.addEventListener("webkitfullscreenchange", updateFsIcon);
   function enterFullscreen() {
     try {
       if (isFullscreen()) return;
@@ -874,6 +887,7 @@
   });
 
   setHands(12 * 3600);
+  updateFsIcon();
   renderSlots();
   renderToday();
 })();
