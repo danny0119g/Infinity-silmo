@@ -55,7 +55,7 @@
   #today .detail { font-size: 13px; color: var(--muted); }
 
   .homeMain {
-    margin: auto; width: 100%; max-width: 800px; padding: 28px 20px max(44px, env(safe-area-inset-bottom, 0px));
+    margin: 0 auto; width: 100%; max-width: 800px; padding: 14px 20px max(44px, env(safe-area-inset-bottom, 0px));
     display: flex; flex-direction: column; gap: 30px;
   }
   .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
@@ -75,6 +75,25 @@
   .slot .range { font-size: clamp(15px, 2.6vw, 20px); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 4px; }
 
   .hint { color: var(--muted); font-size: 14px; text-align: center; line-height: 1.65; margin: 0; }
+  .slots + .hint { margin-top: -14px; }
+
+  .trend { width: 100%; }
+  .trend h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
+  .chartcard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0 6px 10px; font-size: 14px; font-weight: 700; }
+  .legend .item { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
+  #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  #chart svg text { font-family: inherit; }
+  #chart .hit { cursor: pointer; }
+  #chart .empty { margin: 0; padding: 36px 8px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .pointinfo { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 6px 0; font-size: 14px; color: var(--muted); }
+  .pointinfo strong { color: var(--text); font-weight: 700; }
+  .pointinfo .del {
+    flex: none; background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
+    padding: 8px 14px; font-size: 14px; color: #f0908a;
+  }
+  .pointinfo .del:hover { border-color: var(--second); }
 
   .records { width: 100%; }
   .records h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
@@ -257,6 +276,15 @@
     </div>
     <p class="hint">중간에 그만두려면 시계 화면의 탈주하기를 누르세요.</p>
 
+    <section class="trend">
+      <h2>점수 추이</h2>
+      <div class="chartcard">
+        <div class="legend" id="legend"></div>
+        <div id="chart"></div>
+        <div class="pointinfo" id="pointInfo"></div>
+      </div>
+    </section>
+
     <div class="records">
       <h2>오늘의 기록</h2>
       <ul id="records"></ul>
@@ -411,43 +439,43 @@
     try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // ---------- 오늘 기록 (하루 동안만 유지, 날짜가 바뀌면 초기화) ----------
-  var STORE_KEY = "examTimer.today.v2", LEGACY_KEY = "examTimer.today.v1", mem = null;
+  // ---------- 기록 (전체를 보관해서 추이 그래프에 쓰고, "오늘의 기록"에는 오늘 것만 표시) ----------
+  var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2", memAll = null;
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function todayStr() {
     var d = new Date();
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-  function validStore(st, t) { return st && st.date === t && Array.isArray(st.records); }
-  function saveStore(st) {
-    mem = st;
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(st)); } catch (e) {}
+  function saveAll(arr) {
+    memAll = arr;
+    try { localStorage.setItem(ALL_KEY, JSON.stringify(arr)); } catch (e) {}
   }
-  function loadStore() {
-    var t = todayStr(), st = null;
-    try { st = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) {}
-    if (validStore(st, t)) return st;
-    if (validStore(mem, t)) return mem;
-    // 가장 처음 버전(횟수만 저장)에서 넘어오기: 횟수만큼 점수 없는 기록으로 바꿔서 삭제할 수 있게 함
-    var old = null, recs = [], k;
-    try { old = JSON.parse(localStorage.getItem(LEGACY_KEY)); } catch (e) {}
-    if (old && old.date === t) {
-      for (k = 0; k < (old.bio | 0); k++) recs.push({ id: "legacy-bio-" + k, key: "bio" });
-      for (k = 0; k < (old.earth | 0); k++) recs.push({ id: "legacy-earth-" + k, key: "earth" });
+  function loadAll() {
+    var arr = null;
+    try { arr = JSON.parse(localStorage.getItem(ALL_KEY)); } catch (e) {}
+    if (Array.isArray(arr)) return arr;
+    if (memAll) return memAll;
+    // 이전 버전(오늘 기록만 저장)에서 이어받기
+    var old = null;
+    try { old = JSON.parse(localStorage.getItem(OLD_KEY)); } catch (e) {}
+    arr = [];
+    if (old && Array.isArray(old.records)) {
+      old.records.forEach(function (r) { if (!r.day) r.day = old.date || todayStr(); arr.push(r); });
     }
-    st = { date: t, records: recs };
-    saveStore(st);
-    return st;
+    saveAll(arr);
+    return arr;
   }
-  function findRec(st, id) {
-    for (var j = 0; j < st.records.length; j++) if (st.records[j].id === id) return st.records[j];
+  function todayRecs() {
+    var t = todayStr();
+    return loadAll().filter(function (r) { return r.day === t; });
+  }
+  function findRec(arr, id) {
+    for (var j = 0; j < arr.length; j++) if (arr[j].id === id) return arr[j];
     return null;
   }
   function removeRec(id) {
-    var st = loadStore();
-    st.records = st.records.filter(function (x) { return x.id !== id; });
-    saveStore(st);
+    saveAll(loadAll().filter(function (x) { return x.id !== id; }));
   }
   // 예전 버전의 기록(생1/지1)도 그대로 읽을 수 있게
   function recSlot(rec) { return rec.slot || (rec.key === "earth" ? 2 : 1); }
@@ -495,7 +523,7 @@
   }
 
   function renderToday() {
-    var st = loadStore(), recs = st.records, subjects = loadSubjects();
+    var recs = todayRecs(), subjects = loadSubjects();
     // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
     var entries = [];
     function entry(name) {
@@ -533,7 +561,135 @@
       li.appendChild(info); li.appendChild(del);
       ul.appendChild(li);
     });
+    renderChart();
   }
+
+  // ---------- 점수 추이 그래프 (과목별 꺾은선) ----------
+  var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
+  var selectedPoint = "";
+  function svgEl(tag, attrs) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function dayShort(day) { var p = String(day).split("-"); return Number(p[1]) + "/" + Number(p[2]); }
+  function dayKo(day) { var p = String(day).split("-"); return Number(p[1]) + "월 " + Number(p[2]) + "일"; }
+
+  function renderChart() {
+    var box = $("chart"), legend = $("legend"), info = $("pointInfo");
+    box.textContent = ""; legend.textContent = ""; info.textContent = "";
+    var pts = loadAll().filter(function (r) { return r.score1 != null; });
+    pts.sort(function (a, b) { return (a.startedAt || 0) - (b.startedAt || 0); });
+    if (!pts.length) {
+      box.appendChild(el("p", "empty", "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요."));
+      return;
+    }
+    if (!pts.some(function (r) { return r.id === selectedPoint; })) selectedPoint = "";
+
+    // 과목별 묶음 (처음 점수가 생긴 순서대로 색을 배정해서 색이 바뀌지 않게)
+    var order = [], series = {};
+    pts.forEach(function (r, i) {
+      var name = recSubject(r);
+      if (!series[name]) { series[name] = []; order.push(name); }
+      series[name].push({ i: i, rec: r });
+    });
+    var color = {};
+    order.forEach(function (name, k) {
+      color[name] = PALETTE[k % PALETTE.length];
+      var item = el("span", "item");
+      var sw = el("span", "sw"); sw.style.background = color[name];
+      item.appendChild(sw); item.appendChild(document.createTextNode(name));
+      legend.appendChild(item);
+    });
+
+    var W = Math.max(280, Math.round(box.clientWidth || 600));
+    var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
+    var L = 32, R = 14, T = 20, B = 30, PAD = 14;
+    var plotW = W - L - R, plotH = H - T - B, n = pts.length;
+    function X(i) { return n === 1 ? L + plotW / 2 : L + PAD + i * (plotW - 2 * PAD) / (n - 1); }
+    var scores = pts.map(function (r) { return r.score1; });
+    var hi = 50, lo = Math.max(0, Math.floor((Math.min.apply(null, scores) - 3) / 10) * 10);
+    if (hi - lo < 20) lo = hi - 20;
+    function Y(v) { return T + (hi - v) / (hi - lo) * plotH; }
+
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": "과목별 점수 추이" });
+    for (var v = lo; v <= hi; v += 10) {
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "#3a3e46", "stroke-width": 1 }));
+      var yl = svgEl("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
+      yl.textContent = v;
+      svg.appendChild(yl);
+    }
+    // 날짜 눈금 (날짜가 바뀌는 점마다, 겹치면 생략)
+    var lastX = -999, prevDay = "";
+    pts.forEach(function (r, i) {
+      if (r.day !== prevDay && X(i) - lastX >= 38) {
+        var xl = svgEl("text", { x: X(i), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
+        xl.textContent = dayShort(r.day);
+        svg.appendChild(xl);
+        lastX = X(i);
+      }
+      prevDay = r.day;
+    });
+
+    var showAll = n <= 12, hits = [];
+    order.forEach(function (name) {
+      var list = series[name], c = color[name];
+      if (list.length > 1) {
+        svg.appendChild(svgEl("polyline", {
+          points: list.map(function (q) { return X(q.i).toFixed(1) + "," + Y(q.rec.score1).toFixed(1); }).join(" "),
+          fill: "none", stroke: c, "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
+        }));
+      }
+      list.forEach(function (q, k) {
+        var x = X(q.i), y = Y(q.rec.score1), sel = q.rec.id === selectedPoint;
+        if (sel) svg.appendChild(svgEl("circle", { cx: x, cy: y, r: 8, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
+        svg.appendChild(svgEl("circle", { cx: x, cy: y, r: 4.6, fill: c, stroke: "#26292f", "stroke-width": 2 }));
+        if (showAll || k === list.length - 1 || sel) {
+          var above = y - 10 >= 10;
+          var t = svgEl("text", {
+            x: x, y: above ? y - 10 : y + 19, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: c,
+            stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+          });
+          t.textContent = q.rec.score1;
+          svg.appendChild(t);
+        }
+        hits.push({ x: x, y: y, id: q.rec.id });
+      });
+    });
+    // 누르기 쉽도록 보이지 않는 큰 원을 맨 위에
+    hits.forEach(function (h) {
+      var c = svgEl("circle", { cx: h.x, cy: h.y, r: 16, fill: "transparent", "class": "hit" });
+      c.addEventListener("click", function () {
+        selectedPoint = selectedPoint === h.id ? "" : h.id;
+        renderChart();
+      });
+      svg.appendChild(c);
+    });
+    box.appendChild(svg);
+
+    // 선택한 점의 내용
+    var rec = null;
+    pts.forEach(function (r) { if (r.id === selectedPoint) rec = r; });
+    if (rec) {
+      var txt = el("span", "");
+      txt.appendChild(el("strong", "", dayKo(rec.day) + " " + recSubject(rec) + " " + rec.score1 + "점"));
+      if (rec.usedExtra && rec.score2 != null) txt.appendChild(document.createTextNode(", 호머식 " + rec.score2 + "점"));
+      var del = el("button", "del", "삭제");
+      del.addEventListener("click", function () {
+        ask(dayKo(rec.day) + " " + recSubject(rec) + " " + rec.score1 + "점 기록을 삭제하겠습니까?", "삭제", true, function () {
+          removeRec(rec.id); selectedPoint = ""; renderToday();
+        });
+      });
+      info.appendChild(txt); info.appendChild(del);
+    } else {
+      info.appendChild(el("span", "", "점을 누르면 날짜와 점수를 볼 수 있어요."));
+    }
+  }
+  var resizeTimer = 0;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { if (home.style.display !== "none") renderChart(); }, 120);
+  });
 
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") {
@@ -677,13 +833,13 @@
   }
 
   function saveRec(fields) {
-    var st = loadStore(), rec = findRec(st, recId);
-    if (!rec) {                                  // 자정을 넘기는 등으로 기록이 없으면 새로 만든다
-      rec = { id: recId, slot: current.slot, subject: current.subject, startedAt: recStartedAt };
-      st.records.push(rec);
+    var all = loadAll(), rec = findRec(all, recId);
+    if (!rec) {                                  // 어떤 이유로 기록이 없으면 새로 만든다
+      rec = { id: recId, day: todayStr(), slot: current.slot, subject: current.subject, startedAt: recStartedAt };
+      all.push(rec);
     }
     for (var k in fields) rec[k] = fields[k];
-    saveStore(st);
+    saveAll(all);
   }
 
   // ---------- 전체 화면 ----------
@@ -721,9 +877,9 @@
     current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
     recId = newId();
     recStartedAt = Date.now();
-    var st = loadStore();
-    st.records.push({ id: recId, slot: slot, subject: subject, startedAt: recStartedAt });   // "예"를 누르는 순간 횟수가 오른다
-    saveStore(st);
+    var all = loadAll();
+    all.push({ id: recId, day: todayStr(), slot: slot, subject: subject, startedAt: recStartedAt });   // "예"를 누르는 순간 횟수가 오른다
+    saveAll(all);
 
     phase = "running";
     accum = 0; running = false; extraStart = 0;
