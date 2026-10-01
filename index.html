@@ -37,7 +37,6 @@
     background: rgba(38,41,47,.92); border: 1px solid var(--line); border-radius: 999px;
     font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: 0; white-space: nowrap;
   }
-  .pill:hover { border-color: var(--accent); }
 
   /* ---------- 홈 화면 ---------- */
   #home {
@@ -67,7 +66,6 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     text-align: center; transition: border-color .15s, transform .15s;
   }
-  .slot:hover { border-color: var(--accent); }
   .slot:active { transform: scale(.98); }
   .slot.empty { border-style: dashed; }
   .slot .tag { font-size: 15px; font-weight: 700; color: var(--muted); }
@@ -118,14 +116,12 @@
     display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px;
     border: 1px solid #3a3e46; background: #26292f; font-size: 14px; font-weight: 700; text-align: left; white-space: nowrap;
   }
-  .copt:hover { border-color: var(--accent); }
   .cdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .legend .item {
     display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px; border-radius: 999px;
     border: 1px solid transparent; background: transparent; color: var(--text);
     font-size: 14px; font-weight: 700; line-height: 1; transition: opacity .2s, background-color .2s, border-color .2s;
   }
-  .legend .item:hover { background: rgba(255,255,255,.05); }
   .legend .item.on { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.24); }
   .legend.has-focus .item:not(.on) { opacity: .42; }
   .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
@@ -139,7 +135,6 @@
     flex: none; background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
     padding: 8px 14px; font-size: 14px; color: #f0908a;
   }
-  .pointinfo .del:hover { border-color: var(--second); }
 
   .records { width: 100%; }
   .records h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
@@ -155,7 +150,6 @@
     border: 1px solid var(--line); background: transparent; color: var(--muted);
     font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap;
   }
-  .rf:hover { border-color: #5a606b; }
   .rf.on { background: #eef0f4; border-color: #eef0f4; color: #121316; }
   #records {
     flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
@@ -177,14 +171,12 @@
     display: inline-flex; align-items: center; justify-content: center;
     background: transparent; border: 1px solid #4a4f58; border-radius: 8px; color: var(--muted);
   }
-  .pen:hover { border-color: var(--accent); color: var(--text); }
   .pen svg { width: 15px; height: 15px; display: block; }
   .rec .meta { margin-top: 2px; font-size: 13px; color: var(--muted); }
   .rec .del {
     background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
     padding: 9px 14px; font-size: 14px; color: #f0908a;
   }
-  .rec .del:hover { border-color: var(--second); }
   #recordsEmpty { margin: 0; padding: 24px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 
   @media (max-width: 560px) {
@@ -226,7 +218,6 @@
     display: flex; align-items: center; justify-content: center; text-align: center;
     font-size: 17px; font-weight: 700; line-height: 1.25;
   }
-  .chip:hover { border-color: var(--accent); }
   .chip.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
   .pfoot { padding: 12px 18px max(16px, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
   .primary {
@@ -255,7 +246,6 @@
   .bottombar { bottom: 0; padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px)); }
   #stage.fs .bar { padding-left: calc(var(--edge) + 72px); }
   #abandon { background: rgba(216,38,28,.20); border-color: rgba(240,104,94,.55); color: #ffb3ac; }
-  #abandon:hover { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
   .tools { display: flex; gap: 8px; margin-left: auto; }
   .pill.icon { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .pill.icon svg { width: 20px; height: 20px; display: block; }
@@ -268,7 +258,6 @@
     margin-left: auto; background: var(--accent); border: 0; border-radius: 14px;
     padding: 14px 26px; font-weight: 700; font-size: 18px; line-height: 1.2; color: #fff;
   }
-  #endBtn:hover { filter: brightness(1.08); }
 
   /* 5분 남음 알림 */
   #warn5 {
@@ -330,6 +319,20 @@
   @media (prefers-reduced-motion: reduce) {
     .slot, .switch .thumb, .switch .lab, .chartcard, .legend .item { transition: none; }
     .chartcard.swap #chart, .chartcard.swap .legend, .chartcard.swap .pointinfo { animation: none; }
+  }
+  /* 마우스처럼 hover가 되는 기기에서만 적용 (터치 후 hover 상태가 눌러붙어 반투명 박스가 남는 것을 방지) */
+  @media (hover: hover) and (pointer: fine) {
+    .pill:hover { border-color: var(--accent); }
+    .slot:hover { border-color: var(--accent); }
+    .copt:hover { border-color: var(--accent); }
+    .legend .item:not(.on):hover { background: rgba(255,255,255,.05); }
+    .pointinfo .del:hover { border-color: var(--second); }
+    .rf:hover { border-color: #5a606b; }
+    .pen:hover { border-color: var(--accent); color: var(--text); }
+    .rec .del:hover { border-color: var(--second); }
+    .chip:hover { border-color: var(--accent); }
+    #abandon:hover { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
+    #endBtn:hover { filter: brightness(1.08); }
   }
 </style>
 </head>
@@ -629,8 +632,21 @@
   }
 
   var recFilter = "";
+  // 다시 그리는 동안 페이지 전체의 스크롤 위치는 그대로 유지
+  function keepPageScroll(fn) {
+    var top = home.scrollTop;
+    fn();
+    if (home.scrollTop !== top) home.scrollTop = top;
+  }
   function renderToday() {
-    var all = loadAll(), nums = attemptNumbers(all), subjects = loadSubjects();
+    keepPageScroll(function () {
+      renderSummary();
+      renderRecords();
+      renderChart();
+    });
+  }
+  function renderSummary() {
+    var all = loadAll(), subjects = loadSubjects();
     // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
     var entries = [];
     function entry(name) {
@@ -643,7 +659,12 @@
     all.forEach(function (x) { entry(recSubject(x)).count++; });
     $("todayTotal").textContent = all.length;
     $("todayDetail").textContent = entries.map(function (en) { return en.name + " " + en.count + "회"; }).join(", ");
-
+  }
+  // 응시 기록 상자만 다시 그림 (과목 버튼을 누를 때는 그래프나 페이지는 건드리지 않음)
+  function renderRecords(keepHeight) {
+    var all = loadAll(), nums = attemptNumbers(all), recBox = $("recBox");
+    if (keepHeight) recBox.style.minHeight = recBox.offsetHeight + "px";   // 목록이 짧아져도 상자 크기를 유지해서 페이지 길이가 안 변하게
+    else recBox.style.minHeight = "";
     // 과목별로 따로 보기 (상자 위쪽 버튼)
     var color = colorMap(all), subs = [];
     all.forEach(function (r) { var nm = recSubject(r); if (subs.indexOf(nm) < 0) subs.push(nm); });
@@ -658,7 +679,7 @@
       bt.appendChild(document.createTextNode(label));
       bt.addEventListener("click", function () {
         recFilter = (value && recFilter === value) ? "" : value;
-        renderToday();
+        renderRecords(true);
         $("records").scrollTop = 0;
       });
       return bt;
@@ -700,7 +721,6 @@
       ul.appendChild(li);
     });
     ul.scrollTop = keepTop;
-    renderChart();
   }
 
   // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
@@ -752,8 +772,10 @@
     return out;
   }
 
-  function renderChart() {
+  function renderChart() { keepPageScroll(renderChartInner); }
+  function renderChartInner() {
     var box = $("chart"), legend = $("legend"), info = $("pointInfo");
+    var measuredW = box.clientWidth;               // 비우기 전에 폭을 재야 페이지 높이가 순간적으로 줄어들지 않음
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
     var homer = chartMode === "homer";
     $("chartCard").setAttribute("data-mode", chartMode);
@@ -813,7 +835,7 @@
       };
     }
 
-    var W = Math.max(280, Math.round(box.clientWidth || 600));
+    var W = Math.max(280, Math.round(measuredW || 600));
     var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
