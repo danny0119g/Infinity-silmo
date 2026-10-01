@@ -616,6 +616,7 @@
   // phase: idle → running(30분) → ended1(점수 입력 + 추가시간 질문) → extra(추가시간) → ended2(호머식 점수 입력) → idle
   var phase = "idle", current = null, recId = "", recStartedAt = 0;
   var accum = 0, runStart = 0, running = false;       // 시계가 실제로 흐른 시간(초)
+  var extraStart = 0;                                  // 추가 시간을 쓰기 시작한 시점(초)
   var raf = 0, offset = 0, wakeLock = null, showRemain = false;
   var warned = false, warnTimer = 0;
 
@@ -647,7 +648,7 @@
   function render(e) {
     var base = current.startH * 3600 + current.startM * 60 + offset;
     setHands(base + e);
-    if (phase === "extra" || phase === "ended2") remainEl.textContent = "추가 시간 +" + fmtClock(Math.max(0, e - DURATION));
+    if (phase === "extra" || phase === "ended2") remainEl.textContent = "추가 시간 +" + fmtClock(Math.max(0, e - extraStart));
     else remainEl.textContent = "남은 시간 " + fmtClock(Math.ceil(Math.max(0, DURATION - e)));
   }
 
@@ -683,6 +684,23 @@
     saveStore(st);
   }
 
+  // ---------- 전체 화면 ----------
+  function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function enterFullscreen() {
+    try {
+      if (isFullscreen()) return;
+      var de = document.documentElement, f = de.requestFullscreen || de.webkitRequestFullscreen;
+      if (f) { var pr = f.call(de); if (pr && pr.catch) pr.catch(function () {}); }
+    } catch (e) {}
+  }
+  function exitFullscreen() {
+    try {
+      if (!isFullscreen()) return;
+      var f = document.exitFullscreen || document.webkitExitFullscreen;
+      if (f) { var pr = f.call(document); if (pr && pr.catch) pr.catch(function () {}); }
+    } catch (e) {}
+  }
+
   // ---------- 시작 / 탈주 / 종료 ----------
   function start(slot) {
     var subject = loadSubjects()[slot];
@@ -695,7 +713,7 @@
     saveStore(st);
 
     phase = "running";
-    accum = 0; running = false;
+    accum = 0; running = false; extraStart = 0;
     warned = false; hideWarn();
     // 시작 시각에서 -30초 ~ +30초: 초침은 아무 위치에서나 출발하고, 분침도 아주 조금 앞서거나 뒤처진다
     offset = Math.random() * 60 - 30;
@@ -707,7 +725,7 @@
     requestWake();
     render(0);
     resume();
-    try { if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(function () {}); } catch (e) {}
+    enterFullscreen();
   }
 
   function goHome() {
@@ -720,7 +738,7 @@
     done.classList.remove("on");
     home.style.display = "";
     renderToday();
-    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch (e) {}
+    exitFullscreen();
   }
 
   function abandon() {       // 탈주: 방금 올라간 횟수(기록)를 되돌린다
@@ -783,8 +801,11 @@
     var sc = readScore(); if (!sc.ok) return;
     saveRec({ score1: sc.value, elapsed1: Math.round(accum), usedExtra: true, elapsed: Math.round(accum) });
     phase = "extra";
+    extraStart = accum;            // 여기서부터 추가 시간이 올라감
     done.classList.remove("on");
     updateButtons();
+    scoreInput.blur();             // 키보드를 내리고
+    enterFullscreen();             // 추가 시간에도 전체 화면으로 (버튼을 누른 직후라 허용됨)
     resume();                      // 멈췄던 지점에서 이어서 돌아감
   });
   $("extraNo").addEventListener("click", function () {
@@ -838,10 +859,7 @@
     });
   });
   $("fs").addEventListener("click", function () {
-    try {
-      if (document.fullscreenElement) document.exitFullscreen();
-      else document.documentElement.requestFullscreen();
-    } catch (e) {}
+    if (isFullscreen()) exitFullscreen(); else enterFullscreen();
   });
   $("toggleRemain").addEventListener("click", function () {
     showRemain = !showRemain;
