@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>탐구 시험 타이머</title>
+<title>무수한 실모</title>
 <style>
   :root {
     --bg: #1b1d21;
@@ -55,7 +55,7 @@
   #today .detail { font-size: 13px; color: var(--muted); }
 
   .homeMain {
-    margin: 0 auto; width: 100%; max-width: 800px; padding: 14px 20px max(44px, env(safe-area-inset-bottom, 0px));
+    margin: 0 auto; width: 100%; max-width: 800px; padding: 42px 20px max(44px, env(safe-area-inset-bottom, 0px));
     display: flex; flex-direction: column; gap: 30px;
   }
   .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
@@ -78,7 +78,29 @@
   .slots + .hint { margin-top: -14px; }
 
   .trend { width: 100%; }
-  .trend h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
+  .trendHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .trend h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
+  /* 전등 스위치처럼 좌우로 움직이는 상자 */
+  .switch {
+    position: relative; flex: none; width: 200px; height: 40px; padding: 3px;
+    display: grid; grid-template-columns: 1fr 1fr; align-items: stretch;
+    background: #141517; border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.55);
+  }
+  .switch .thumb {
+    position: absolute; top: 3px; left: 3px; width: calc(50% - 3px); height: calc(100% - 6px);
+    border-radius: 7px; pointer-events: none;
+    background: linear-gradient(#5aa5ff, #2f78e6);
+    box-shadow: 0 2px 5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.4);
+    transition: transform .22s cubic-bezier(.3,.8,.3,1);
+  }
+  .switch[data-mode="homer"] .thumb { transform: translateX(100%); }
+  .switch:active .thumb { filter: brightness(.9); }
+  .switch .lab {
+    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; color: var(--muted); transition: color .2s; pointer-events: none;
+  }
+  .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #fff; }
   .chartcard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0 6px 10px; font-size: 14px; font-weight: 700; }
   .legend .item { display: inline-flex; align-items: center; gap: 7px; }
@@ -181,7 +203,8 @@
   .bar > *, .bottombar > * { pointer-events: auto; }
   .bar { top: 0; padding-top: max(var(--edge), env(safe-area-inset-top, 0px)); }
   .bottombar { bottom: 0; padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px)); }
-  #abandon:hover { border-color: var(--second); }
+  #abandon { background: rgba(216,38,28,.20); border-color: rgba(240,104,94,.55); color: #ffb3ac; }
+  #abandon:hover { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
   .tools { display: flex; gap: 8px; margin-left: auto; }
   .pill.icon { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .pill.icon svg { width: 20px; height: 20px; display: block; }
@@ -250,7 +273,7 @@
   .dlg p { margin: 0 0 24px; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
   .dlg .row button.yes.danger { background: var(--second); border-color: var(--second); }
 
-  @media (prefers-reduced-motion: reduce) { .slot { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .slot, .switch .thumb, .switch .lab { transition: none; } }
 </style>
 </head>
 <body>
@@ -258,7 +281,7 @@
 <section id="home">
   <header class="top">
     <div class="topIn">
-      <h1>탐구 시험 타이머</h1>
+      <h1>무수한 실모</h1>
       <div class="topRight">
         <div id="today" aria-live="polite">
           <div class="line">오늘 응시한 실모 <strong id="todayTotal">0</strong>개</div>
@@ -277,7 +300,12 @@
     <p class="hint">중간에 그만두려면 시계 화면의 탈주하기를 누르세요.</p>
 
     <section class="trend">
-      <h2>점수 추이</h2>
+      <div class="trendHead">
+        <h2 id="trendTitle">점수 추이</h2>
+        <button type="button" class="switch" id="chartSwitch" role="switch" aria-checked="false" aria-label="그래프 종류 전환 (점수 또는 호머식)" data-mode="score">
+          <span class="thumb"></span><span class="lab l">점수</span><span class="lab r">호머식</span>
+        </button>
+      </div>
       <div class="chartcard">
         <div class="legend" id="legend"></div>
         <div id="chart"></div>
@@ -286,7 +314,7 @@
     </section>
 
     <div class="records">
-      <h2>오늘의 기록</h2>
+      <h2>오늘의 응시 기록</h2>
       <ul id="records"></ul>
       <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
     </div>
@@ -300,9 +328,9 @@
       <circle r="94" fill="var(--face)"/>
       <g id="ticks"></g>
       <g id="nums" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#17181a" text-anchor="middle" font-size="15"></g>
-      <g id="hour"><rect x="-3" y="-50" width="6" height="58" rx="3" fill="#17181a"/></g>
-      <g id="minute"><rect x="-2.2" y="-76" width="4.4" height="88" rx="2.2" fill="#17181a"/></g>
-      <g id="second"><rect x="-0.9" y="-82" width="1.8" height="108" fill="#d8261c"/></g>
+      <g id="hour"><polygon points="-3.6,9 3.6,9 2.3,-28 0,-52 -2.3,-28" fill="#17181a" stroke="#17181a" stroke-width="0.6" stroke-linejoin="round"/></g>
+      <g id="minute"><polygon points="-2.7,13 2.7,13 1.5,-52 0,-80 -1.5,-52" fill="#17181a" stroke="#17181a" stroke-width="0.5" stroke-linejoin="round"/></g>
+      <g id="second"><polygon points="-1.1,28 1.1,28 0.6,-62 0,-86 -0.6,-62" fill="#d8261c"/></g>
       <circle r="4.6" fill="#17181a"/>
       <circle r="2.2" fill="#d8261c"/>
     </svg>
@@ -439,13 +467,9 @@
     try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); } catch (e) {}
   }
 
-  // ---------- 기록 (전체를 보관해서 추이 그래프에 쓰고, "오늘의 기록"에는 오늘 것만 표시) ----------
+  // ---------- 기록 (날짜 구분 없이, 응시한 순서대로 계속 보관) ----------
   var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2", memAll = null;
   function pad(n) { return (n < 10 ? "0" : "") + n; }
-  function todayStr() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-  }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   function saveAll(arr) {
     memAll = arr;
@@ -456,19 +480,12 @@
     try { arr = JSON.parse(localStorage.getItem(ALL_KEY)); } catch (e) {}
     if (Array.isArray(arr)) return arr;
     if (memAll) return memAll;
-    // 이전 버전(오늘 기록만 저장)에서 이어받기
+    // 이전 버전에서 쓰던 기록이 있으면 그대로 이어받기
     var old = null;
     try { old = JSON.parse(localStorage.getItem(OLD_KEY)); } catch (e) {}
-    arr = [];
-    if (old && Array.isArray(old.records)) {
-      old.records.forEach(function (r) { if (!r.day) r.day = old.date || todayStr(); arr.push(r); });
-    }
+    arr = (old && Array.isArray(old.records)) ? old.records.slice() : [];
     saveAll(arr);
     return arr;
-  }
-  function todayRecs() {
-    var t = todayStr();
-    return loadAll().filter(function (r) { return r.day === t; });
   }
   function findRec(arr, id) {
     for (var j = 0; j < arr.length; j++) if (arr[j].id === id) return arr[j];
@@ -476,6 +493,16 @@
   }
   function removeRec(id) {
     saveAll(loadAll().filter(function (x) { return x.id !== id; }));
+  }
+  // 과목별로 응시한 순서대로 회차를 매긴다 (첫 번째 = 1회, 두 번째 = 2회 …)
+  function attemptNumbers(all) {
+    var count = {}, nums = {};
+    all.forEach(function (r) {
+      var sub = recSubject(r);
+      count[sub] = (count[sub] || 0) + 1;
+      nums[r.id] = count[sub];
+    });
+    return nums;
   }
   // 예전 버전의 기록(생1/지1)도 그대로 읽을 수 있게
   function recSlot(rec) { return rec.slot || (rec.key === "earth" ? 2 : 1); }
@@ -523,7 +550,7 @@
   }
 
   function renderToday() {
-    var recs = todayRecs(), subjects = loadSubjects();
+    var all = loadAll(), nums = attemptNumbers(all), subjects = loadSubjects();
     // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
     var entries = [];
     function entry(name) {
@@ -533,29 +560,28 @@
       return en;
     }
     [1, 2].forEach(function (slot) { entry(subjects[slot] || SLOTS[slot].label); });
-    recs.forEach(function (x) { entry(recSubject(x)).count++; });
-    $("todayTotal").textContent = recs.length;
+    all.forEach(function (x) { entry(recSubject(x)).count++; });
+    $("todayTotal").textContent = all.length;
     $("todayDetail").textContent = entries.map(function (en) { return en.name + " " + en.count + "회"; }).join(", ");
 
+    // 가장 최근에 본 것이 위로
     var ul = $("records");
     ul.textContent = "";
-    $("recordsEmpty").style.display = recs.length ? "none" : "";
-    recs.forEach(function (rec) {
+    $("recordsEmpty").style.display = all.length ? "none" : "";
+    all.slice().reverse().forEach(function (rec) {
+      var title = recSubject(rec) + " " + nums[rec.id] + "회";
       var li = el("li", "rec");
       var info = el("div", "info");
       var head = el("div", "head");
-      head.appendChild(el("span", "subj", recSubject(rec)));
+      head.appendChild(el("span", "subj", title));
       head.appendChild(el("span", "badge", SLOTS[recSlot(rec)].label));
       info.appendChild(head);
       var rt = recText(rec);
       info.appendChild(el("div", "scores" + (rt.none ? " none" : ""), rt.text));
-      var meta = [];
-      if (rec.startedAt) meta.push(new Date(rec.startedAt).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" }) + " 시작");
-      if (rec.elapsed != null) meta.push(fmtDur(rec.elapsed) + " 걸림");
-      if (meta.length) info.appendChild(el("div", "meta", meta.join(", ")));
+      if (rec.elapsed != null) info.appendChild(el("div", "meta", fmtDur(rec.elapsed) + " 걸림"));
       var del = el("button", "del", "삭제");
       del.addEventListener("click", function () {
-        var label = recSubject(rec) + (rec.score1 != null ? " " + rec.score1 + "점" : "") + " 기록을 삭제하겠습니까?";
+        var label = title + (rec.score1 != null ? " " + rec.score1 + "점" : "") + " 기록을 삭제하겠습니까?";
         ask(label, "삭제", true, function () { removeRec(rec.id); renderToday(); });
       });
       li.appendChild(info); li.appendChild(del);
@@ -564,38 +590,45 @@
     renderChart();
   }
 
-  // ---------- 점수 추이 그래프 (과목별 꺾은선) ----------
+  // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
+  // 점수 추이: 세로축 점수 / 호머식 추이: 세로축 시간(본 시험 응시 시간 + 추가 시간)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
-  var selectedPoint = "";
+  var selectedPoint = "", chartMode = "score";
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
     return n;
   }
-  function dayShort(day) { var p = String(day).split("-"); return Number(p[1]) + "/" + Number(p[2]); }
-  function dayKo(day) { var p = String(day).split("-"); return Number(p[1]) + "월 " + Number(p[2]) + "일"; }
+  function niceStep(range) { return range <= 6 ? 1 : range <= 14 ? 2 : range <= 30 ? 5 : 10; }
 
   function renderChart() {
     var box = $("chart"), legend = $("legend"), info = $("pointInfo");
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
-    var pts = loadAll().filter(function (r) { return r.score1 != null; });
-    pts.sort(function (a, b) { return (a.startedAt || 0) - (b.startedAt || 0); });
+    var homer = chartMode === "homer";
+    var all = loadAll(), nums = attemptNumbers(all);
+    var pts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
     if (!pts.length) {
-      box.appendChild(el("p", "empty", "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요."));
+      box.appendChild(el("p", "empty", homer
+        ? "추가 시간을 쓴 기록이 생기면 여기에 시간 추이가 그려져요."
+        : "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요."));
       return;
     }
     if (!pts.some(function (r) { return r.id === selectedPoint; })) selectedPoint = "";
+    function val(r) { return homer ? r.elapsed / 60 : r.score1; }
 
-    // 과목별 묶음 (처음 점수가 생긴 순서대로 색을 배정해서 색이 바뀌지 않게)
-    var order = [], series = {};
-    pts.forEach(function (r, i) {
-      var name = recSubject(r);
-      if (!series[name]) { series[name] = []; order.push(name); }
-      series[name].push({ i: i, rec: r });
+    // 색은 과목이 처음 등장한 순서대로 정해서 그래프를 바꿔도, 기록이 늘어도 그대로
+    var color = {}, seen = 0;
+    all.forEach(function (r) {
+      var sub = recSubject(r);
+      if (!color[sub]) { color[sub] = PALETTE[seen % PALETTE.length]; seen++; }
     });
-    var color = {};
-    order.forEach(function (name, k) {
-      color[name] = PALETTE[k % PALETTE.length];
+    var order = [], series = {};
+    pts.forEach(function (r) {
+      var sub = recSubject(r);
+      if (!series[sub]) { series[sub] = []; order.push(sub); }
+      series[sub].push({ n: nums[r.id], v: val(r), rec: r });
+    });
+    order.forEach(function (name) {
       var item = el("span", "item");
       var sw = el("span", "sw"); sw.style.background = color[name];
       item.appendChild(sw); item.appendChild(document.createTextNode(name));
@@ -604,54 +637,72 @@
 
     var W = Math.max(280, Math.round(box.clientWidth || 600));
     var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
-    var L = 32, R = 14, T = 20, B = 30, PAD = 14;
-    var plotW = W - L - R, plotH = H - T - B, n = pts.length;
-    function X(i) { return n === 1 ? L + plotW / 2 : L + PAD + i * (plotW - 2 * PAD) / (n - 1); }
-    var scores = pts.map(function (r) { return r.score1; });
-    var hi = 50, lo = Math.max(0, Math.floor((Math.min.apply(null, scores) - 3) / 10) * 10);
-    if (hi - lo < 20) lo = hi - 20;
-    function Y(v) { return T + (hi - v) / (hi - lo) * plotH; }
+    var L = 40, R = 14, T = 20, B = 30, PAD = 14;
+    var plotW = W - L - R, plotH = H - T - B;
+    var maxN = 1;
+    pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
+    function X(nn) { return maxN === 1 ? L + plotW / 2 : L + PAD + (nn - 1) * (plotW - 2 * PAD) / (maxN - 1); }
 
-    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": "과목별 점수 추이" });
-    for (var v = lo; v <= hi; v += 10) {
-      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "#3a3e46", "stroke-width": 1 }));
-      var yl = svgEl("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
-      yl.textContent = v;
+    // 세로축 범위
+    var vals = pts.map(val), mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), lo, hi, step;
+    if (!homer) {
+      hi = 50; step = 10;
+      lo = Math.max(0, Math.floor((mn - 3) / 10) * 10);
+      if (hi - lo < 20) lo = hi - 20;
+    } else {
+      lo = Math.max(0, Math.floor(mn - 1)); hi = Math.ceil(mx + 1);
+      if (hi - lo < 4) hi = lo + 4;
+      step = niceStep(hi - lo);
+      lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    }
+    function Y(v) { return T + (hi - v) / (hi - lo) * plotH; }
+    function fmtVal(v) { return homer ? Math.round(v) + "분" : String(v); }
+
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": homer ? "과목별 호머식 시간 추이" : "과목별 점수 추이" });
+    for (var t = lo; t <= hi; t += step) {
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: "#3a3e46", "stroke-width": 1 }));
+      var yl = svgEl("text", { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
+      yl.textContent = homer ? t + "분" : t;
       svg.appendChild(yl);
     }
-    // 날짜 눈금 (날짜가 바뀌는 점마다, 겹치면 생략)
-    var lastX = -999, prevDay = "";
-    pts.forEach(function (r, i) {
-      if (r.day !== prevDay && X(i) - lastX >= 38) {
-        var xl = svgEl("text", { x: X(i), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
-        xl.textContent = dayShort(r.day);
-        svg.appendChild(xl);
-        lastX = X(i);
-      }
-      prevDay = r.day;
+    // 가로축: 회차 (자리가 좁으면 건너뛰며 표시)
+    var spacing = maxN > 1 ? (plotW - 2 * PAD) / (maxN - 1) : 100;
+    var every = Math.max(1, Math.ceil(34 / spacing));
+    for (var nn = 1; nn <= maxN; nn += every) {
+      var xl = svgEl("text", { x: X(nn), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
+      xl.textContent = nn + "회";
+      svg.appendChild(xl);
+    }
+
+    // 같은 회차에 점이 여러 개면 가장 높은 점만 위쪽에, 나머지는 아래쪽에 숫자를 써서 겹침을 피함
+    var topOfColumn = {};
+    pts.forEach(function (r) {
+      var c = nums[r.id];
+      if (topOfColumn[c] == null || val(r) > topOfColumn[c].v) topOfColumn[c] = { v: val(r), id: r.id };
     });
 
-    var showAll = n <= 12, hits = [];
+    var showAll = pts.length <= 12, hits = [];
     order.forEach(function (name) {
       var list = series[name], c = color[name];
       if (list.length > 1) {
         svg.appendChild(svgEl("polyline", {
-          points: list.map(function (q) { return X(q.i).toFixed(1) + "," + Y(q.rec.score1).toFixed(1); }).join(" "),
+          points: list.map(function (q) { return X(q.n).toFixed(1) + "," + Y(q.v).toFixed(1); }).join(" "),
           fill: "none", stroke: c, "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
         }));
       }
       list.forEach(function (q, k) {
-        var x = X(q.i), y = Y(q.rec.score1), sel = q.rec.id === selectedPoint;
+        var x = X(q.n), y = Y(q.v), sel = q.rec.id === selectedPoint;
         if (sel) svg.appendChild(svgEl("circle", { cx: x, cy: y, r: 8, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
         svg.appendChild(svgEl("circle", { cx: x, cy: y, r: 4.6, fill: c, stroke: "#26292f", "stroke-width": 2 }));
         if (showAll || k === list.length - 1 || sel) {
-          var above = y - 10 >= 10;
-          var t = svgEl("text", {
+          var wantAbove = topOfColumn[q.n].id === q.rec.id;
+          var above = wantAbove ? (y - 10 >= 10) : !(y + 19 <= H - 12);
+          var tx = svgEl("text", {
             x: x, y: above ? y - 10 : y + 19, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: c,
             stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
           });
-          t.textContent = q.rec.score1;
-          svg.appendChild(t);
+          tx.textContent = fmtVal(q.v);
+          svg.appendChild(tx);
         }
         hits.push({ x: x, y: y, id: q.rec.id });
       });
@@ -671,20 +722,39 @@
     var rec = null;
     pts.forEach(function (r) { if (r.id === selectedPoint) rec = r; });
     if (rec) {
+      var name = recSubject(rec) + " " + nums[rec.id] + "회";
       var txt = el("span", "");
-      txt.appendChild(el("strong", "", dayKo(rec.day) + " " + recSubject(rec) + " " + rec.score1 + "점"));
-      if (rec.usedExtra && rec.score2 != null) txt.appendChild(document.createTextNode(", 호머식 " + rec.score2 + "점"));
+      if (!homer) {
+        txt.appendChild(el("strong", "", name + " " + rec.score1 + "점"));
+        if (rec.usedExtra && rec.score2 != null) txt.appendChild(document.createTextNode(", 호머식 " + rec.score2 + "점"));
+      } else {
+        txt.appendChild(el("strong", "", name + " 총 " + fmtDur(rec.elapsed)));
+        var detail = "";
+        if (rec.elapsed1 != null) detail = " (본 시험 " + fmtDur(rec.elapsed1) + " + 추가 " + fmtDur(Math.max(0, rec.elapsed - rec.elapsed1)) + ")";
+        if (rec.score2 != null) detail += ", 호머식 " + rec.score2 + "점";
+        if (detail) txt.appendChild(document.createTextNode(detail));
+      }
       var del = el("button", "del", "삭제");
       del.addEventListener("click", function () {
-        ask(dayKo(rec.day) + " " + recSubject(rec) + " " + rec.score1 + "점 기록을 삭제하겠습니까?", "삭제", true, function () {
+        ask(name + " 기록을 삭제하겠습니까?", "삭제", true, function () {
           removeRec(rec.id); selectedPoint = ""; renderToday();
         });
       });
       info.appendChild(txt); info.appendChild(del);
     } else {
-      info.appendChild(el("span", "", "점을 누르면 날짜와 점수를 볼 수 있어요."));
+      info.appendChild(el("span", "", "점을 누르면 자세한 내용을 볼 수 있어요."));
     }
   }
+
+  // 점수 / 호머식 스위치: 누르면 상자가 반대쪽으로 움직이고, 같은 자리에서 그래프 종류만 바뀜
+  $("chartSwitch").addEventListener("click", function () {
+    chartMode = chartMode === "score" ? "homer" : "score";
+    this.setAttribute("data-mode", chartMode);
+    this.setAttribute("aria-checked", chartMode === "homer" ? "true" : "false");
+    $("trendTitle").textContent = chartMode === "homer" ? "호머식 추이" : "점수 추이";
+    selectedPoint = "";
+    renderChart();
+  });
   var resizeTimer = 0;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
@@ -772,7 +842,7 @@
 
   // ---------- 시험 상태 ----------
   // phase: idle → running(30분) → ended1(점수 입력 + 추가시간 질문) → extra(추가시간) → ended2(호머식 점수 입력) → idle
-  var phase = "idle", current = null, recId = "", recStartedAt = 0;
+  var phase = "idle", current = null, recId = "";
   var accum = 0, runStart = 0, running = false;       // 시계가 실제로 흐른 시간(초)
   var extraStart = 0;                                  // 추가 시간을 쓰기 시작한 시점(초)
   var raf = 0, offset = 0, wakeLock = null, showRemain = false;
@@ -835,7 +905,7 @@
   function saveRec(fields) {
     var all = loadAll(), rec = findRec(all, recId);
     if (!rec) {                                  // 어떤 이유로 기록이 없으면 새로 만든다
-      rec = { id: recId, day: todayStr(), slot: current.slot, subject: current.subject, startedAt: recStartedAt };
+      rec = { id: recId, slot: current.slot, subject: current.subject };
       all.push(rec);
     }
     for (var k in fields) rec[k] = fields[k];
@@ -876,9 +946,8 @@
     if (!subject) return;
     current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
     recId = newId();
-    recStartedAt = Date.now();
     var all = loadAll();
-    all.push({ id: recId, day: todayStr(), slot: slot, subject: subject, startedAt: recStartedAt });   // "예"를 누르는 순간 횟수가 오른다
+    all.push({ id: recId, slot: slot, subject: subject });   // "예"를 누르는 순간 횟수가 오른다
     saveAll(all);
 
     phase = "running";
