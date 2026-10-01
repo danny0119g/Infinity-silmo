@@ -81,7 +81,7 @@
       }, function () { roomListBusy = false; });
   }
   // ---- 설정 창의 계정 칸 ----
-  var accountLinkDrawn = false;
+  var accountLinkDrawn = false, accountLinkFrom = "";
   function renderAccount() {
     var sec = $("accountSec"); if (!sec) return;
     sec.classList.toggle("hidden", !(USE_V2 && fbAuth));
@@ -90,8 +90,15 @@
     $("accountKind").textContent = anon ? "이 기기에서만 쓰는 중" : "구글 계정으로 로그인됨";
     $("accountLink").classList.toggle("hidden", !anon);
     if (anon && !accountLinkDrawn) {                 // 이 기기에서만 쓰던 계정에 구글을 연결 (방과 방장 권한은 그대로 이어짐)
-      accountLinkDrawn = true;
-      authRenderGoogleButton($("accountGoogle"), function () { accountLinkDrawn = false; renderAccount(); setRoomMsg("구글 계정에 연결했어요.", false); }, function (e) { setRoomMsg(authErrorText(e)); });
+      accountLinkDrawn = true; accountLinkFrom = fbAuth.uid;
+      authRenderGoogleButton($("accountGoogle"), function () {
+        accountLinkDrawn = false;
+        if (fbAuth.uid !== accountLinkFrom) {          // 이미 쓰던 구글 계정이라 그 계정으로 전환됨 → 새 계정 기준으로 다시 시작
+          try { sessionStorage.setItem("examTimer.acctSwitched", "1"); } catch (e) {}
+          location.reload(); return;
+        }
+        renderAccount(); setRoomMsg("구글 계정에 연결했어요.", false);
+      }, function (e) { setRoomMsg(authErrorText(e)); });
     }
   }
   $("accountOut").addEventListener("click", function () {
@@ -101,4 +108,10 @@
       location.reload();
     });
   });
+  try {
+    if (sessionStorage.getItem("examTimer.acctSwitched")) {
+      sessionStorage.removeItem("examTimer.acctSwitched");
+      setTimeout(function () { notice("이미 쓰던 구글 계정이라 그 계정으로 전환했어요.\n이 기기에서만 쓰던 계정의 방은 옮겨지지 않아요."); }, 900);
+    }
+  } catch (e) {}
   if (USE_V2 && fbAuth) startAccountSync();

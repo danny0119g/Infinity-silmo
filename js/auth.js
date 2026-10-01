@@ -26,6 +26,7 @@
     return fetch(url, opt).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (j) {
         if (!res.ok) { var m = (j && j.error && j.error.message) || ("http " + res.status); throw new Error(String(m).split(" ")[0]); }
+        if (j && typeof j.errorMessage === "string" && j.errorMessage) throw new Error(j.errorMessage.split(" ")[0]);     // 로그인 서버는 "이미 연결된 계정" 같은 실패도 정상 응답(200) 안에 errorMessage로 담아 보냄
         return j;
       });
     });
@@ -43,7 +44,10 @@
     function exchange(linkToken) {
       var body = { postBody: "id_token=" + encodeURIComponent(credential) + "&providerId=google.com", requestUri: location.origin || "http://localhost", returnIdpCredential: true, returnSecureToken: true };
       if (linkToken) body.idToken = linkToken;       // 이 기기에서만 쓰던 계정(익명)이 있으면 그 계정에 구글을 연결
-      return authCall("https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=" + FB_API_KEY, body);
+      return authCall("https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=" + FB_API_KEY, body).then(function (j) {
+        if (j && !j.idToken && j.needConfirmation) throw new Error("FEDERATED_USER_ID_ALREADY_LINKED");        // 토큰 없이 "확인 필요"만 오는 경우도 같은 뜻
+        return j;
+      });
     }
     var link = (fbAuth && fbAuth.kind === "anon" && fbAuth.token) ? authToken().catch(function () { return ""; }) : Promise.resolve("");
     return link.then(function (lt) {
