@@ -248,7 +248,7 @@
   }
   .avCrown svg { width: 14px; height: 14px; display: block; }
   .penMenu {
-    position: absolute; z-index: 2; left: calc(100% + 8px); bottom: -8px; min-width: 140px; padding: 4px;
+    position: absolute; z-index: 2; left: calc(100% + 8px); top: -4px; min-width: 140px; padding: 4px;
     display: flex; flex-direction: column; gap: 2px;
     background: #1b1d21; border: 1px solid #484e59; border-radius: 10px; box-shadow: 0 8px 22px rgba(0,0,0,.55);
   }
@@ -419,6 +419,11 @@
   .rline + .rline { border-top: 1px solid var(--line); }
   .sw { flex: none; min-width: 66px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #111214; color: var(--muted); font-size: 14px; font-weight: 700; }
   .sw.on { background: rgba(61,139,253,.30); border-color: #3d6fb4; color: #cfe2ff; }
+  .roomdlg .prow { align-items: center; }
+  .roomdlg .nrow { margin-top: 10px; }
+  .roomAv { width: 48px; height: 48px; flex: none; font-size: 19px; }
+  .rbtn.grow { flex: 1; height: 44px; }
+  .rbtn.del { color: #f0908a; height: 44px; }
   .rbtn.pressing, .sw.pressing { box-shadow: 0 0 0 2px var(--accent); }
   .roomdlg .rsec.leave { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
   .roomdlg .rsec.leave .primary { margin-top: 0; }
@@ -778,8 +783,13 @@
         </div>
       </section>
       <section class="rsec">
-        <h3 class="rhead">내 닉네임</h3>
-        <div class="rrow">
+        <h3 class="rhead">내 프로필</h3>
+        <div class="rrow prow">
+          <div class="avatar roomAv" id="roomAv"></div>
+          <button id="photoChange" class="rbtn grow">사진 추가</button>
+          <button id="photoDel" class="rbtn del hidden">삭제</button>
+        </div>
+        <div class="rrow nrow">
           <input id="nickEdit" class="tinput nick" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임">
           <button id="nickSave" class="rbtn">저장</button>
         </div>
@@ -787,6 +797,7 @@
       <section class="rsec">
         <h3 class="rhead">공개 · 알림</h3>
         <div class="rlist">
+          <div class="rline hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw">켜짐</button></div>
           <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on">켜짐</button></div>
           <div class="rline hidden" id="pushLine"><span>채팅 알림</span><button id="pushToggle" class="sw">꺼짐</button></div>
         </div>
@@ -1671,6 +1682,7 @@
   });
 
   document.addEventListener("visibilitychange", function () {
+    if (room) { lastSent = ""; enqueue(function () { return pushMe(true); }); }       // 화면을 보기 시작/그만둔 것을 바로 알려서 알림이 알맞게 오게 함
     if (document.visibilityState === "hidden") {
       if (swDrag) endSwitchDrag(false, swDrag.lastX);
       hiddenAt = { p: performance.now(), w: Date.now() };
@@ -1812,6 +1824,16 @@
     try { fetch(PUSH_URL + "/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: room.code, from: getDeviceId(), to: peer, text: text }), keepalive: true }).catch(function () {}); } catch (e) {}
   }
   function pushLabel() { return !pushSupported() ? "앱에서만" : (pushSub ? "켜짐" : "꺼짐"); }
+  function refreshRoomPhoto() {                      // 방 설정 창의 프로필 사진 영역
+    if (!room || !$("roomAv")) return;
+    var av = $("roomAv"); av.textContent = "";
+    if (photo && validPhoto(photo)) { var im = el("img"); im.src = photo; im.alt = ""; av.appendChild(im); av.style.background = "#111214"; }
+    else { av.textContent = room.name.charAt(0); av.style.background = avatarColor(room.name); }
+    $("photoChange").textContent = photo ? "사진 바꾸기" : "사진 추가";
+    $("photoDel").classList.toggle("hidden", !photo);
+    $("photoUseLine").classList.toggle("hidden", !photo);
+    var u = photoUsable(); setSw($("photoUseToggle"), u, u ? "켜짐" : "꺼짐");
+  }
   function setSw(btn, on, text) { btn.textContent = text; btn.classList.toggle("on", !!on); }
   // [/채팅 알림]
   function myState() {
@@ -1821,6 +1843,7 @@
       if (key) subs[key] = Math.min(99, (subs[key] || 0) + c.count);
     });
     if (pushSub) subs["~푸시|" + pushSub] = 1;
+    if (document.visibilityState === "visible") subs["~온|" + (Math.floor(Date.now() / 15000) * 15)] = 1;     // 앱이 화면에 보이는 동안 남기는 신호: 서버가 이걸 보고 알림을 건너뜀
     if (shareOn()) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
     var st = { name: room.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
     if (lv) st.live = lv;
@@ -1925,7 +1948,7 @@
         var ss = (m.subjects && typeof m.subjects === "object") ? m.subjects : {}, subs = [], total = 0, shared = false, series = [];
         Object.keys(ss).forEach(function (k) {
           var c = ss[k];
-          if (k === "_" || k.indexOf("~푸시|") === 0) return;
+          if (k === "_" || k.indexOf("~푸시|") === 0 || k.indexOf("~온|") === 0) return;
           if (k.charAt(0) === "~") {                       // 점수 공개 표시와 과목별 점수 목록
             if (k === "~공개") { shared = true; return; }
             var bar = k.indexOf("|");
@@ -1993,6 +2016,7 @@
   }
   function renderTogether() {
     var box = $("togetherBody"), btn = $("roomBtn");
+    var rmEl = $("roomModal"); if (rmEl && rmEl.classList.contains("on") && room) refreshRoomPhoto();      // 설정 창이 열려 있으면 사진 상태도 같이 갱신
     box.textContent = "";
     if (!room) {
       closeProfile(); inbox = []; invites = []; syncBubbles({}); destroyAllChats();
@@ -2941,6 +2965,7 @@
     $("roomJoinView").classList.toggle("hidden", !!room);
     $("roomInView").classList.toggle("hidden", !room);
     if (room) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; }
+    refreshRoomPhoto();
     setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
     $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
     roomModal.classList.add("on");
@@ -3001,6 +3026,22 @@
     setSw(this, on, on ? "켜짐" : "꺼짐");
     lastSent = ""; scheduleSync();
     setRoomMsg(on ? "친구들이 내 점수를 볼 수 있어요." : "친구들에게 내 점수가 보이지 않아요.", false);
+  });
+  $("photoChange").addEventListener("click", function () { $("photoInput").click(); });
+  $("photoDel").addEventListener("click", function () { removePhoto(); });
+  $("photoUseToggle").addEventListener("click", function () {
+    if (!room) return;
+    var code = room.code;
+    if (photoUsable()) {                             // 이 방에서는 사진을 안 쓰기: 올려 둔 사진도 서버에서 지움
+      setPhotoUse(code, false); photoSent = "";
+      enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+      setRoomMsg("이 방에서는 사진이 보이지 않아요.", false);
+    } else {
+      setPhotoUse(code, true); photoSent = ""; photoBlocked = false;
+      enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
+      setRoomMsg("이 방에서 사진을 쓰기로 했어요.", false);
+    }
+    keepPageScroll(renderTogether);
   });
   $("pushToggle").addEventListener("click", function () {
     var btn = this;
@@ -3568,6 +3609,7 @@
   checkNewDay(true);
   setInterval(function () { checkNewDay(false); }, 60000);
   setInterval(pollTick, 15000);
+  setInterval(function () { if (room && document.visibilityState === "visible") enqueue(function () { return pushMe(false); }); }, 15000);   // 보고 있다는 신호 갱신
   setHands(12 * 3600);
   updateFsIcon();
   renderSlots();
