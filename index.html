@@ -914,11 +914,20 @@
       lg.appendChild(svgEl("stop", { offset: "55%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0.78 }));
       lg.appendChild(svgEl("stop", { offset: "100%", "stop-color": SCORE_CARD_BG, "stop-opacity": 1 }));
       defs.appendChild(lg);
-      var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 그 위에 살짝 하얀 기운을 덧입힘
-      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#ffffff", "stop-opacity": 0 }));
-      wg.appendChild(svgEl("stop", { offset: "62%", "stop-color": "#ffffff", "stop-opacity": 0.16 }));
-      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#ffffff", "stop-opacity": 0.08 }));
+      var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 그 위에 검은 빛을 은은하게 덧입혀 배경과 어우러지게
+      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#000000", "stop-opacity": 0 }));
+      wg.appendChild(svgEl("stop", { offset: "52%", "stop-color": "#000000", "stop-opacity": 0.3 }));
+      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#000000", "stop-opacity": 0 }));
       defs.appendChild(wg);
+      var hg = svgEl("linearGradient", { id: uid + "h", x1: 0, y1: 0, x2: 1, y2: 0 });      // 검은 빛의 좌우 끝도 부드럽게 사라지게
+      hg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#fff", "stop-opacity": 0 }));
+      hg.appendChild(svgEl("stop", { offset: "12%", "stop-color": "#fff", "stop-opacity": 1 }));
+      hg.appendChild(svgEl("stop", { offset: "88%", "stop-color": "#fff", "stop-opacity": 1 }));
+      hg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#fff", "stop-opacity": 0 }));
+      defs.appendChild(hg);
+      var mk = svgEl("mask", { id: uid + "m", maskUnits: "userSpaceOnUse", x: 0, y: 0, width: W, height: H });
+      mk.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "url(#" + uid + "h)" }));
+      defs.appendChild(mk);
       svg.appendChild(defs);
       dg = svgEl("g", { "clip-path": "url(#" + uid + ")" });
       svg.appendChild(dg);
@@ -1049,7 +1058,7 @@
     // 29점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
     if (collapsed) {
       svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "g)", "pointer-events": "none" }));
-      svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "w)", "pointer-events": "none" }));
+      svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "w)", mask: "url(#" + uid + "m)", "pointer-events": "none" }));
       var strip = svgEl("rect", { x: 0, y: yBottom, width: W, height: G + 6, fill: "transparent", "class": "strip" });
       strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "29점 아래까지 전체 보기");
       strip.addEventListener("click", function (e) {
@@ -1058,7 +1067,7 @@
         renderChart();
       });
       svg.appendChild(strip);
-      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 8, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#dfe4ec", "pointer-events": "none" });
+      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 8, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#b9c0cc", "pointer-events": "none" });
       hint.textContent = "눌러서 전체 보기";
       svg.appendChild(hint);
     }
@@ -1205,7 +1214,7 @@
     var target = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
     if (!target.length) return;
     var label = focusSubject ? focusSubject + " 기록 " + target.length + "개를 모두 삭제하겠습니까?" : "응시 기록 " + target.length + "개를 모두 삭제하겠습니까?";
-    ask(label + "\n되돌릴 수 없어요.", "모두 삭제", true, function () {
+    ask(label + "\n되돌릴 수 없습니다.", "모두 삭제", true, function () {
       var gone = {};
       target.forEach(function (r) { gone[r.id] = true; });
       saveAll(loadAll().filter(function (r) { return !gone[r.id]; }));
