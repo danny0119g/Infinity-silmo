@@ -82,7 +82,8 @@
   .trend h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
   /* 좌우로 미끄러지는 스위치 */
   .switch {
-    position: relative; flex: none; width: 196px; height: 40px; padding: 3px;
+    position: relative; flex: none; width: 168px; height: 40px; padding: 3px;
+    touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
     display: grid; grid-template-columns: 1fr 1fr;
     background: #1c1e22; border: 1px solid #353a42; border-radius: 10px;
   }
@@ -92,12 +93,12 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.4);
     transition: transform .26s cubic-bezier(.4, 0, .2, 1);
   }
-  .switch[data-mode="homer"] .thumb { transform: translateX(100%); }
+  .switch[data-pos="homer"] .thumb { transform: translateX(100%); }
   .switch .lab {
     position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
     font-size: 14px; font-weight: 700; line-height: 1; color: #8b929d; transition: color .2s; pointer-events: none;
   }
-  .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #121316; }
+  .switch[data-pos="score"] .lab.l, .switch[data-pos="homer"] .lab.r { color: #121316; }
   .chartcard {
     background-color: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px;
     transition: background-color .35s ease, border-color .35s ease;
@@ -373,7 +374,7 @@
     <section class="trend">
       <div class="trendHead">
         <h2 id="trendTitle">점수 추이</h2>
-        <button type="button" class="switch" id="chartSwitch" role="switch" aria-checked="false" aria-label="그래프 종류 전환 (점수 또는 시간)" data-mode="score">
+        <button type="button" class="switch" id="chartSwitch" role="switch" aria-checked="false" aria-label="그래프 종류 전환 (점수 또는 시간)" data-pos="score">
           <span class="thumb"></span><span class="lab l">점수</span><span class="lab r">시간</span>
         </button>
       </div>
@@ -914,20 +915,10 @@
       lg.appendChild(svgEl("stop", { offset: "55%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0.78 }));
       lg.appendChild(svgEl("stop", { offset: "100%", "stop-color": SCORE_CARD_BG, "stop-opacity": 1 }));
       defs.appendChild(lg);
-      var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 그 위에 검은 빛을 은은하게 덧입혀 배경과 어우러지게
-      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#000000", "stop-opacity": 0 }));
-      wg.appendChild(svgEl("stop", { offset: "52%", "stop-color": "#000000", "stop-opacity": 0.3 }));
-      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#000000", "stop-opacity": 0 }));
+      var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 위쪽은 살짝 하얗게 시작해서 아래로 갈수록 배경색과 같아짐
+      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#ffffff", "stop-opacity": 0.14 }));
+      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#ffffff", "stop-opacity": 0 }));
       defs.appendChild(wg);
-      var hg = svgEl("linearGradient", { id: uid + "h", x1: 0, y1: 0, x2: 1, y2: 0 });      // 검은 빛의 좌우 끝도 부드럽게 사라지게
-      hg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#fff", "stop-opacity": 0 }));
-      hg.appendChild(svgEl("stop", { offset: "12%", "stop-color": "#fff", "stop-opacity": 1 }));
-      hg.appendChild(svgEl("stop", { offset: "88%", "stop-color": "#fff", "stop-opacity": 1 }));
-      hg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#fff", "stop-opacity": 0 }));
-      defs.appendChild(hg);
-      var mk = svgEl("mask", { id: uid + "m", maskUnits: "userSpaceOnUse", x: 0, y: 0, width: W, height: H });
-      mk.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "url(#" + uid + "h)" }));
-      defs.appendChild(mk);
       svg.appendChild(defs);
       dg = svgEl("g", { "clip-path": "url(#" + uid + ")" });
       svg.appendChild(dg);
@@ -1058,7 +1049,7 @@
     // 29점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
     if (collapsed) {
       svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "g)", "pointer-events": "none" }));
-      svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "w)", mask: "url(#" + uid + "m)", "pointer-events": "none" }));
+      svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "w)", "pointer-events": "none" }));
       var strip = svgEl("rect", { x: 0, y: yBottom, width: W, height: G + 6, fill: "transparent", "class": "strip" });
       strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "29점 아래까지 전체 보기");
       strip.addEventListener("click", function (e) {
@@ -1067,7 +1058,7 @@
         renderChart();
       });
       svg.appendChild(strip);
-      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 8, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#b9c0cc", "pointer-events": "none" });
+      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + 22, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#b9c0cc", "pointer-events": "none" });
       hint.textContent = "눌러서 전체 보기";
       svg.appendChild(hint);
     }
@@ -1159,18 +1150,64 @@
     renderChart();
   });
 
-  // 점수 / 시간 스위치: 누르면 상자가 반대쪽으로 움직이고, 같은 자리에서 그래프 종류만 바뀜
-  $("chartSwitch").addEventListener("click", function () {
-    chartMode = chartMode === "score" ? "homer" : "score";
-    this.setAttribute("data-mode", chartMode);
-    this.setAttribute("aria-checked", chartMode === "homer" ? "true" : "false");
-    $("trendTitle").textContent = chartMode === "homer" ? "시간 추이" : "점수 추이";
+  // 점수 / 시간 스위치
+  // - 작은 상자는 손가락(마우스) 위치를 따라 움직이고, 손을 뗄 때 상자의 중심이 절반을 넘은 쪽으로 바뀜
+  // - 이미 선택된 쪽을 누르면 아무 변화 없음
+  var sw = $("chartSwitch"), swThumb = sw.querySelector(".thumb"), swDrag = null;
+  function switchChart(side) {
+    if (chartMode === side) return;
+    chartMode = side;
+    sw.setAttribute("aria-checked", side === "homer" ? "true" : "false");
+    $("trendTitle").textContent = side === "homer" ? "시간 추이" : "점수 추이";
     clearSelection();
     renderChart();
     var card = $("chartCard");                    // 어느 쪽으로 바꿔도 같은 연한 페이드
     card.classList.remove("swap"); void card.offsetWidth; card.classList.add("swap");
     clearTimeout(swapTimer);
     swapTimer = setTimeout(function () { card.classList.remove("swap"); }, 420);
+  }
+  function swapSwitchGeometry() {
+    var r = sw.getBoundingClientRect(), cs = getComputedStyle(sw);
+    var padL = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), padR = parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth);
+    var inner = r.width - padL - padR;
+    return { left: r.left + padL, inner: inner, thumb: inner / 2 };
+  }
+  function followPointer(clientX, instant) {
+    var g = swDrag.g;
+    var tx = Math.min(Math.max(clientX - g.left - g.thumb / 2, 0), g.thumb);       // 상자가 트랙 밖으로 나가지 않게
+    swThumb.style.transition = instant ? "none" : "transform .12s ease-out";
+    swThumb.style.transform = "translateX(" + tx + "px)";
+    var side = tx + g.thumb / 2 > g.inner / 2 ? "homer" : "score";                  // 상자 중심이 절반을 넘었는지
+    sw.setAttribute("data-pos", side);
+    swDrag.side = side;
+  }
+  function endSwitchDrag(commit) {
+    if (!swDrag) return;
+    var side = swDrag.side;
+    swDrag = null;
+    swThumb.style.transition = ""; swThumb.style.transform = "";                   // 인라인 위치를 풀고 CSS 전환으로 자리잡기
+    if (commit && side !== chartMode) switchChart(side);
+    sw.setAttribute("data-pos", chartMode);
+  }
+  sw.addEventListener("pointerdown", function (e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    swDrag = { g: swapSwitchGeometry(), side: chartMode, id: e.pointerId };
+    try { sw.setPointerCapture(e.pointerId); } catch (err) {}
+    followPointer(e.clientX, false);
+  });
+  sw.addEventListener("pointermove", function (e) {
+    if (swDrag && e.pointerId === swDrag.id) followPointer(e.clientX, true);
+  });
+  sw.addEventListener("pointerup", function (e) { if (swDrag && e.pointerId === swDrag.id) endSwitchDrag(true); });
+  sw.addEventListener("pointercancel", function () { endSwitchDrag(false); });
+  sw.addEventListener("click", function (e) {                                       // 키보드(스페이스/엔터)로는 반대쪽으로 전환
+    if (e.detail !== 0) return;
+    switchChart(chartMode === "score" ? "homer" : "score");
+    sw.setAttribute("data-pos", chartMode);
+  });
+  sw.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft") { switchChart("score"); sw.setAttribute("data-pos", chartMode); e.preventDefault(); }
+    if (e.key === "ArrowRight") { switchChart("homer"); sw.setAttribute("data-pos", chartMode); e.preventDefault(); }
   });
   var swapTimer = 0, resizeTimer = 0;
   window.addEventListener("resize", function () {
