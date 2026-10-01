@@ -1068,9 +1068,6 @@
         renderChart();
       });
       svg.appendChild(strip);
-      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 9, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#c6ccd6", "pointer-events": "none" });
-      hint.textContent = "눌러서 전체 보기";
-      svg.appendChild(hint);
     }
 
     // 누르기 쉽도록 보이지 않는 원을 맨 위에 (가려진 구간의 점은 제외)
@@ -1090,9 +1087,19 @@
       });
       svg.appendChild(c);
     });
+    // 가린 상태의 "눌러서 전체 보기" 글자: 그라데이션 위에 맨 위층으로, 또렷하게 (살짝 위로)
+    var hintY = H - B - 17, hintX = L + plotW / 2;
+    if (collapsed) {
+      var hint = svgEl("text", {
+        x: hintX, y: hintY, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#f0f3f8",
+        stroke: "#222a35", "stroke-width": 3, "stroke-opacity": 0.85, "paint-order": "stroke", "pointer-events": "none"
+      });
+      hint.textContent = "눌러서 전체 보기";
+      svg.appendChild(hint);
+    }
     // 펼친 상태: "눌러서 전체 보기" 글자가 있던 자리(가운데 아래)에 "다시 가리기"
     if (!homer && scoreExpanded) {
-      var fx = L + plotW / 2, fy = H - B - 9;
+      var fx = hintX, fy = hintY;
       var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
       // 윤곽 없이 글자만 (누르는 영역은 보이지 않는 사각형)
       fg.appendChild(svgEl("rect", { x: fx - 52, y: fy - 19, width: 104, height: 30, fill: "transparent" }));
