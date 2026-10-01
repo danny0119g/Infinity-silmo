@@ -1960,7 +1960,7 @@
   }
   function dropMsg(it) {
     dismissedMsg[it.from + ":" + it.k + ":" + it.t] = true;
-    inbox = inbox.filter(function (x) { return x !== it; });
+    inbox = inbox.filter(function (x) { return !(x.from === it.from && x.k === it.k && x.t === it.t); });       // 객체가 아니라 (보낸 사람, 종류, 시각)으로 찾음
   }
   function silentDrop(it) {
     if (!room) return;
@@ -2077,7 +2077,7 @@
   function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
   function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
-  function msgText(m) { return m.k === "ask" ? "점수 물어봤어요" + (m.s ? " · " + m.s : "") : (m.x || ""); }
+  function msgText(m) { return m.k === "ask" ? (m.s || "") : (m.x || ""); }
   function placeNear(node, anchor) {
     if (!anchor || !anchor.getBoundingClientRect) return;
     var r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
@@ -2093,8 +2093,10 @@
     var keys = Object.keys(c.msgs).sort().slice(-40);
     box.textContent = "";
     keys.forEach(function (k) {
-      var m = c.msgs[k], d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : ""));
-      d.textContent = msgText(m) + (m.st === "fail" ? " (전송 안 됨)" : "");
+      var m = c.msgs[k], tx = msgText(m);
+      if (!tx) return;
+      var d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : ""));
+      d.textContent = tx + (m.st === "fail" ? " (전송 안 됨)" : "");
       box.appendChild(d);
     });
     if (stick) box.scrollTop = box.scrollHeight;
