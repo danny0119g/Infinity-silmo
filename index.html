@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001140424">
+<meta name="app-version" content="20261001140508">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -440,7 +440,7 @@
   .roomdlg .prow { justify-content: space-between; }
   .rbtn.del { color: #f0908a; height: 44px; }
   .rbtn.pressing { box-shadow: 0 0 0 2px var(--accent); }
-  .roomdlg .rsec.leave { margin-top: 12px; text-align: center; }
+  .roomdlg .rsec.leave { margin-top: 4px; text-align: center; }
   .leaveLink { padding: 8px 12px; border: 0; background: none; font-size: 13px; font-weight: 600; color: #b9726d; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
   .leaveLink.pressing { color: #f0908a; }
   #roomErrMsg { min-height: 22px; margin: 12px 0 0; font-size: 14px; color: #ff8f86; }
@@ -806,12 +806,12 @@
           <div class="rline hidden" id="pushLine"><span>채팅 알림 <small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
         </div>
       </section>
-      <section class="rsec leave">
-        <button id="roomLeave" class="leaveLink" type="button">방 나가기</button>
-      </section>
     </div>
 
     <div id="roomErrMsg" role="alert"></div>
+    <section class="rsec leave hidden" id="roomLeaveSec">
+      <button id="roomLeave" class="leaveLink" type="button">방 나가기</button>
+    </section>
     <button class="pill" id="roomClose" style="margin-top:14px">닫기</button>
   </div>
 </div>
@@ -2997,6 +2997,7 @@
     codeInput.value = ""; nickInput.value = "";
     $("roomJoinView").classList.toggle("hidden", !!room);
     $("roomInView").classList.toggle("hidden", !room);
+    $("roomLeaveSec").classList.toggle("hidden", !room);
     if (room) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; }
     refreshRoomPhoto();
     setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
