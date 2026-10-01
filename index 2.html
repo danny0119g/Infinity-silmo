@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>탐구 시험 타이머</title>
+<style>
+  :root {
+    --bg: #1b1d21;
+    --panel: #26292f;
+    --line: #3a3e46;
+    --text: #f1f2f4;
+    --muted: #9aa0aa;
+    --face: #fbfbf8;
+    --second: #d8261c;
+    --accent: #3d8bfd;
+    --edge: 14px;
+    box-sizing: border-box;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    word-break: keep-all;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .hidden { display: none !important; }
+
+  .pill {
+    background: rgba(38,41,47,.92); border: 1px solid var(--line); border-radius: 999px;
+    padding: 9px 16px; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  }
+  .pill:hover { border-color: var(--accent); }
+
+  /* ---------- 홈 화면 ---------- */
+  #home {
+    position: absolute; inset: 0; overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .top { width: 100%; padding: max(16px, env(safe-area-inset-top, 0px)) 20px 0; }
+  .topIn {
+    max-width: 760px; margin: 0 auto; min-height: 56px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
+  }
+  .topIn h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .topRight { display: flex; align-items: center; gap: 16px; }
+  #today { text-align: right; line-height: 1.4; }
+  #today .line { font-size: 15px; font-weight: 700; white-space: nowrap; }
+  #today .line strong { font-size: 22px; font-variant-numeric: tabular-nums; margin: 0 2px; }
+  #today .detail { font-size: 13px; color: var(--muted); }
+
+  .homeMain {
+    margin: auto; width: 100%; max-width: 800px; padding: 28px 20px max(44px, env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 30px;
+  }
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+  .slot {
+    min-height: 200px; padding: 22px 14px;
+    background: var(--panel); border: 2px solid var(--line); border-radius: 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    text-align: center; transition: border-color .15s, transform .15s;
+  }
+  .slot:hover { border-color: var(--accent); }
+  .slot:active { transform: scale(.98); }
+  .slot.empty { border-style: dashed; }
+  .slot .tag { font-size: 15px; font-weight: 700; color: var(--muted); }
+  .slot .main { font-size: clamp(28px, 5.4vw, 46px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; text-wrap: balance; }
+  .slot.empty .main { font-size: clamp(42px, 8.5vw, 68px); }
+  .slot .sub { font-size: 15px; color: var(--muted); }
+  .slot .range { font-size: clamp(15px, 2.6vw, 20px); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 4px; }
+
+  .hint { color: var(--muted); font-size: 14px; text-align: center; line-height: 1.65; margin: 0; }
+
+  .records { width: 100%; }
+  .records h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
+  #records { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .rec {
+    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+  }
+  .rec .head { display: flex; align-items: center; gap: 8px; }
+  .rec .subj { font-size: 18px; font-weight: 800; }
+  .rec .badge { font-size: 12px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+  .rec .scores { margin-top: 4px; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .rec .scores.none { color: var(--muted); font-weight: 600; }
+  .rec .meta { margin-top: 2px; font-size: 13px; color: var(--muted); }
+  .rec .del {
+    background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
+    padding: 9px 14px; font-size: 14px; color: #f0908a;
+  }
+  .rec .del:hover { border-color: var(--second); }
+  #recordsEmpty { margin: 0; color: var(--muted); font-size: 14px; }
+
+  @media (max-width: 560px) {
+    .topRight { width: 100%; justify-content: space-between; }
+    #today { text-align: left; }
+    .slot { min-height: 168px; padding: 18px 10px; }
+    .homeMain { gap: 24px; margin: 0 auto; }
+  }
+
+  /* ---------- 과목 선택 창 ---------- */
+  #picker {
+    position: fixed; inset: 0; z-index: 9; display: none;
+    align-items: center; justify-content: center; padding: 16px;
+    background: rgba(10,11,13,.78);
+  }
+  #picker.on { display: flex; }
+  .pbox {
+    width: 100%; max-width: 640px; max-height: min(92vh, 780px);
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
+  }
+  .phead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .phead h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .ptabs { display: flex; gap: 10px; padding: 14px 18px 0; }
+  .ptabs button {
+    flex: 1; padding: 10px 8px; border-radius: 14px; border: 1px solid var(--line); background: transparent;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .ptabs button .tl { font-size: 13px; font-weight: 700; color: var(--muted); }
+  .ptabs button .ts { font-size: 16px; font-weight: 800; }
+  .ptabs button .ts.none { color: var(--muted); font-weight: 600; }
+  .ptabs button.active { border-color: var(--accent); background: rgba(61,139,253,.14); }
+  .ptabs button.active .tl { color: #8fbaff; }
+  .pbody { padding: 20px 18px 6px; overflow-y: auto; }
+  .pbody h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+  .chip {
+    min-height: 58px; padding: 8px; border-radius: 14px; border: 1px solid var(--line); background: transparent;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 17px; font-weight: 700; line-height: 1.25;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pfoot { padding: 12px 18px max(16px, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+  .primary {
+    width: 100%; border: 0; border-radius: 14px; padding: 14px 0;
+    background: var(--accent); color: #fff; font-size: 18px; font-weight: 700;
+  }
+  @media (max-width: 520px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---------- 시계 화면 ---------- */
+  #stage { position: fixed; inset: 0; display: none; background: var(--bg); }
+  #stage.on { display: block; }
+  #clockwrap {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(8px, env(safe-area-inset-bottom, 0px));
+  }
+  #clock { width: min(100vw - 16px, 100vh - 16px); height: min(100vw - 16px, 100vh - 16px); max-width: 100%; max-height: 100%; display: block; }
+  .bar, .bottombar {
+    position: absolute; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding-left: var(--edge); padding-right: var(--edge);
+    pointer-events: none;
+  }
+  .bar > *, .bottombar > * { pointer-events: auto; }
+  .bar { top: 0; padding-top: max(var(--edge), env(safe-area-inset-top, 0px)); }
+  .bottombar { bottom: 0; padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px)); }
+  #abandon:hover { border-color: var(--second); }
+  .tools { display: flex; gap: 8px; }
+  #remain {
+    font-size: 20px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
+    visibility: hidden; pointer-events: none;
+  }
+  #remain.on { visibility: visible; }
+  #endBtn {
+    margin-left: auto; background: var(--accent); border: 0; border-radius: 14px;
+    padding: 14px 26px; font-weight: 700; font-size: 18px; line-height: 1.2; color: #fff;
+  }
+  #endBtn:hover { filter: brightness(1.08); }
+
+  /* 5분 남음 알림 */
+  #warn5 {
+    position: absolute; left: 50%; top: 9%; transform: translateX(-50%);
+    display: none; white-space: nowrap; z-index: 3;
+    background: var(--second); color: #fff; border-radius: 28px;
+    padding: .18em .6em .22em; font-weight: 800; letter-spacing: -0.03em;
+    font-size: clamp(44px, 12vw, 120px);
+    box-shadow: 0 10px 40px rgba(0,0,0,.45);
+  }
+  #warn5.on { display: block; }
+
+  /* 시험 종료 / 점수 입력 */
+  #done {
+    position: absolute; inset: 0; z-index: 5; display: none; overflow-y: auto;
+    background: rgba(15,16,18,.97); padding: 24px;
+  }
+  #done.on { display: flex; }
+  .sheet { margin: auto; width: 100%; max-width: 460px; text-align: center; }
+  .sheet .big { font-size: clamp(32px, 8vw, 60px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
+  .sheet .subjline { margin-top: 14px; font-size: 20px; font-weight: 700; }
+  .sheet .time { margin-top: 6px; color: var(--muted); font-size: 17px; font-variant-numeric: tabular-nums; }
+  .sheet .scorebox { margin-top: 30px; }
+  .sheet label { display: block; font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+  .inputrow { position: relative; display: inline-block; }
+  #scoreInput {
+    width: 150px; display: block; font: inherit; font-size: 40px; font-weight: 800; text-align: center;
+    background: #111214; color: var(--text); border: 2px solid var(--line); border-radius: 16px; padding: 10px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit { position: absolute; left: calc(100% + 10px); bottom: 16px; font-size: 22px; font-weight: 700; color: var(--muted); }
+  #scoreErr { min-height: 22px; margin-top: 8px; color: #ff8f86; font-size: 14px; }
+  .sheet .ask { margin: 22px 0 14px; font-size: 22px; font-weight: 700; }
+  .row { display: flex; gap: 12px; }
+  .row button {
+    flex: 1; border-radius: 14px; padding: 14px 0; font-size: 18px; font-weight: 700;
+    border: 1px solid var(--line); background: transparent;
+  }
+  .row button.yes { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #scoreSave { margin-top: 18px; }
+
+  /* 확인 창 */
+  #modal {
+    position: fixed; inset: 0; z-index: 10; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    background: rgba(10,11,13,.72);
+  }
+  #modal.on { display: flex; }
+  .dlg {
+    width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 20px; padding: 28px 24px 24px; text-align: center;
+  }
+  .dlg p { margin: 0 0 24px; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
+  .dlg .row button.yes.danger { background: var(--second); border-color: var(--second); }
+
+  @media (prefers-reduced-motion: reduce) { .slot { transition: none; } }
+</style>
+</head>
+<body>
+
+<section id="home">
+  <header class="top">
+    <div class="topIn">
+      <h1>탐구 시험 타이머</h1>
+      <div class="topRight">
+        <div id="today" aria-live="polite">
+          <div class="line">오늘 응시한 실모 <strong id="todayTotal">0</strong>개</div>
+          <div class="detail" id="todayDetail"></div>
+        </div>
+        <button class="pill" id="editSubjects">과목 수정하기</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="homeMain">
+    <div class="slots">
+      <button class="slot" id="slot1" data-slot="1"></button>
+      <button class="slot" id="slot2" data-slot="2"></button>
+    </div>
+    <p class="hint">누르면 시작 시각 근처(±30초)의 임의 위치에서 시계가 출발해 실제 속도로 돌아갑니다. 소리는 나지 않으며 화면은 꺼지지 않게 유지됩니다. 중간에 그만두려면 시계 화면의 탈주하기를 누르세요.</p>
+
+    <div class="records">
+      <h2>오늘의 기록</h2>
+      <ul id="records"></ul>
+      <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
+    </div>
+  </main>
+</section>
+
+<section id="stage">
+  <div id="clockwrap">
+    <svg id="clock" viewBox="-100 -100 200 200" role="img" aria-label="아날로그 시계">
+      <circle r="98" fill="#2d3036"/>
+      <circle r="94" fill="var(--face)"/>
+      <g id="ticks"></g>
+      <g id="nums" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#17181a" text-anchor="middle" font-size="15"></g>
+      <g id="hour"><rect x="-3" y="-50" width="6" height="58" rx="3" fill="#17181a"/></g>
+      <g id="minute"><rect x="-2.2" y="-76" width="4.4" height="88" rx="2.2" fill="#17181a"/></g>
+      <g id="second"><rect x="-0.9" y="-82" width="1.8" height="108" fill="#d8261c"/></g>
+      <circle r="4.6" fill="#17181a"/>
+      <circle r="2.2" fill="#d8261c"/>
+    </svg>
+  </div>
+
+  <div class="bar">
+    <button class="pill" id="abandon">탈주하기</button>
+    <div class="tools">
+      <button class="pill" id="toggleRemain">남은 시간 보기</button>
+      <button class="pill" id="fs">전체화면</button>
+    </div>
+  </div>
+  <div class="bottombar">
+    <div id="remain"></div>
+    <button id="endBtn">종료</button>
+  </div>
+
+  <div id="warn5" role="alert">5분 남았습니다</div>
+
+  <div id="done">
+    <div class="sheet">
+      <div class="big" id="doneTitle">시험이 종료되었습니다</div>
+      <div class="subjline" id="doneSubject"></div>
+      <div class="time" id="doneTime"></div>
+
+      <div class="scorebox">
+        <label for="scoreInput" id="scoreLabel">점수</label>
+        <div class="inputrow">
+          <input id="scoreInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off">
+          <span class="unit">점</span>
+        </div>
+        <div id="scoreErr" role="alert"></div>
+      </div>
+
+      <div id="extraBlock">
+        <p class="ask">추가 시간을 이용하겠습니까?</p>
+        <div class="row">
+          <button id="extraNo">아니오</button>
+          <button id="extraYes" class="yes">예</button>
+        </div>
+      </div>
+      <button id="scoreSave" class="primary hidden">저장</button>
+    </div>
+  </div>
+</section>
+
+<div id="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+  <div class="pbox">
+    <div class="phead">
+      <h2 id="pickerTitle">과목 선택</h2>
+      <button class="pill" id="pickerClose">닫기</button>
+    </div>
+    <div class="ptabs" id="pickerTabs">
+      <button data-slot="1"><span class="tl">탐1</span><span class="ts" id="tabSubj1"></span></button>
+      <button data-slot="2"><span class="tl">탐2</span><span class="ts" id="tabSubj2"></span></button>
+    </div>
+    <div class="pbody" id="pickerBody"></div>
+    <div class="pfoot" id="pickerFoot"><button class="primary" id="pickerDone">완료</button></div>
+  </div>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalMsg">
+  <div class="dlg">
+    <p id="modalMsg"></p>
+    <div class="row">
+      <button id="modalNo">아니오</button>
+      <button id="modalYes" class="yes">예</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // 탐구 영역 두 칸: 첫 번째 과목 3:35~4:05, 두 번째 과목 4:07~4:37
+  var SLOTS = {
+    1: { label: "탐1", startH: 3, startM: 35, range: "3:35 → 4:05" },
+    2: { label: "탐2", startH: 4, startM: 7,  range: "4:07 → 4:37" }
+  };
+  var SUBJECT_GROUPS = [
+    { name: "사회탐구", list: ["생활과 윤리", "윤리와 사상", "한국지리", "세계지리", "동아시아사", "세계사", "경제", "정치와 법", "사회·문화"] },
+    { name: "과학탐구", list: ["물리학Ⅰ", "화학Ⅰ", "생명과학Ⅰ", "지구과학Ⅰ", "물리학Ⅱ", "화학Ⅱ", "생명과학Ⅱ", "지구과학Ⅱ"] }
+  ];
+  var ALL_SUBJECTS = [].concat(SUBJECT_GROUPS[0].list, SUBJECT_GROUPS[1].list);
+
+  var DURATION = 30 * 60;      // 시험 시간(초)
+  var WARN_AT = 25 * 60;       // 5분 전
+  var WARN_SHOW_MS = 12000;    // 알림 표시 시간
+
+  var $ = function (id) { return document.getElementById(id); };
+  var home = $("home"), stage = $("stage"), done = $("done"), modal = $("modal"), picker = $("picker");
+  var hourEl = $("hour"), minuteEl = $("minute"), secondEl = $("second");
+  var remainEl = $("remain"), warnEl = $("warn5");
+  var scoreInput = $("scoreInput"), scoreErr = $("scoreErr");
+
+  // ---------- 시계 눈금과 숫자 ----------
+  var ticks = $("ticks"), nums = $("nums"), NS = "http://www.w3.org/2000/svg";
+  for (var i = 0; i < 60; i++) {
+    var major = i % 5 === 0;
+    var r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", major ? -1.6 : -0.6);
+    r.setAttribute("y", -90);
+    r.setAttribute("width", major ? 3.2 : 1.2);
+    r.setAttribute("height", major ? 9 : 4);
+    r.setAttribute("fill", "#17181a");
+    r.setAttribute("transform", "rotate(" + (i * 6) + ")");
+    ticks.appendChild(r);
+  }
+  for (var n = 1; n <= 12; n++) {
+    var t = document.createElementNS(NS, "text");
+    var a = n * 30 * Math.PI / 180;
+    t.setAttribute("x", (Math.sin(a) * 70).toFixed(2));
+    t.setAttribute("y", (-Math.cos(a) * 70 + 5.4).toFixed(2));
+    t.textContent = n;
+    nums.appendChild(t);
+  }
+
+  // ---------- 선택한 과목 (직접 수정하기 전까지 계속 유지) ----------
+  var SUBJ_KEY = "examTimer.subjects.v1", memSubj = { 1: null, 2: null };
+  function loadSubjects() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(SUBJ_KEY)); } catch (e) {}
+    if (s && typeof s === "object") {
+      return {
+        1: ALL_SUBJECTS.indexOf(s[1]) >= 0 ? s[1] : null,
+        2: ALL_SUBJECTS.indexOf(s[2]) >= 0 ? s[2] : null
+      };
+    }
+    return { 1: memSubj[1], 2: memSubj[2] };
+  }
+  function setSubject(slot, subject) {
+    var s = loadSubjects();
+    s[slot] = subject;
+    memSubj = s;
+    try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+
+  // ---------- 오늘 기록 (하루 동안만 유지, 날짜가 바뀌면 초기화) ----------
+  var STORE_KEY = "examTimer.today.v2", LEGACY_KEY = "examTimer.today.v1", mem = null;
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function validStore(st, t) { return st && st.date === t && Array.isArray(st.records); }
+  function saveStore(st) {
+    mem = st;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function loadStore() {
+    var t = todayStr(), st = null;
+    try { st = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) {}
+    if (validStore(st, t)) return st;
+    if (validStore(mem, t)) return mem;
+    // 가장 처음 버전(횟수만 저장)에서 넘어오기: 횟수만큼 점수 없는 기록으로 바꿔서 삭제할 수 있게 함
+    var old = null, recs = [], k;
+    try { old = JSON.parse(localStorage.getItem(LEGACY_KEY)); } catch (e) {}
+    if (old && old.date === t) {
+      for (k = 0; k < (old.bio | 0); k++) recs.push({ id: "legacy-bio-" + k, key: "bio" });
+      for (k = 0; k < (old.earth | 0); k++) recs.push({ id: "legacy-earth-" + k, key: "earth" });
+    }
+    st = { date: t, records: recs };
+    saveStore(st);
+    return st;
+  }
+  function findRec(st, id) {
+    for (var j = 0; j < st.records.length; j++) if (st.records[j].id === id) return st.records[j];
+    return null;
+  }
+  function removeRec(id) {
+    var st = loadStore();
+    st.records = st.records.filter(function (x) { return x.id !== id; });
+    saveStore(st);
+  }
+  // 예전 버전의 기록(생1/지1)도 그대로 읽을 수 있게
+  function recSlot(rec) { return rec.slot || (rec.key === "earth" ? 2 : 1); }
+  function recSubject(rec) { return rec.subject || (rec.key === "earth" ? "지구과학Ⅰ" : "생명과학Ⅰ"); }
+
+  function fmtDur(sec) {
+    var total = Math.round(sec), m = Math.floor(total / 60), s = total % 60;
+    return m + "분 " + s + "초";
+  }
+  function fmtClock(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    return pad(Math.floor(sec / 60)) + ":" + pad(sec % 60);
+  }
+  function recText(rec) {
+    var first = rec.score1 != null ? rec.score1 + "점" : "점수 미입력";
+    var none = rec.score1 == null && rec.score2 == null;
+    if (rec.usedExtra) {
+      first += ", " + (rec.score2 != null ? "호머식 " + rec.score2 + "점" : "호머식 미입력");
+    }
+    return { text: first, none: none && !rec.usedExtra };
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function renderSlots() {
+    var subjects = loadSubjects();
+    [1, 2].forEach(function (slot) {
+      var b = $("slot" + slot), subj = subjects[slot];
+      b.textContent = "";
+      b.classList.toggle("empty", !subj);
+      if (subj) {
+        b.appendChild(el("span", "tag", SLOTS[slot].label));
+        b.appendChild(el("span", "main", subj));
+      } else {
+        b.appendChild(el("span", "main", SLOTS[slot].label));
+        b.appendChild(el("span", "sub", "눌러서 과목 선택"));
+      }
+      b.appendChild(el("span", "range", SLOTS[slot].range));
+    });
+  }
+
+  function renderToday() {
+    var st = loadStore(), recs = st.records, subjects = loadSubjects();
+    // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
+    var entries = [];
+    function entry(name) {
+      for (var q = 0; q < entries.length; q++) if (entries[q].name === name) return entries[q];
+      var en = { name: name, count: 0 };
+      entries.push(en);
+      return en;
+    }
+    [1, 2].forEach(function (slot) { entry(subjects[slot] || SLOTS[slot].label); });
+    recs.forEach(function (x) { entry(recSubject(x)).count++; });
+    $("todayTotal").textContent = recs.length;
+    $("todayDetail").textContent = entries.map(function (en) { return en.name + " " + en.count + "회"; }).join(", ");
+
+    var ul = $("records");
+    ul.textContent = "";
+    $("recordsEmpty").style.display = recs.length ? "none" : "";
+    recs.forEach(function (rec) {
+      var li = el("li", "rec");
+      var info = el("div", "info");
+      var head = el("div", "head");
+      head.appendChild(el("span", "subj", recSubject(rec)));
+      head.appendChild(el("span", "badge", SLOTS[recSlot(rec)].label));
+      info.appendChild(head);
+      var rt = recText(rec);
+      info.appendChild(el("div", "scores" + (rt.none ? " none" : ""), rt.text));
+      var meta = [];
+      if (rec.startedAt) meta.push(new Date(rec.startedAt).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" }) + " 시작");
+      if (rec.elapsed != null) meta.push(fmtDur(rec.elapsed) + " 걸림");
+      if (meta.length) info.appendChild(el("div", "meta", meta.join(", ")));
+      var del = el("button", "del", "삭제");
+      del.addEventListener("click", function () {
+        var label = recSubject(rec) + (rec.score1 != null ? " " + rec.score1 + "점" : "") + " 기록을 삭제하겠습니까?";
+        ask(label, "삭제", true, function () { removeRec(rec.id); renderToday(); });
+      });
+      li.appendChild(info); li.appendChild(del);
+      ul.appendChild(li);
+    });
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") {
+      if (home.style.display !== "none") renderToday();
+      if (stage.classList.contains("on") && (phase === "running" || phase === "extra")) requestWake();
+    }
+  });
+
+  // ---------- 확인 창 ----------
+  var modalYes = $("modalYes"), onYes = null;
+  function ask(message, yesLabel, danger, cb) {
+    $("modalMsg").textContent = message;
+    modalYes.textContent = yesLabel;
+    modalYes.classList.toggle("danger", !!danger);
+    onYes = cb;
+    modal.classList.add("on");
+    $("modalNo").focus();
+  }
+  function closeAsk() { modal.classList.remove("on"); onYes = null; }
+  modalYes.addEventListener("click", function () {
+    var cb = onYes;
+    closeAsk();
+    if (cb) cb();
+  });
+  $("modalNo").addEventListener("click", closeAsk);
+
+  // ---------- 과목 선택 창 ----------
+  // mode "single": 비어 있는 탐1/탐2를 눌렀을 때. 고르면 바로 닫힘
+  // mode "edit":   과목 수정하기. 탐1·탐2를 오가며 바꾸고 완료로 닫음
+  var pickerSlot = 1, pickerMode = "single";
+  function openPicker(slot, mode) {
+    pickerSlot = slot; pickerMode = mode;
+    $("pickerTabs").classList.toggle("hidden", mode !== "edit");
+    $("pickerFoot").classList.toggle("hidden", mode !== "edit");
+    renderPicker();
+    $("pickerBody").scrollTop = 0;
+    picker.classList.add("on");
+  }
+  function closePicker() { picker.classList.remove("on"); }
+  function renderPicker() {
+    var subjects = loadSubjects();
+    $("pickerTitle").textContent = pickerMode === "edit" ? "과목 수정" : SLOTS[pickerSlot].label + " 과목 선택";
+    [1, 2].forEach(function (s) {
+      var ts = $("tabSubj" + s);
+      ts.textContent = subjects[s] || "미선택";
+      ts.classList.toggle("none", !subjects[s]);
+    });
+    Array.prototype.forEach.call($("pickerTabs").children, function (b) {
+      b.classList.toggle("active", Number(b.getAttribute("data-slot")) === pickerSlot);
+    });
+    var body = $("pickerBody");
+    body.textContent = "";
+    SUBJECT_GROUPS.forEach(function (g) {
+      body.appendChild(el("h3", "", g.name));
+      var grid = el("div", "grid");
+      g.list.forEach(function (name) {
+        var chip = el("button", "chip" + (subjects[pickerSlot] === name ? " sel" : ""), name);
+        chip.addEventListener("click", function () {
+          setSubject(pickerSlot, name);
+          renderSlots();
+          renderToday();
+          if (pickerMode === "single") closePicker(); else renderPicker();
+        });
+        grid.appendChild(chip);
+      });
+      body.appendChild(grid);
+    });
+  }
+  Array.prototype.forEach.call($("pickerTabs").children, function (b) {
+    b.addEventListener("click", function () {
+      pickerSlot = Number(b.getAttribute("data-slot"));
+      renderPicker();
+      $("pickerBody").scrollTop = 0;
+    });
+  });
+  $("pickerClose").addEventListener("click", closePicker);
+  $("pickerDone").addEventListener("click", closePicker);
+  picker.addEventListener("click", function (e) { if (e.target === picker) closePicker(); });
+  $("editSubjects").addEventListener("click", function () { openPicker(1, "edit"); });
+
+  // ---------- 시험 상태 ----------
+  // phase: idle → running(30분) → ended1(점수 입력 + 추가시간 질문) → extra(추가시간) → ended2(호머식 점수 입력) → idle
+  var phase = "idle", current = null, recId = "", recStartedAt = 0;
+  var accum = 0, runStart = 0, running = false;       // 시계가 실제로 흐른 시간(초)
+  var raf = 0, offset = 0, wakeLock = null, showRemain = false;
+  var warned = false, warnTimer = 0;
+
+  function elapsedNow() {
+    return accum + (running ? (performance.now() - runStart) / 1000 : 0);
+  }
+  function resume() {
+    if (running) return;
+    running = true;
+    runStart = performance.now();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(tick);
+  }
+  function pause() {
+    if (!running) return;
+    accum += (performance.now() - runStart) / 1000;
+    running = false;
+    cancelAnimationFrame(raf);
+  }
+
+  function setHands(simSeconds) {
+    var s = simSeconds % 60;            // 초침: 소수점 포함 → 부드럽게
+    var m = (simSeconds / 60) % 60;
+    var h = (simSeconds / 3600) % 12;
+    secondEl.setAttribute("transform", "rotate(" + (s * 6) + ")");
+    minuteEl.setAttribute("transform", "rotate(" + (m * 6) + ")");
+    hourEl.setAttribute("transform", "rotate(" + (h * 30) + ")");
+  }
+  function render(e) {
+    var base = current.startH * 3600 + current.startM * 60 + offset;
+    setHands(base + e);
+    if (phase === "extra" || phase === "ended2") remainEl.textContent = "추가 시간 +" + fmtClock(Math.max(0, e - DURATION));
+    else remainEl.textContent = "남은 시간 " + fmtClock(Math.ceil(Math.max(0, DURATION - e)));
+  }
+
+  function tick() {
+    var e = elapsedNow();
+    if (phase === "running" && e >= DURATION) { endRegular(DURATION); return; }
+    render(e);
+    if (phase === "running" && !warned && e >= WARN_AT) showWarn();
+    raf = requestAnimationFrame(tick);
+  }
+
+  function showWarn() {
+    warned = true;
+    warnEl.classList.add("on");
+    clearTimeout(warnTimer);
+    warnTimer = setTimeout(hideWarn, WARN_SHOW_MS);
+  }
+  function hideWarn() { clearTimeout(warnTimer); warnEl.classList.remove("on"); }
+  warnEl.addEventListener("click", hideWarn);
+
+  function updateButtons() {
+    $("abandon").classList.toggle("hidden", phase !== "running");
+    $("endBtn").classList.toggle("hidden", !(phase === "running" || phase === "extra"));
+  }
+
+  function saveRec(fields) {
+    var st = loadStore(), rec = findRec(st, recId);
+    if (!rec) {                                  // 자정을 넘기는 등으로 기록이 없으면 새로 만든다
+      rec = { id: recId, slot: current.slot, subject: current.subject, startedAt: recStartedAt };
+      st.records.push(rec);
+    }
+    for (var k in fields) rec[k] = fields[k];
+    saveStore(st);
+  }
+
+  // ---------- 시작 / 탈주 / 종료 ----------
+  function start(slot) {
+    var subject = loadSubjects()[slot];
+    if (!subject) return;
+    current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
+    recId = newId();
+    recStartedAt = Date.now();
+    var st = loadStore();
+    st.records.push({ id: recId, slot: slot, subject: subject, startedAt: recStartedAt });   // "예"를 누르는 순간 횟수가 오른다
+    saveStore(st);
+
+    phase = "running";
+    accum = 0; running = false;
+    warned = false; hideWarn();
+    // 시작 시각에서 -30초 ~ +30초: 초침은 아무 위치에서나 출발하고, 분침도 아주 조금 앞서거나 뒤처진다
+    offset = Math.random() * 60 - 30;
+
+    home.style.display = "none";
+    stage.classList.add("on");
+    done.classList.remove("on");
+    updateButtons();
+    requestWake();
+    render(0);
+    resume();
+    try { if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(function () {}); } catch (e) {}
+  }
+
+  function goHome() {
+    cancelAnimationFrame(raf);
+    running = false;
+    phase = "idle";
+    hideWarn(); closeAsk();
+    releaseWake();
+    stage.classList.remove("on");
+    done.classList.remove("on");
+    home.style.display = "";
+    renderToday();
+    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch (e) {}
+  }
+
+  function abandon() {       // 탈주: 방금 올라간 횟수(기록)를 되돌린다
+    if (phase !== "running") return;
+    removeRec(recId);
+    goHome();
+  }
+  function askAbandon() {
+    if (phase !== "running" || modal.classList.contains("on")) return;
+    ask("정말로 응시를 포기하겠습니까?", "포기하기", true, abandon);
+  }
+
+  // 30분이 끝났거나, 중간에 종료를 확정했을 때
+  function endRegular(e) {
+    pause();
+    accum = e;
+    render(e);
+    hideWarn(); closeAsk();
+    phase = "ended1";
+    updateButtons();
+    openScore(1);
+  }
+  // 추가 시간을 쓰다가 종료 버튼을 눌렀을 때
+  function endExtra() {
+    pause();
+    render(accum);
+    phase = "ended2";
+    updateButtons();
+    openScore(2);
+  }
+
+  function openScore(step) {
+    $("doneTitle").textContent = step === 1 ? "시험이 종료되었습니다" : "추가 시간이 종료되었습니다";
+    $("doneSubject").textContent = current.subject;
+    $("doneTime").textContent = (step === 1 ? "시험 시간 " : "총 걸린 시간 ") + fmtDur(accum);
+    $("scoreLabel").textContent = step === 1 ? "점수" : "호머식 점수";
+    scoreInput.value = "";
+    scoreErr.textContent = "";
+    $("extraBlock").classList.toggle("hidden", step !== 1);
+    $("scoreSave").classList.toggle("hidden", step !== 2);
+    done.classList.add("on");
+    done.scrollTop = 0;
+  }
+
+  function readScore() {
+    var v = scoreInput.value.trim();
+    if (v === "") { scoreErr.textContent = ""; return { ok: true, value: null }; }
+    var num = Number(v);
+    if (!/^\d{1,2}$/.test(v) || num < 0 || num > 50) {
+      scoreErr.textContent = "0~50 사이의 정수로 입력해 주세요.";
+      return { ok: false };
+    }
+    scoreErr.textContent = "";
+    return { ok: true, value: num };
+  }
+
+  // 점수 입력 후 "추가 시간을 이용하겠습니까?"
+  $("extraYes").addEventListener("click", function () {
+    if (phase !== "ended1") return;
+    var sc = readScore(); if (!sc.ok) return;
+    saveRec({ score1: sc.value, elapsed1: Math.round(accum), usedExtra: true, elapsed: Math.round(accum) });
+    phase = "extra";
+    done.classList.remove("on");
+    updateButtons();
+    resume();                      // 멈췄던 지점에서 이어서 돌아감
+  });
+  $("extraNo").addEventListener("click", function () {
+    if (phase !== "ended1") return;
+    var sc = readScore(); if (!sc.ok) return;
+    saveRec({ score1: sc.value, elapsed1: Math.round(accum), usedExtra: false, elapsed: Math.round(accum) });
+    goHome();
+  });
+  function saveExtraScore() {
+    if (phase !== "ended2") return;
+    var sc = readScore(); if (!sc.ok) return;
+    saveRec({ score2: sc.value, elapsed: Math.round(accum) });
+    goHome();
+  }
+  $("scoreSave").addEventListener("click", saveExtraScore);
+  scoreInput.addEventListener("keydown", function (e) { if (e.key === "Enter") saveExtraScore(); });
+  scoreInput.addEventListener("input", function () { scoreInput.value = scoreInput.value.replace(/\D/g, ""); scoreErr.textContent = ""; });
+
+  // 종료 버튼
+  $("endBtn").addEventListener("click", function () {
+    if (modal.classList.contains("on")) return;
+    if (phase === "running") {
+      ask("시험을 종료하겠습니까?", "예", false, function () {
+        if (phase !== "running") return;
+        endRegular(Math.min(elapsedNow(), DURATION));
+      });
+    } else if (phase === "extra") {
+      endExtra();
+    }
+  });
+  $("abandon").addEventListener("click", askAbandon);
+
+  // ---------- 화면 켜짐 유지 ----------
+  function requestWake() {
+    try {
+      if (navigator.wakeLock) {
+        navigator.wakeLock.request("screen").then(function (l) { wakeLock = l; }).catch(function () {});
+      }
+    } catch (e) {}
+  }
+  function releaseWake() {
+    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
+  }
+
+  // ---------- 기타 이벤트 ----------
+  [1, 2].forEach(function (slot) {
+    $("slot" + slot).addEventListener("click", function () {
+      var subject = loadSubjects()[slot];
+      if (!subject) { openPicker(slot, "single"); return; }
+      ask(subject + " 실모를 응시하겠습니까?", "예", false, function () { start(slot); });
+    });
+  });
+  $("fs").addEventListener("click", function () {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    } catch (e) {}
+  });
+  $("toggleRemain").addEventListener("click", function () {
+    showRemain = !showRemain;
+    remainEl.classList.toggle("on", showRemain);
+    this.textContent = showRemain ? "남은 시간 숨기기" : "남은 시간 보기";
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (modal.classList.contains("on")) { closeAsk(); return; }
+    if (picker.classList.contains("on")) { closePicker(); return; }
+    if (stage.classList.contains("on") && phase === "running") askAbandon();
+  });
+
+  setHands(12 * 3600);
+  renderSlots();
+  renderToday();
+})();
+</script>
+</body>
+</html>
