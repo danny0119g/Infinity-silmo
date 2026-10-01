@@ -272,6 +272,24 @@
   .bubIn { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: #111214; color: var(--text); }
   .bubSend { flex: none; padding: 0 12px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
   .bubSend.pressing { filter: brightness(1.12); }
+  #chatLayer { position: fixed; inset: 0; z-index: 9; pointer-events: none; }
+  .chatwin {
+    position: fixed; width: 250px; pointer-events: auto; overflow: hidden;
+    background: #1b1d21; border: 1px solid #3d6fb4; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.55);
+  }
+  .chatHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 12px; border-bottom: 1px solid var(--line); }
+  .chatName { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chatX { flex: none; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 1; }
+  .chatMsgs { max-height: 176px; min-height: 64px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
+  .cm { max-width: 86%; padding: 6px 10px; border-radius: 12px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+  .cm.me { align-self: flex-end; background: rgba(61,139,253,.30); border-bottom-right-radius: 4px; }
+  .cm.them { align-self: flex-start; background: #2b2f36; border-bottom-left-radius: 4px; }
+  .cm.fail { opacity: .55; }
+  .chatRow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+  .chatIn { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: #111214; color: var(--text); }
+  .chatSend { flex: none; padding: 0 12px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
+  .chatSend.pressing { filter: brightness(1.12); }
+  .chatNotice { padding: 14px 12px; text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); border-top: 1px solid var(--line); }
   .pActs { display: flex; gap: 8px; margin-top: 14px; }
   .pAct {
     height: 38px; border-radius: 10px; background: transparent; border: 1px solid #4a4f58;
@@ -575,6 +593,7 @@
   </main>
   <div id="profilePop" role="dialog" aria-label="프로필"></div>
   <div id="askLayer"></div>
+  <div id="chatLayer"></div>
   <input type="file" id="photoInput" accept="image/*" hidden>
 </section>
 
@@ -1578,6 +1597,7 @@
       checkNewDay(false);
       if (home.style.display !== "none") renderToday();
       pollTick();
+      chatTick();
       if (stage.classList.contains("on") && (phase === "running" || phase === "extra")) requestWake();
     }
   });
@@ -1589,7 +1609,7 @@
   var CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
   var liveBlocked = false, photoSent = "", photoBlocked = false, photoCache = {}, profileM = null;
   var hostId = "", hostBlocked = false, metaBlocked = false, penMenuOpen = false, crop = null, JSONH = { "Content-Type": "application/json" };
-  var inbox = [], asked = {}, bubbles = {}, msgBlocked = false, dismissedMsg = {}, prevLive = {}, doneInfer = {};
+  var inbox = [], asked = {}, bubbles = {}, msgBlocked = false, dismissedMsg = {}, prevLive = {}, doneInfer = {}, chats = {}, lastLis = {}, invites = [], chatBlocked = false, chatClosedAt = {}, askMeta = {};
   // 방금 끝낸 시험 (끝난 뒤 5분 동안 친구들이 "점수 물어보기"를 할 수 있게, 응시 상태에 e:2 로 함께 올림)
   var DONE_KEY = "examTimer.done.v1";
   function loadDone() { try { var d = JSON.parse(localStorage.getItem(DONE_KEY)); if (d && typeof d.s === "string" && typeof d.t === "number") return d; } catch (e) {} return null; }
@@ -1703,7 +1723,7 @@
   function handleKicked() {                           // 방장이 나를 내보냈을 때
     var code = room ? room.code : "";
     saveRoom(null); others = []; hostId = ""; lastSent = ""; photoSent = ""; photoCache = {};
-    closeProfile();
+    closeProfile(); destroyAllChats();
     if (code) {
       enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
@@ -1750,12 +1770,13 @@
       var nowS = Date.now() / 1000, inb = [];
       if (mbox && typeof mbox === "object") Object.keys(mbox).forEach(function (from) {      // 나에게 온 점수 질문 / 답장
         var it = mbox[from];
-        if (!it || typeof it !== "object" || (it.k !== "ask" && it.k !== "reply") || typeof it.t !== "number" || nowS - it.t > 1800) return;
+        if (!it || typeof it !== "object" || (it.k !== "ask" && it.k !== "reply" && it.k !== "chat") || typeof it.t !== "number" || nowS - it.t > 1800) return;
         if (dismissedMsg[from + ":" + it.k + ":" + it.t]) return;
         inb.push({ from: from, k: it.k, s: typeof it.s === "string" ? it.s.slice(0, 30) : "", x: typeof it.x === "string" ? it.x.slice(0, 80) : "", t: it.t });
         if (it.k === "reply") delete asked[from];
       });
-      inbox = inb;
+      inbox = inb.filter(function (x) { return x.k !== "chat"; });
+      invites = inb.filter(function (x) { return x.k === "chat"; });
       if (meta !== undefined) {
         hostId = (meta && typeof meta.host === "string") ? meta.host : "";
         if (meta && meta.kicked && meta.kicked[me] === true) { handleKicked(); return; }
@@ -1776,7 +1797,7 @@
     var box = $("togetherBody"), btn = $("roomBtn");
     box.textContent = "";
     if (!room) {
-      closeProfile(); inbox = []; syncBubbles({});
+      closeProfile(); inbox = []; invites = []; syncBubbles({}); destroyAllChats();
       btn.textContent = "방 만들기 · 입장";
       box.appendChild(el("p", "hint", "방을 만들어 친구들을 초대하면\n서로 오늘 어떤 과목을 몇 번 응시했는지 볼 수 있어요."));
       return;
@@ -1808,6 +1829,7 @@
     });
     box.appendChild(ul);
     syncBubbles(lis);
+    syncChats(lis, list);
     if (list.length === 1) box.appendChild(el("p", "hint", "친구가 초대 코드로 입장하면 여기에 나타나요."));
     if (netErr) box.appendChild(el("p", "hint", "서버에 연결하지 못했어요. 잠시 후 다시 시도할게요."));
     if (profileKey) {                                 // 갱신된 내용으로 열려 있는 프로필도 함께 새로 그림
@@ -1923,9 +1945,9 @@
 
   // 점수 물어보기: 질문한 사람의 카드 옆에 말풍선이 뜨고, 눌러서 아무 말이나 적어 보내면 그대로 답장이 감
   function askScore(m) {
-    if (!room || !m.live) return;
+    if (!room || !m.live || chats[m.id]) return;
     var code = room.code, now = Math.floor(Date.now() / 1000), subj = m.live.s;
-    asked[m.id] = Date.now();
+    asked[m.id] = Date.now(); askMeta[m.id] = { s: subj, t: now };
     keepPageScroll(renderTogether);
     enqueue(function () {
       return dbFetch("/rooms/" + code + "/msgs/" + m.id + "/" + getDeviceId(), { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "ask", s: subj, t: now }) })
@@ -1939,6 +1961,12 @@
   function dropMsg(it) {
     dismissedMsg[it.from + ":" + it.k + ":" + it.t] = true;
     inbox = inbox.filter(function (x) { return x !== it; });
+  }
+  function silentDrop(it) {
+    if (!room) return;
+    var code = room.code;
+    dropMsg(it);
+    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
   }
   function dismissMsg(it) {
     if (!room) return;
@@ -1964,9 +1992,11 @@
     x.type = "button"; x.setAttribute("aria-label", "닫기");
     x.addEventListener("click", function (e) { e.stopPropagation(); dismissMsg(it); });
     if (it.k === "reply") {
-      main = el("div", "bubMain");
+      main = el("button", "bubMain");
+      main.type = "button";
       main.appendChild(el("div", "bubQ", name + ": " + it.x));
-      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "점수 답장"));
+      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "눌러서 대화하기"));
+      main.addEventListener("click", function (e) { e.stopPropagation(); openChatFromReply(it); });
       b.appendChild(main);
     } else {
       main = el("button", "bubMain");
@@ -1980,7 +2010,7 @@
         send.type = "button";
         function go() { sendReply(it, inp.value); }
         send.addEventListener("click", function (ev) { ev.stopPropagation(); go(); });
-        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); go(); } });
+        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && !ev.isComposing) { ev.preventDefault(); go(); } });
         row.appendChild(inp); row.appendChild(send);
         b.replaceChild(row, main);
         placeBubbleByEl(b);
@@ -2010,6 +2040,7 @@
     inbox.forEach(function (it) {
       var li = lis[it.from];
       if (!li) return;
+      if (it.k === "ask" && chats[it.from]) { silentDrop(it); return; }              // 이미 대화 중인 사람의 질문은 띄우지 않음
       var key = it.from + ":" + it.k, sig = it.t + "|" + it.k + "|" + it.x, bb = bubbles[key];
       if (!bb || bb.sig !== sig) {
         if (bb) layer.removeChild(bb.el);
@@ -2027,11 +2058,223 @@
   var bubTick = 0;
   function repositionBubbles() {
     if (bubTick) return;
-    bubTick = requestAnimationFrame(function () { bubTick = 0; Object.keys(bubbles).forEach(function (k) { placeBubble(bubbles[k]); }); });
+    bubTick = requestAnimationFrame(function () {
+      bubTick = 0;
+      Object.keys(bubbles).forEach(function (k) { placeBubble(bubbles[k]); });
+      Object.keys(chats).forEach(function (p) { placeNear(chats[p].el, chats[p].li); });
+    });
   }
   home.addEventListener("scroll", repositionBubbles, { passive: true });
   document.querySelector(".together").addEventListener("scroll", repositionBubbles, { passive: true });
   window.addEventListener("resize", repositionBubbles);
+
+  // ---------- 작은 채팅창 ----------
+  // 점수 물어보기 → 상대 답장 → 질문한 사람이 그 답장을 누르면, 서로의 카드 옆에 작은 채팅창이 열림 (앞의 두 마디 포함).
+  // 둘 중 한 명이라도 실모를 시작하면 상대 창에 안내가 뜨고(입력창은 사라짐) 잠시 뒤 저절로 닫힘.
+  var CHAT_ID = /^[a-z0-9]{6,20}$/, CHAT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  function pairKey(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
+  function chatNode(code, peer) { return "/rooms/" + code + "/chats/" + pairKey(getDeviceId(), peer); }
+  function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
+  function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
+  function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
+  function msgText(m) { return m.k === "ask" ? "점수 물어봤어요" + (m.s ? " · " + m.s : "") : (m.x || ""); }
+  function placeNear(node, anchor) {
+    if (!anchor || !anchor.getBoundingClientRect) return;
+    var r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
+    if (r.left - G - pw >= 8) { x = r.left - G - pw; y = r.top; }
+    else if (r.right + G + pw <= vw - 8) { x = r.right + G; y = r.top; }
+    else { x = Math.min(Math.max(8, r.left), vw - pw - 8); y = r.bottom + 6; if (y + ph > vh - 8) y = r.top - ph - 6; }
+    y = Math.max(8, Math.min(y, vh - ph - 8));
+    node.style.left = x + "px"; node.style.top = y + "px";
+    node.style.visibility = (r.bottom < 0 || r.top > vh) ? "hidden" : "";
+  }
+  function renderChatMsgs(c) {
+    var box = c.msgsEl, stick = c.stick || (box.scrollHeight - box.scrollTop - box.clientHeight < 28), me = getDeviceId();
+    var keys = Object.keys(c.msgs).sort().slice(-40);
+    box.textContent = "";
+    keys.forEach(function (k) {
+      var m = c.msgs[k], d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : ""));
+      d.textContent = msgText(m) + (m.st === "fail" ? " (전송 안 됨)" : "");
+      box.appendChild(d);
+    });
+    if (stick) box.scrollTop = box.scrollHeight;
+    c.stick = false;
+    placeNear(c.el, c.li);
+  }
+  function buildChat(peer, name, msgs, li) {
+    var win = el("div", "chatwin"), head = el("div", "chatHead"), nm = el("span", "chatName", name), x = el("button", "chatX", "✕");
+    var mb = el("div", "chatMsgs"), notice = el("div", "chatNotice hidden"), row = el("div", "chatRow"), inp = el("input", "chatIn"), send = el("button", "chatSend", "보내기");
+    x.type = "button"; x.setAttribute("aria-label", "대화 닫기");
+    inp.type = "text"; inp.maxLength = 60; inp.placeholder = "메시지"; inp.setAttribute("autocomplete", "off");
+    send.type = "button";
+    head.appendChild(nm); head.appendChild(x);
+    row.appendChild(inp); row.appendChild(send);
+    win.appendChild(head); win.appendChild(mb); win.appendChild(notice); win.appendChild(row);
+    var c = { peer: peer, el: win, nameEl: nm, msgsEl: mb, row: row, notice: notice, input: inp, msgs: msgs, li: li, ended: false, timer: 0, sawServer: false, busy: false, lastSend: 0, opened: Date.now(), stick: true };
+    function go() { if (sendChat(peer, inp.value)) inp.value = ""; }
+    x.addEventListener("click", function (e) { e.stopPropagation(); closeChat(peer, "bye"); });
+    send.addEventListener("click", function (e) { e.stopPropagation(); go(); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); go(); } });
+    chats[peer] = c;
+    $("chatLayer").appendChild(win);
+    renderChatMsgs(c);
+    return c;
+  }
+  function removeChat(peer) {
+    var c = chats[peer];
+    if (!c) return;
+    clearTimeout(c.timer);
+    if (c.el.parentNode) c.el.parentNode.removeChild(c.el);
+    delete chats[peer];
+    chatClosedAt[peer] = Date.now() / 1000;
+    if (profileM && profileM.id === peer) keepPageScroll(renderTogether);       // 열려 있는 프로필에 점수 물어보기 버튼이 다시 나올 수 있게
+  }
+  function postSys(peer, reason) {                    // 상대 창에 안내가 뜨게 하고, 잠시 뒤 서버의 대화 기록을 정리
+    if (!room) return;
+    var code = room.code, me = getDeviceId(), node = chatNode(code, peer), now = Date.now();
+    enqueue(function () { return dbFetch(node + "/" + mkey(now), { method: "PUT", headers: JSONH, body: JSON.stringify({ f: me, k: "sys", x: reason, t: Math.floor(now / 1000) }) }).catch(function () {}); });
+    setTimeout(function () { if (!chats[peer]) enqueue(function () { return dbFetch(node, { method: "DELETE" }).catch(function () {}); }); }, 6000);
+  }
+  function closeChat(peer, reason) {
+    var c = chats[peer];
+    if (!c) return;
+    if (reason && !c.ended) postSys(peer, reason);
+    removeChat(peer);
+  }
+  function closeAllChats(reason) { Object.keys(chats).forEach(function (p) { closeChat(p, reason); }); }
+  function destroyAllChats() { closeAllChats(null); }
+  function endChat(peer, text) {                      // 안내 문구를 보여 주고(입력창은 사라짐) 잠시 뒤 닫음
+    var c = chats[peer];
+    if (!c || c.ended) return;
+    c.ended = true;
+    c.row.classList.add("hidden");
+    c.notice.textContent = text; c.notice.classList.remove("hidden");
+    c.input.blur();
+    placeNear(c.el, c.li);
+    c.timer = setTimeout(function () { removeChat(peer); }, 3500);
+  }
+  function chatNoticeText(c, sys) {
+    var n = c.nameEl.textContent;
+    return sys === "exam" ? n + "님이 실모를 치러 갔어요" : sys === "gone" ? n + "님이 방을 나갔어요" : n + "님이 대화를 닫았어요";
+  }
+  function sendChat(peer, raw) {
+    var c = chats[peer], text = cleanChat(raw);
+    if (!c || c.ended || !text || !room) return false;
+    var ms = Date.now();
+    if (ms - c.lastSend < 350) return false;
+    c.lastSend = ms;
+    var key = mkey(ms), me = getDeviceId(), msg = { f: me, k: "m", x: text, t: Math.floor(ms / 1000) }, node = chatNode(room.code, peer);
+    c.msgs[key] = { f: me, k: "m", x: text, s: "", t: msg.t, st: "pending" };
+    c.stick = true;
+    renderChatMsgs(c);
+    enqueue(function () {
+      return dbFetch(node + "/" + key, { method: "PUT", headers: JSONH, body: JSON.stringify(msg) })
+        .then(function () { if (c.msgs[key]) delete c.msgs[key].st; })
+        .catch(function (err) {
+          if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
+          if (err && err.message === "http 401") chatBlocked = true;
+        });
+    });
+    return true;
+  }
+  function mergeChat(peer, d) {
+    var c = chats[peer];
+    if (!c || c.ended) return;
+    var me = getDeviceId();
+    if (!d || typeof d !== "object") { if (c.sawServer) endChat(peer, "대화가 끝났어요"); return; }
+    c.sawServer = true;
+    var changed = false, newest = 0, sys = "";
+    Object.keys(d).forEach(function (k) {
+      var m = d[k];
+      if (!validMsg(m) || (m.f !== me && m.f !== peer)) return;
+      if (m.t > newest) newest = m.t;
+      if (m.k === "sys") { if (m.f !== me) sys = typeof m.x === "string" ? m.x : "bye"; return; }
+      var old = c.msgs[k];
+      if (!old || old.st) {
+        c.msgs[k] = { f: m.f, k: m.k, x: typeof m.x === "string" ? m.x.slice(0, 80) : "", s: typeof m.s === "string" ? m.s.slice(0, 30) : "", t: m.t };
+        changed = true;
+      }
+    });
+    if (changed) renderChatMsgs(c);
+    if (sys) { endChat(peer, chatNoticeText(c, sys)); return; }
+    if (Date.now() / 1000 - Math.max(newest, c.opened / 1000) > 1800) endChat(peer, "대화가 끝났어요");      // 30분 동안 아무 말이 없으면 정리
+  }
+  function chatTick() {
+    if (!room || chatBlocked || document.visibilityState !== "visible" || home.style.display === "none") return;
+    var code = room.code;
+    Object.keys(chats).forEach(function (peer) {
+      var c = chats[peer];
+      if (!c || c.ended || c.busy) return;
+      c.busy = true;
+      dbFetch(chatNode(code, peer), { cache: "no-store" })
+        .then(function (d) { c.busy = false; if (chats[peer] === c) mergeChat(peer, d); })
+        .catch(function (err) { c.busy = false; if (err && err.message === "http 401") { chatBlocked = true; if (chats[peer] === c) endChat(peer, "서버 규칙 업데이트가 필요해요"); } });
+    });
+  }
+  setInterval(chatTick, 3000);
+
+  function openChatFromReply(it) {                    // 내가 물어봤고, 상대가 답한 말풍선을 눌렀을 때
+    var peer = it.from;
+    if (!room || chats[peer] || !CHAT_ID.test(peer)) return;
+    var li = lastLis[peer];
+    if (!li) return;
+    if (chatBlocked) { notice("서버 규칙을 업데이트해야 대화할 수 있어요."); return; }
+    var me = getDeviceId(), code = room.code, am = askMeta[peer] || {}, rt = it.t, at = Math.min(am.t || rt - 1, rt - 1), nowS = Math.floor(Date.now() / 1000);
+    var ka = mkey(at * 1000), kr = mkey(rt * 1000), seeds = {}, node = chatNode(code, peer), nm = li.querySelector(".nm");
+    seeds[ka] = { f: me, k: "ask", s: String(am.s || it.s || "").slice(0, 30), t: at };
+    seeds[kr] = { f: peer, k: "reply", s: String(it.s || "").slice(0, 30), x: String(it.x || "").slice(0, 80), t: rt };
+    var local = {};
+    local[ka] = seeds[ka]; local[kr] = seeds[kr];
+    dropMsg(it);
+    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + peer, { method: "DELETE" }).catch(function () {}); });
+    buildChat(peer, nm ? nm.textContent : "친구", local, li);
+    enqueue(function () {                             // 서버에 앞의 두 마디를 먼저 올리고, 상대에게 "대화가 열렸다"고 알림
+      return dbFetch(node, { method: "PUT", headers: JSONH, body: JSON.stringify(seeds) })
+        .then(function () { return dbFetch("/rooms/" + code + "/msgs/" + peer + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "chat", s: seeds[ka].s, t: nowS }) }); })
+        .catch(function (err) { if (err && err.message === "http 401") { chatBlocked = true; removeChat(peer); notice("서버 규칙을 업데이트해야 대화할 수 있어요."); } });
+    });
+    keepPageScroll(renderTogether);
+  }
+  function dropInvite(iv) {
+    dismissedMsg[iv.from + ":chat:" + iv.t] = true;
+    invites = invites.filter(function (x) { return x !== iv; });
+    if (!room) return;
+    var code = room.code;
+    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + iv.from, { method: "DELETE" }).catch(function () {}); });
+  }
+  function handleInvite(iv, lis, byId) {              // 상대가 대화를 열었을 때: 내 쪽에도 창을 띄움
+    var peer = iv.from, m = byId[peer], li = lis[peer];
+    if (!CHAT_ID.test(peer) || chats[peer] || chatBlocked || !room) { dropInvite(iv); return; }
+    if (iv.t <= (chatClosedAt[peer] || 0) || Date.now() / 1000 - iv.t > 120 || !m || !li || isLive(m)) { dropInvite(iv); return; }
+    dropInvite(iv);
+    var code = room.code, me = getDeviceId();
+    dbFetch(chatNode(code, peer), { cache: "no-store" }).then(function (d) {
+      if (!d || typeof d !== "object" || chats[peer] || !room || room.code !== code || !lastLis[peer]) return;
+      var msgs = {}, over = false;
+      Object.keys(d).forEach(function (k) {
+        var x = d[k];
+        if (!validMsg(x) || (x.f !== me && x.f !== peer)) return;
+        if (x.k === "sys") { if (x.f !== me) over = true; return; }
+        msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
+      });
+      if (over || !Object.keys(msgs).length) return;     // 이미 끝난 대화면 열지 않음
+      var c = buildChat(peer, m.name, msgs, lastLis[peer]);
+      c.sawServer = true;
+    }).catch(function () {});
+  }
+  function syncChats(lis, list) {
+    lastLis = lis;
+    var byId = {};
+    list.forEach(function (m) { byId[m.id] = m; });
+    Object.keys(chats).forEach(function (peer) {
+      var c = chats[peer], li = lis[peer], m = byId[peer];
+      if (!li || !m) { endChat(peer, chatNoticeText(c, "gone")); return; }
+      c.li = li; c.nameEl.textContent = m.name;
+      if (isLive(m)) endChat(peer, chatNoticeText(c, "exam"));      // 상대가 실모를 시작한 것을 목록에서 먼저 알아챈 경우
+      if (!c.ended || chats[peer]) placeNear(c.el, li);
+    });
+    invites.slice().forEach(function (iv) { handleInvite(iv, lis, byId); });
+  }
 
   function openProfile(m, anchor) {
     var pop = $("profilePop");
@@ -2077,7 +2320,7 @@
       pop.appendChild(rec);
     } else {                                            // 응시 중이 아님
       pop.appendChild(el("div", "pIdle", "현재 응시중이 아닙니다"));
-      if (!m.me && justDone(m)) {                       // 방금(5분 이내) 끝냈다면: 점수 물어보기
+      if (!m.me && justDone(m) && !chats[m.id]) {       // 방금(5분 이내) 끝냈다면: 점수 물어보기 (이미 대화 중이면 안 띄움)
         var aw = el("div", "pAskWrap"), already = asked[m.id] && Date.now() - asked[m.id] < 300000;
         aw.appendChild(el("div", "pAskSub", "방금 친 시험 · " + m.live.s));
         var ab = el("button", "pAsk", already ? "물어봤어요" : "점수 물어보기");
@@ -2188,7 +2431,8 @@
     var pop = $("profilePop");
     pop.style.visibility = "hidden"; pop.classList.add("on");
     var r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pw = pop.offsetWidth, ph = pop.offsetHeight, G = 10, x, y;
-    if (r.left - G - pw >= 8) { x = r.left - G - pw; y = r.top; }                           // 카드 왼쪽 옆 (오른쪽 열이므로 기본)
+    var sh = (profileM && chats[profileM.id]) ? chats[profileM.id].el.offsetWidth + 10 : 0;        // 이 사람과 채팅 중이면 채팅창 왼쪽으로 비켜서 뜸
+    if (r.left - sh - G - pw >= 8) { x = r.left - sh - G - pw; y = r.top; }                // 카드 왼쪽 옆 (오른쪽 열이므로 기본)
     else if (r.right + G + pw <= vw - 8) { x = r.right + G; y = r.top; }                     // 왼쪽이 좁으면 오른쪽 옆
     else { x = Math.min(Math.max(8, r.left), vw - pw - 8); y = r.bottom + 8; if (y + ph > vh - 8) y = r.top - ph - 8; }   // 폰: 카드 아래(안 되면 위)
     y = Math.max(8, Math.min(y, vh - ph - 8));
@@ -2287,6 +2531,7 @@
   $("roomLeave").addEventListener("click", function () {
     ask("방에서 나가겠습니까?\n서버에 있는 내 기록도 지워져요.", "나가기", true, function () {
       var code = room ? room.code : "", wasHost = isHost(), succ = others.length ? others[0] : null;
+      closeAllChats("gone");
       saveRoom(null); others = []; hostId = ""; lastSent = ""; netErr = false;
       photoSent = ""; photoCache = {};
       if (code && wasHost) {                         // 방장이 나가면 다음 사람에게 넘기고, 혼자였다면 방 정보를 정리
@@ -2575,6 +2820,7 @@
   function start(slot) {
     var subject = loadSubjects()[slot];
     if (!subject) return;
+    closeAllChats("exam");                           // 대화 중이던 상대에게 "실모를 치러 갔다"고 알리고 내 창은 닫음
     current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
     recId = newId();
     var all = loadAll();
@@ -2790,7 +3036,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
