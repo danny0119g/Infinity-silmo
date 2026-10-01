@@ -18,7 +18,9 @@
     box-sizing: border-box;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; touch-action: manipulation; }
+  button, #stage, .slot { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     background: var(--bg);
     color: var(--text);
@@ -49,7 +51,8 @@
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
   }
   .topIn h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
-  .topRight { display: flex; align-items: center; gap: 16px; }
+  .topRight { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; min-width: 0; }
+  #editSubjects { flex: none; margin-left: auto; }
   #today { text-align: right; line-height: 1.4; }
   #today .line { font-size: 15px; font-weight: 700; white-space: nowrap; }
   #today .line strong { font-size: 22px; font-variant-numeric: tabular-nums; margin: 0 2px; }
@@ -59,7 +62,7 @@
     margin: 0 auto; width: 100%; max-width: 800px; padding: 42px 20px max(44px, env(safe-area-inset-bottom, 0px));
     display: flex; flex-direction: column; gap: 30px;
   }
-  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+  .slots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; width: 100%; }
   .slot {
     min-height: 200px; padding: 22px 14px;
     background: var(--panel); border: 2px solid var(--line); border-radius: 20px;
@@ -187,7 +190,9 @@
   @media (max-width: 560px) {
     .topRight { width: 100%; justify-content: space-between; }
     #today { text-align: left; }
-    .slot { min-height: 168px; padding: 18px 10px; }
+    .slot { min-height: 168px; padding: 18px 10px; min-width: 0; }
+    .slot .main { font-size: clamp(20px, 6.8vw, 46px); overflow-wrap: anywhere; }
+    .slot.empty .main { font-size: clamp(34px, 11vw, 68px); }
     .homeMain { gap: 24px; margin: 0 auto; }
   }
 
@@ -240,6 +245,9 @@
     padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(8px, env(safe-area-inset-bottom, 0px));
   }
   #clock { width: min(100vw - 16px, 100vh - 16px); height: min(100vw - 16px, 100vh - 16px); max-width: 100%; max-height: 100%; display: block; }
+  @supports (height: 100dvh) {
+    #clock { width: min(100vw - 16px, 100dvh - 16px); height: min(100vw - 16px, 100dvh - 16px); }
+  }
   .bar, .bottombar {
     position: absolute; left: 0; right: 0;
     display: flex; justify-content: space-between; align-items: center;
@@ -249,7 +257,9 @@
   .bar > *, .bottombar > * { pointer-events: auto; }
   .bar { top: 0; padding-top: max(var(--edge), env(safe-area-inset-top, 0px)); }
   .bottombar { bottom: 0; padding-bottom: max(var(--edge), env(safe-area-inset-bottom, 0px)); }
-  #stage.fs .bar { padding-left: calc(var(--edge) + 72px); }
+  @media (min-width: 700px) { #stage.fs .bar { padding-left: calc(var(--edge) + 72px); } }   /* 아이패드 전체화면의 왼쪽 위 X 버튼 자리 (폭이 좁은 화면에서는 밀지 않음) */
+  .bar { flex-wrap: wrap; gap: 8px; }
+  @media (max-width: 420px) { .pill { padding: 0 12px; font-size: 14px; } }
   #abandon { background: rgba(216,38,28,.20); border-color: rgba(240,104,94,.55); color: #ffb3ac; }
   .tools { display: flex; gap: 8px; margin-left: auto; }
   .pill.icon { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -548,9 +558,10 @@
   }
 
   // ---------- 선택한 과목 (직접 수정하기 전까지 계속 유지) ----------
-  var SUBJ_KEY = "examTimer.subjects.v1", memSubj = { 1: null, 2: null };
+  var SUBJ_KEY = "examTimer.subjects.v1", memSubj = { 1: null, 2: null }, subjFailed = false;
   function loadSubjects() {
     var s = null;
+    if (subjFailed) return { 1: memSubj[1], 2: memSubj[2] };
     try { s = JSON.parse(localStorage.getItem(SUBJ_KEY)); } catch (e) {}
     if (s && typeof s === "object") {
       return {
@@ -564,26 +575,49 @@
     var s = loadSubjects();
     s[slot] = subject;
     memSubj = s;
-    try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); } catch (e) {}
+    try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); subjFailed = false; } catch (e) { subjFailed = true; }
   }
 
   // ---------- 기록 (날짜 구분 없이, 응시한 순서대로 계속 보관) ----------
   var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2", memAll = null;
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  var storeFailed = false;                       // 저장소에 쓰기가 실패했으면(용량 초과 등) 이번 방문 동안은 메모리 값을 우선
   function saveAll(arr) {
     memAll = arr;
-    try { localStorage.setItem(ALL_KEY, JSON.stringify(arr)); } catch (e) {}
+    try { localStorage.setItem(ALL_KEY, JSON.stringify(arr)); storeFailed = false; } catch (e) { storeFailed = true; }
+  }
+  // 저장된 값이 깨져 있어도 화면이 멈추지 않도록 한 줄씩 점검해서 쓸 수 있는 형태로 만듦
+  function cleanScore(v) { return (typeof v === "number" && isFinite(v) && v >= 0 && v <= 50 && Math.floor(v) === v) ? v : null; }
+  function cleanSecs(v) { return (typeof v === "number" && isFinite(v) && v >= 0) ? v : null; }
+  function sanitize(arr) {
+    var seen = {}, out = [];
+    arr.forEach(function (r) {
+      if (!r || typeof r !== "object") return;
+      var c = {}, k, id = (typeof r.id === "string" && r.id) ? r.id : newId();
+      for (k in r) c[k] = r[k];
+      while (seen[id]) id = newId();
+      seen[id] = true;
+      c.id = id;
+      c.slot = (r.slot === 2 || (r.slot == null && r.key === "earth")) ? 2 : 1;
+      c.subject = (typeof r.subject === "string" && r.subject) ? r.subject.slice(0, 40) : (r.key === "earth" ? "지구과학Ⅰ" : "생명과학Ⅰ");
+      c.score1 = cleanScore(r.score1); c.score2 = cleanScore(r.score2);
+      c.elapsed = cleanSecs(r.elapsed); c.elapsed1 = cleanSecs(r.elapsed1);
+      c.usedExtra = !!r.usedExtra;
+      out.push(c);
+    });
+    return out;
   }
   function loadAll() {
+    if (storeFailed && memAll) return memAll;
     var arr = null;
     try { arr = JSON.parse(localStorage.getItem(ALL_KEY)); } catch (e) {}
-    if (Array.isArray(arr)) return arr;
+    if (Array.isArray(arr)) return sanitize(arr);
     if (memAll) return memAll;
     // 이전 버전에서 쓰던 기록이 있으면 그대로 이어받기
     var old = null;
     try { old = JSON.parse(localStorage.getItem(OLD_KEY)); } catch (e) {}
-    arr = (old && Array.isArray(old.records)) ? old.records.slice() : [];
+    arr = sanitize((old && Array.isArray(old.records)) ? old.records : []);
     saveAll(arr);
     return arr;
   }
@@ -605,10 +639,11 @@
     return nums;
   }
   // 예전 버전의 기록(생1/지1)도 그대로 읽을 수 있게
-  function recSlot(rec) { return rec.slot || (rec.key === "earth" ? 2 : 1); }
+  function recSlot(rec) { return rec.slot === 2 ? 2 : 1; }
   function recSubject(rec) { return rec.subject || (rec.key === "earth" ? "지구과학Ⅰ" : "생명과학Ⅰ"); }
 
   function fmtDur(sec) {
+    if (typeof sec !== "number" || !isFinite(sec)) return "-";
     var total = Math.round(sec), m = Math.floor(total / 60), s = total % 60;
     return m + "분 " + s + "초";
   }
@@ -756,7 +791,11 @@
     for (var k in attrs) n.setAttribute(k, attrs[k]);
     return n;
   }
-  function niceStep(range) { return range <= 6 ? 1 : range <= 14 ? 2 : range <= 30 ? 5 : 10; }
+  function niceStep(range) {
+    var c = [1, 2, 5, 10, 15, 20, 30, 60, 120, 180, 240, 360, 720];
+    for (var i = 0; i < c.length; i++) if (range / c[i] <= 7) return c[i];
+    return 1440;
+  }
   function lighten(hex, amt) {
     var num = parseInt(hex.slice(1), 16), r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
     function m(c) { return Math.round(c + (255 - c) * amt); }
@@ -777,15 +816,18 @@
   // 폭(sig)이 넓을수록 매끈하고 좁을수록 점을 따라 깊게 파임
   function trendCurve(xs, ys) {
     var n = xs.length, span = xs[n - 1] - xs[0], gap = span / (n - 1) || 1;
-    var sig = 0.85 * gap, S = Math.max(80, (n - 1) * 12), out = [];
+    var sig = 0.85 * gap, S = Math.min(240, Math.max(80, (n - 1) * 12)), out = [];     // 점이 아주 많아도 계산량이 폭주하지 않게 상한
     for (var i = 0; i <= S; i++) {
-      var x = xs[0] + span * i / S, sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      var x = xs[0] + span * i / S, sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, near = 0, nd = Infinity;
       for (var j = 0; j < n; j++) {
         var dx = xs[j] - x, w = Math.exp(-0.5 * (dx / sig) * (dx / sig));
         sw += w; sx += w * dx; sy += w * ys[j]; sxx += w * dx * dx; sxy += w * dx * ys[j];
+        if (Math.abs(dx) < nd) { nd = Math.abs(dx); near = j; }
       }
-      var den = sw * sxx - sx * sx;
-      out.push([x, Math.abs(den) < 1e-12 ? sy / sw : (sxx * sy - sx * sxy) / den]);
+      var den = sw * sxx - sx * sx, y;
+      y = (sw > 1e-12 && Math.abs(den) >= 1e-12) ? (sxx * sy - sx * sxy) / den : (sw > 1e-12 ? sy / sw : ys[near]);
+      if (!isFinite(y)) y = ys[near];                        // 어떤 경우에도 NaN 이 그래프를 망가뜨리지 않게
+      out.push([x, y]);
     }
     return out;
   }
@@ -1256,6 +1298,8 @@
   sw.addEventListener("pointerup", function (e) { if (swDrag && e.pointerId === swDrag.id) endSwitchDrag(true, e.clientX); });
   // 손가락이 미끄러져 브라우저가 제스처를 가로채도, 이미 드래그 중이었다면 지금까지의 움직임으로 판단
   sw.addEventListener("pointercancel", function () { if (swDrag) endSwitchDrag(swDrag.dragging, swDrag.lastX); });
+  sw.addEventListener("lostpointercapture", function () { if (swDrag) endSwitchDrag(swDrag.dragging, swDrag.lastX); });
+  window.addEventListener("blur", function () { if (swDrag) endSwitchDrag(false, swDrag.lastX); });
   sw.addEventListener("click", function (e) {                                       // 키보드(스페이스/엔터)로는 반대쪽으로 전환
     if (e.detail !== 0) return;
     switchChart(chartMode === "score" ? "homer" : "score");
@@ -1272,7 +1316,16 @@
   });
 
   document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") {
+      if (swDrag) endSwitchDrag(false, swDrag.lastX);
+      hiddenAt = { p: performance.now(), w: Date.now() };
+    }
     if (document.visibilityState === "visible") {
+      if (hiddenAt && running) {                    // 잠겨 있던 동안 실제 시각과 브라우저 시계의 차이만큼을 시험 시간에 반영
+        var gp = (performance.now() - hiddenAt.p) / 1000, gw = (Date.now() - hiddenAt.w) / 1000;
+        if (gw - gp > 1 && gw < 12 * 3600) sleepCredit += gw - gp;
+      }
+      hiddenAt = null;
       if (home.style.display !== "none") renderToday();
       if (stage.classList.contains("on") && (phase === "running" || phase === "extra")) requestWake();
     }
@@ -1402,24 +1455,30 @@
   // ---------- 시험 상태 ----------
   // phase: idle → running(30분) → ended1(점수 입력 + 추가시간 질문) → extra(추가시간) → ended2(호머식 점수 입력) → idle
   var phase = "idle", current = null, recId = "";
-  var accum = 0, runStart = 0, running = false;       // 시계가 실제로 흐른 시간(초)
+  var accum = 0, runStart = 0, runStartWall = 0, running = false;       // 시계가 실제로 흐른 시간(초)
+  var sleepCredit = 0, hiddenAt = null;               // 화면이 잠겨 브라우저 시계가 멈춰 있던 동안 실제로 흐른 시간(초)
   var extraStart = 0;                                  // 추가 시간을 쓰기 시작한 시점(초)
   var raf = 0, offset = 0, wakeLock = null, showRemain = false;
   var warned = false, warnTimer = 0;
 
+  // 평소에는 브라우저 시계(performance.now)만 쓰고, 화면이 잠겼다 돌아온 경우에만 "실제 시각은 흘렀는데 브라우저 시계는 멈춘 만큼"을 더해 줌
+  function runSeconds() {
+    return Math.max(0, (performance.now() - runStart) / 1000) + sleepCredit;
+  }
   function elapsedNow() {
-    return accum + (running ? (performance.now() - runStart) / 1000 : 0);
+    return accum + (running ? runSeconds() : 0);
   }
   function resume() {
     if (running) return;
     running = true;
-    runStart = performance.now();
+    runStart = performance.now(); runStartWall = Date.now(); sleepCredit = 0;
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(tick);
   }
   function pause() {
     if (!running) return;
-    accum += (performance.now() - runStart) / 1000;
+    accum += runSeconds();
+    sleepCredit = 0;
     running = false;
     cancelAnimationFrame(raf);
   }
@@ -1443,7 +1502,10 @@
     var e = elapsedNow();
     if (phase === "running" && e >= DURATION) { endRegular(DURATION); return; }
     render(e);
-    if (phase === "running" && !warned && e >= WARN_AT) showWarn();
+    if (phase === "running" && !warned && e >= WARN_AT) {
+      warned = true;
+      if (e - WARN_AT < 20) showWarn();             // 백그라운드에 있다가 한참 뒤에 돌아온 경우엔 틀린 알림이 되므로 띄우지 않음
+    }
     raf = requestAnimationFrame(tick);
   }
 
@@ -1500,6 +1562,43 @@
     } catch (e) {}
   }
 
+  // ---------- 진행 중인 시험 기억 (탭이 다시 불러와져도 시험이 사라지지 않게) ----------
+  var SESSION_KEY = "examTimer.session.v1", SESSION_MAX = 12 * 3600 * 1000;
+  function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
+  function saveSession() {
+    if (phase === "idle" || !current) { clearSession(); return; }
+    var obj = { v: 1, phase: phase, slot: current.slot, subject: current.subject, recId: recId, offset: offset,
+                extraStart: extraStart, accum: accum, wall: running ? runStartWall : null, savedAt: Date.now() };
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(obj)); } catch (e) {}
+  }
+  function restoreSession() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) {}
+    if (!s || s.v !== 1 || !SLOTS[s.slot] || typeof s.subject !== "string" || typeof s.recId !== "string") { if (s) clearSession(); return false; }
+    var now = Date.now(), ref = s.wall || s.savedAt || 0;
+    if (!(now - ref < SESSION_MAX) || now < ref - 60000) { clearSession(); return false; }          // 너무 오래됐거나 시각이 이상하면 버림
+    if (!findRec(loadAll(), s.recId)) { clearSession(); return false; }                              // 기록이 이미 지워졌으면 이어갈 게 없음
+    var acc = Number(s.accum); if (!isFinite(acc) || acc < 0) acc = 0;
+    var elapsed = acc + (s.wall ? Math.max(0, (now - s.wall) / 1000) : 0);
+    current = { slot: s.slot, label: SLOTS[s.slot].label, subject: s.subject, startH: SLOTS[s.slot].startH, startM: SLOTS[s.slot].startM };
+    recId = s.recId; offset = isFinite(Number(s.offset)) ? Number(s.offset) : 0;
+    extraStart = isFinite(Number(s.extraStart)) ? Number(s.extraStart) : 0;
+    home.style.display = "none"; stage.classList.add("on"); done.classList.remove("on");
+    if (s.phase === "running" && elapsed < DURATION) {
+      phase = "running"; accum = elapsed; running = false; warned = elapsed >= WARN_AT;
+      updateButtons(); requestWake(); render(accum); resume(); saveSession();
+    } else if (s.phase === "running") {                  // 안 보는 사이에 30분이 지났음
+      phase = "running"; accum = DURATION; running = false; endRegular(DURATION); saveSession();
+    } else if (s.phase === "extra") {
+      phase = "extra"; accum = elapsed; running = false;
+      updateButtons(); requestWake(); render(accum); resume(); saveSession();
+    } else if (s.phase === "ended1" || s.phase === "ended2") {
+      phase = s.phase; accum = acc; running = false;
+      render(accum); updateButtons(); openScore(s.phase === "ended1" ? 1 : 2); saveSession();
+    } else { clearSession(); home.style.display = ""; stage.classList.remove("on"); current = null; phase = "idle"; return false; }
+    return true;
+  }
+
   // ---------- 시작 / 탈주 / 종료 ----------
   function start(slot) {
     var subject = loadSubjects()[slot];
@@ -1523,6 +1622,7 @@
     requestWake();
     render(0);
     resume();
+    saveSession();
     enterFullscreen();
   }
 
@@ -1530,6 +1630,7 @@
     cancelAnimationFrame(raf);
     running = false;
     phase = "idle";
+    clearSession();
     hideWarn(); closeAsk();
     releaseWake();
     stage.classList.remove("on");
@@ -1558,6 +1659,7 @@
     phase = "ended1";
     updateButtons();
     openScore(1);
+    saveSession();
   }
   // 추가 시간을 쓰다가 종료 버튼을 눌렀을 때
   function endExtra() {
@@ -1566,6 +1668,7 @@
     phase = "ended2";
     updateButtons();
     openScore(2);
+    saveSession();
   }
 
   function openScore(step) {
@@ -1620,6 +1723,7 @@
     // 키보드가 완전히 내려간 뒤에 전체 화면으로 (키보드 애니메이션과 겹치면 아이패드에서 멈추는 문제 방지)
     setTimeout(function () { if (phase === "extra" && stage.classList.contains("on")) enterFullscreen(); }, 450);
     resume();                      // 멈췄던 지점에서 이어서 돌아감
+    saveSession();
     });
   });
   $("extraNo").addEventListener("click", function () {
@@ -1659,15 +1763,23 @@
   $("abandon").addEventListener("click", askAbandon);
 
   // ---------- 화면 켜짐 유지 ----------
+  var wakeToken = 0;
   function requestWake() {
     try {
-      if (navigator.wakeLock) {
-        navigator.wakeLock.request("screen").then(function (l) { wakeLock = l; }).catch(function () {});
-      }
+      if (!navigator.wakeLock) return;
+      releaseWake();
+      var mine = ++wakeToken;
+      navigator.wakeLock.request("screen").then(function (l) {
+        if (mine !== wakeToken) { try { l.release(); } catch (e) {} return; }      // 요청하는 사이에 이미 시험이 끝났으면 바로 반납
+        wakeLock = l;
+        if (l.addEventListener) l.addEventListener("release", function () { if (wakeLock === l) wakeLock = null; });
+      }).catch(function () {});
     } catch (e) {}
   }
   function releaseWake() {
-    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {}
+    wakeToken++;
+    try { if (wakeLock) { wakeLock.release(); } } catch (e) {}
+    wakeLock = null;
   }
 
   // ---------- 기타 이벤트 ----------
@@ -1703,7 +1815,13 @@
     if (!t || t.disabled) return;
     var started = performance.now(), isSlot = t.classList.contains("slot");
     t.classList.add("pressing");
+    var guard = setTimeout(function () {                // 손을 뗀 신호를 못 받아도 몇 초 뒤엔 반드시 풀림
+      document.removeEventListener("pointerup", release, true);
+      document.removeEventListener("pointercancel", release, true);
+      if (holdSlot !== t) t.classList.remove("pressing");
+    }, 6000);
     function release() {
+      clearTimeout(guard);
       document.removeEventListener("pointerup", release, true);
       document.removeEventListener("pointercancel", release, true);
       if (isSlot) {                                  // 과목 카드: 확인 창이 열려 붙잡혀 있으면 그대로, 아니면 잠시 뒤 해제
@@ -1720,6 +1838,7 @@
   updateFsIcon();
   renderSlots();
   renderToday();
+  restoreSession();                              // 시험 도중에 페이지가 다시 불러와졌다면 그 자리에서 이어서
 })();
 </script>
 </body>
