@@ -735,21 +735,19 @@
     for (var i = 0; i < xs.length; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) * (xs[i] - mx); }
     return den ? num / den : 0;
   }
-  // 추세곡선: 가까운 점에 더 무게를 두는 국소 직선 회귀(LOWESS 방식)로 부드럽게 이어 그림
+  // 추세곡선: 모든 점을 가까운 순서로 무게를 달리해 반영하는 가우시안 국소 직선 회귀.
+  // 한 줄로 끊김 없이 이어지는 부드러운 곡선이고, 점이 움푹 들어간 구간(꺾이는 곳)은 어느 정도 깊게 살아남음
   function trendCurve(xs, ys) {
-    var n = xs.length, k = n <= 8 ? n : Math.ceil(n * 0.7), out = [], S = 48;
+    var n = xs.length, span = xs[n - 1] - xs[0], gap = span / (n - 1) || 1;
+    var sig = 0.5 * gap, S = Math.max(80, (n - 1) * 12), out = [];
     for (var i = 0; i <= S; i++) {
-      var x = xs[0] + (xs[n - 1] - xs[0]) * i / S;
-      var d = xs.map(function (xx) { return Math.abs(xx - x); });
-      var h = d.slice().sort(function (p, q) { return p - q; })[k - 1] * 1.25 || 1;
-      var sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      var x = xs[0] + span * i / S, sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
       for (var j = 0; j < n; j++) {
-        var u = d[j] / h, w = u < 1 ? Math.pow(1 - u * u * u, 3) : 0;
-        sw += w; sx += w * xs[j]; sy += w * ys[j]; sxx += w * xs[j] * xs[j]; sxy += w * xs[j] * ys[j];
+        var dx = xs[j] - x, w = Math.exp(-0.5 * (dx / sig) * (dx / sig));
+        sw += w; sx += w * dx; sy += w * ys[j]; sxx += w * dx * dx; sxy += w * dx * ys[j];
       }
-      var den = sw * sxx - sx * sx, y;
-      y = Math.abs(den) < 1e-9 ? sy / sw : ((sy * sxx - sx * sxy) + (sw * sxy - sx * sy) * x) / den;
-      out.push([x, y]);
+      var den = sw * sxx - sx * sx;
+      out.push([x, Math.abs(den) < 1e-12 ? sy / sw : (sxx * sy - sx * sxy) / den]);
     }
     return out;
   }
@@ -906,10 +904,9 @@
     });
     // 한 과목만 볼 때의 추세곡선
     if (stat && stat.curve) {
-      svg.appendChild(svgEl("path", {
-        d: stat.curve.map(function (c, i) { return (i ? "L" : "M") + X(c[0]).toFixed(1) + "," + Y(c[1]).toFixed(1); }).join(" "),
-        fill: "none", stroke: lighten(color[focusSubject], 0.4), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "8 6"
-      }));
+      var cd = stat.curve.map(function (c, i) { return (i ? "L" : "M") + X(c[0]).toFixed(1) + "," + Y(c[1]).toFixed(1); }).join(" ");
+      svg.appendChild(svgEl("path", { d: cd, fill: "none", stroke: color[focusSubject], "stroke-width": 8, "stroke-opacity": 0.16, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+      svg.appendChild(svgEl("path", { d: cd, fill: "none", stroke: lighten(color[focusSubject], 0.35), "stroke-width": 3.2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
     }
 
     // 점수 그래프: 선택한 점 위에 호머식 점수를 연한 색 점으로 (다른 곳을 누르면 사라짐)
