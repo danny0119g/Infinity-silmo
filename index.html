@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001140508">
+<meta name="app-version" content="20261001140745">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -145,9 +145,10 @@
   .pointinfo { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 6px 0; font-size: 14px; color: var(--muted); }
   .pointinfo strong { color: var(--text); font-weight: 700; }
   .pointinfo .del {
-    flex: none; background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
-    padding: 8px 14px; font-size: 14px; color: #f0908a;
+    flex: none; width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid #4a4f58; border-radius: 10px; color: #f0908a;
   }
+  .pointinfo .del svg, .rec .del svg, #recClear svg, .rbtn.del svg { width: 18px; height: 18px; display: block; }
 
   .records { width: 100%; }
   .records h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
@@ -159,8 +160,8 @@
   .recfilter { flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
   .recfilter::-webkit-scrollbar { display: none; }
   #recClear {
-    flex: none; height: 32px; padding: 0 13px; border-radius: 10px; border: 1px solid #4a4f58;
-    background: transparent; color: #f0908a; font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap;
+    flex: none; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 10px; border: 1px solid #4a4f58; background: transparent; color: #f0908a;
   }
   .rf {
     flex: none; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px; border-radius: 999px;
@@ -191,8 +192,8 @@
   .pen svg { width: 15px; height: 15px; display: block; }
   .rec .meta { margin-top: 2px; font-size: 13px; color: var(--muted); }
   .rec .del {
-    background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
-    padding: 9px 14px; font-size: 14px; color: #f0908a;
+    width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid #4a4f58; border-radius: 10px; color: #f0908a;
   }
   #recordsEmpty { margin: 0; padding: 24px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 
@@ -438,7 +439,7 @@
   .roomAv { width: 48px; height: 48px; flex: none; font-size: 19px; }
   .roomAvWrap { width: 48px; height: 48px; }
   .roomdlg .prow { justify-content: space-between; }
-  .rbtn.del { color: #f0908a; height: 44px; }
+  .rbtn.del { color: #f0908a; width: 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .rbtn.pressing { box-shadow: 0 0 0 2px var(--accent); }
   .roomdlg .rsec.leave { margin-top: 4px; text-align: center; }
   .leaveLink { padding: 8px 12px; border: 0; background: none; font-size: 13px; font-weight: 600; color: #b9726d; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
@@ -655,7 +656,7 @@
       <div class="recbox" id="recBox">
         <div class="rectop" id="recTop">
           <div class="recfilter" id="recFilter"></div>
-          <button type="button" id="recClear">전체 삭제</button>
+          <button type="button" id="recClear" aria-label="전체 삭제" title="전체 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
         </div>
         <ul id="records"></ul>
         <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
@@ -791,7 +792,7 @@
         <h3 class="rhead">내 프로필</h3>
         <div class="rrow prow">
           <div class="avWrap roomAvWrap"><div class="avatar roomAv" id="roomAv"></div><button id="photoChange" class="avPen" type="button" aria-label="프로필 사진 편집" title="프로필 사진 편집"></button></div>
-          <button id="photoDel" class="rbtn del hidden">사진 삭제</button>
+          <button id="photoDel" class="rbtn del hidden" type="button" aria-label="사진 삭제" title="사진 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
         </div>
         <div class="rrow nrow">
           <input id="nickEdit" class="tinput nick" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임">
@@ -1036,6 +1037,7 @@
   }
 
   // 점수가 비어 있을 때만 보이는 작은 펜 버튼 (한 번 입력하면 사라짐)
+  var TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
   var PEN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>';
   function penBtn(rec, field, label) {
     var b = el("button", "pen");
@@ -1128,7 +1130,7 @@
       }
       info.appendChild(sc);
       if (rec.elapsed != null) info.appendChild(el("div", "meta", fmtDur(rec.elapsed) + " 걸림"));
-      var del = el("button", "del", "삭제");
+      var del = el("button", "del"); del.type = "button"; del.innerHTML = TRASH_ICON; del.setAttribute("aria-label", "삭제"); del.setAttribute("title", "삭제");
       del.addEventListener("click", function () {
         var label = title + (rec.score1 != null ? " " + rec.score1 + "점" : "") + " 기록을 삭제하겠습니까?";
         ask(label, "삭제", true, function () { removeRec(rec.id); renderToday(); });
@@ -1568,7 +1570,7 @@
         if (selRec.score2 != null) detail += ", 호머식 " + selRec.score2 + "점";
         if (detail) txt.appendChild(document.createTextNode(detail));
       }
-      var del = el("button", "del", "삭제");
+      var del = el("button", "del"); del.type = "button"; del.innerHTML = TRASH_ICON; del.setAttribute("aria-label", "삭제"); del.setAttribute("title", "삭제");
       del.addEventListener("click", function () {
         ask(name + " 기록을 삭제하겠습니까?", "삭제", true, function () {
           removeRec(selRec.id); clearSelection(); renderToday();
