@@ -1766,8 +1766,22 @@
     }).catch(function () { netErr = true; lastSent = ""; });
   }
   // 프로필 사진은 별도 칸(photos)에 올려서, 실패해도 기록 동기화에는 영향이 없게 함
+  var PHOTOUSE_KEY = "examTimer.photoUse.v1";
+  function loadPhotoUse() { try { var o = JSON.parse(localStorage.getItem(PHOTOUSE_KEY)); if (o && typeof o === "object") return o; } catch (e) {} return {}; }
+  var photoUse = loadPhotoUse();
+  function setPhotoUse(code, v) { photoUse[code] = v; try { localStorage.setItem(PHOTOUSE_KEY, JSON.stringify(photoUse)); } catch (e) {} }
+  function photoUsable() { if (!room) return true; var v = photoUse[room.code]; return v !== false && v !== "ask"; }
+  function askPhotoUse() {                           // 방에 들어올 때마다: 이 방에서 지금 사진을 쓸지 물어봄
+    if (!room || !photo || photoUse[room.code] !== "ask" || $("modal").classList.contains("on")) return;
+    var code = room.code;
+    ask("이 방에서 프로필 사진을 쓰겠습니까?", "사용", false, function () {
+      setPhotoUse(code, true); photoSent = ""; photoBlocked = false;
+      keepPageScroll(renderTogether);
+      enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
+    }, function () { setPhotoUse(code, false); keepPageScroll(renderTogether); });
+  }
   function pushPhoto(force) {
-    if (!room || !photo) return Promise.resolve();
+    if (!room || !photo || !photoUsable()) return Promise.resolve();
     if (!force && (photoSent === photo || photoBlocked)) return Promise.resolve();
     var code = room.code, mine = photo;
     return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mine) })
@@ -1880,6 +1894,7 @@
         notice("이제 방 친구들이 내 점수를 볼 수 있어요.\n방 설정에서 \"내 점수 공개\"를 끌 수 있어요.");
       }
     } catch (e) {}
+    askPhotoUse();
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }
   function renderTogether() {
@@ -2026,6 +2041,7 @@
   var photo = loadPhoto();
   function savePhoto(p) { memPhoto = p; photo = p; try { localStorage.setItem(PHOTO_KEY, p); } catch (e) {} }
   function applyPhoto(data) {
+    if (room) setPhotoUse(room.code, true);           // 새로 고른 사진은 이 방에서 바로 사용
     savePhoto(data); photoSent = ""; photoBlocked = false;
     keepPageScroll(renderTogether);
     enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
@@ -2040,7 +2056,7 @@
   }
   function fillAvatar(av, m) {
     av.textContent = "";
-    var src = m.me ? photo : ((photoCache[m.uid] || {}).data || "");
+    var src = m.me ? (photoUsable() ? photo : "") : ((photoCache[m.uid] || {}).data || "");
     if (src && validPhoto(src)) {
       var im = el("img"); im.src = src; im.alt = "";
       av.appendChild(im); av.style.background = "#111214";
@@ -2066,6 +2082,17 @@
     ed.type = "button";
     ed.addEventListener("click", function (e) { e.stopPropagation(); closePenMenu(); $("photoInput").click(); });
     mn.appendChild(ed);
+    if (photo && room && !photoUsable() && photoUse[room.code] === false) {       // 이 방에서는 안 쓰기로 했던 사진을 다시 쓰고 싶을 때
+      var use = el("button", "pmItem", "이 방에서 사진 쓰기");
+      use.type = "button";
+      use.addEventListener("click", function (e) {
+        e.stopPropagation(); closePenMenu();
+        setPhotoUse(room.code, true); photoSent = ""; photoBlocked = false;
+        keepPageScroll(renderTogether);
+        enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
+      });
+      mn.appendChild(use);
+    }
     if (photo) {
       var del = el("button", "pmItem del", "프로필 사진 삭제");
       del.type = "button";
@@ -2766,10 +2793,11 @@
       if (netErr) { saveRoom(null); throw new Error("net"); }
       roomBusy = false;
       closeRoomModal();
-      enqueue(function () { return pushPhoto(true); });
+      setPhotoUse(code, photo ? "ask" : true);
       var hp = joining ? Promise.resolve() : enqueue(function () { return putHost(getDeviceId()); });     // 방을 만든 사람이 방장
       hp.then(pullOthers).then(function () { keepPageScroll(renderTogether); });
       keepPageScroll(renderTogether);
+      askPhotoUse();
     }).catch(function (err) {
       roomBusy = false;
       var em = err && err.message;
