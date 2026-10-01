@@ -730,11 +730,12 @@
   }
 
   // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
-  // 점수 추이: 세로축 점수 (위로 갈수록 높음). 기본은 25~50점만 보이고 그 아래는 가려져 있다가 눌러서 펼침
+  // 점수 추이: 세로축 점수 (위로 갈수록 높음). 기본은 29~50점만 보이고 그 아래는 가려져 있다가 눌러서 펼침
   // 시간 추이: 세로축 시간 (위로 갈수록 짧음)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
   var TOL = 1;                                   // 같은 회차에서 ±1점(시간은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
   var SCORE_CARD_BG = "#252c37";                 // 점수 그래프 카드 색 (가림막 그라데이션이 이 색으로 사라짐)
+  // 점수 그래프는 29점 아래가 가려짐
   var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "", scoreExpanded = false;
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
@@ -845,9 +846,9 @@
     }
 
     var W = Math.max(280, Math.round(measuredW || 600));
-    var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
+    var H = Math.round(Math.max(250, Math.min(350, W * 0.56)));    // 세로를 넉넉히 해서 점수 변동이 잘 보이게
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
-    var collapsed = !homer && !scoreExpanded;               // 25점 아래를 가리고 있는 상태
+    var collapsed = !homer && !scoreExpanded;               // 29점 아래를 가리고 있는 상태
     var G = collapsed ? 36 : 0;                             // 가려진(그라데이션) 구간의 높이
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
     var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
@@ -861,7 +862,7 @@
     var mn, mx, lo, hi, step;
     if (!homer) {
       hi = 50;
-      if (collapsed) { lo = 25; step = 5; }                // 25점 이하는 범위 계산에서 무시 → 화면에는 25~50만
+      if (collapsed) { lo = 29; step = 5; }                // 29점 아래는 범위 계산에서 무시 → 화면에는 29~50만
       else { lo = 0; step = 10; }
     } else {
       var vals = [];
@@ -879,7 +880,10 @@
     function visible(y) { return !collapsed || y <= yBottom + 1; }   // 가려진 구간 안의 점은 숫자·선택 대상에서 제외
 
     var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": homer ? "과목별 시간 추이" : "과목별 점수 추이" });
-    for (var t = lo; t <= hi; t += step) {
+    var ticks = [];
+    if (collapsed) ticks = [30, 35, 40, 45, 50];                                   // 29점 경계는 눈금 없이 그라데이션이 시작되는 곳
+    else for (var tv = lo; tv <= hi; tv += step) ticks.push(tv);
+    ticks.forEach(function (t) {
       var gl = { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: homer ? "#434852" : "#3a3e46", "stroke-width": 1 };
       if (homer) gl["stroke-dasharray"] = "1 5"; gl["stroke-linecap"] = "round";
       svg.appendChild(svgEl("line", gl));
@@ -888,7 +892,7 @@
         : { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
       yl.textContent = homer ? t + "분" : t;
       svg.appendChild(yl);
-    }
+    });
     // 데이터는 가려진 구간까지만 그리도록 잘라냄 (그 아래는 그라데이션으로 가림)
     var uid = "c" + Math.random().toString(36).slice(2, 8), dg = svg;
     if (collapsed) {
@@ -1028,11 +1032,11 @@
       });
     }
 
-    // 25점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
+    // 29점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
     if (collapsed) {
       svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "g)", "pointer-events": "none" }));
       var strip = svgEl("rect", { x: 0, y: yBottom, width: W, height: G + 6, fill: "transparent", "class": "strip" });
-      strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "25점 아래까지 전체 보기");
+      strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "29점 아래까지 전체 보기");
       strip.addEventListener("click", function (e) {
         e.stopPropagation();
         scoreExpanded = true; clearSelection();
