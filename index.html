@@ -564,11 +564,21 @@
     #abandon:hover { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
     #endBtn:hover { filter: brightness(1.08); }
   }
+  /* [새로고침 버튼] 나중에 없애려면 이 CSS 블록, HTML 블록, JS 블록(모두 "새로고침 버튼" 주석)을 지우면 됨 */
+  #reloadBtn { position: absolute; top: max(4px, env(safe-area-inset-top, 0px)); right: 4px; z-index: 5;
+    width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px; background: transparent;
+    color: var(--muted); opacity: .6; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  #reloadBtn:active { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }
+  #reloadBtn svg { width: 15px; height: 15px; }
+  /* [/새로고침 버튼] */
 </style>
 </head>
 <body>
 
 <section id="home">
+  <!-- [새로고침 버튼] -->
+  <button id="reloadBtn" aria-label="새로고침" title="새로고침"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg></button>
+  <!-- [/새로고침 버튼] -->
   <header class="top">
     <div class="topIn">
       <h1>무수한 실모</h1>
@@ -3404,6 +3414,11 @@
   restoreSession();                              // 시험 도중에 페이지가 다시 불러와졌다면 그 자리에서 이어서
   pollTick();
 })();
+</script>
+<script>
+/* [새로고침 버튼] */
+(function(){ var b = document.getElementById("reloadBtn"); if (b) b.addEventListener("click", function(){ location.reload(); }); })();
+/* [/새로고침 버튼] */
 </script>
 </body>
 </html>
