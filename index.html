@@ -817,8 +817,9 @@
     extraStart = accum;            // 여기서부터 추가 시간이 올라감
     done.classList.remove("on");
     updateButtons();
-    scoreInput.blur();             // 키보드를 내리고
-    enterFullscreen();             // 추가 시간에도 전체 화면으로 (버튼을 누른 직후라 허용됨)
+    scoreInput.blur();             // 키보드부터 내리고
+    // 키보드가 완전히 내려간 뒤에 전체 화면으로 (키보드 애니메이션과 겹치면 아이패드에서 멈추는 문제 방지)
+    setTimeout(function () { if (phase === "extra" && stage.classList.contains("on")) enterFullscreen(); }, 450);
     resume();                      // 멈췄던 지점에서 이어서 돌아감
   });
   $("extraNo").addEventListener("click", function () {
@@ -834,6 +835,8 @@
     goHome();
   }
   $("scoreSave").addEventListener("click", saveExtraScore);
+  // 점수를 쓰려고 키보드를 열기 전에 전체 화면부터 깔끔하게 해제 (키보드와 전체 화면이 동시에 얽히지 않게)
+  scoreInput.addEventListener("focus", function () { exitFullscreen(); });
   scoreInput.addEventListener("keydown", function (e) { if (e.key === "Enter") saveExtraScore(); });
   scoreInput.addEventListener("input", function () { scoreInput.value = scoreInput.value.replace(/\D/g, ""); scoreErr.textContent = ""; });
 
