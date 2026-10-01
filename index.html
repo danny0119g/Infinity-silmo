@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001135108">
+<meta name="app-version" content="20261001135852">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -242,6 +242,10 @@
     background: #1b1d21; border: 1px solid #484e59; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.55);
   }
   #profilePop.on { display: block; }
+  #photoZoom { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(10,11,13,.82); opacity: 0; transition: opacity .18s ease; }
+  #photoZoom.on { opacity: 1; }
+  #photoZoom img { width: min(80vmin, 400px); height: min(80vmin, 400px); border-radius: 50%; object-fit: cover; background: #111214; transform: scale(.92); transition: transform .22s ease; }
+  #photoZoom.on img { transform: scale(1); }
   .crown { flex: none; display: inline-flex; color: #e0b84f; }
   .crown svg { width: 15px; height: 15px; display: block; }
   .avCrown {
@@ -419,17 +423,26 @@
   .rlist { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
   .rline { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px 9px 14px; font-size: 16px; font-weight: 600; }
   .rline + .rline { border-top: 1px solid var(--line); }
-  .sw { flex: none; min-width: 66px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #111214; color: var(--muted); font-size: 14px; font-weight: 700; }
-  .sw.on { background: rgba(61,139,253,.30); border-color: #3d6fb4; color: #cfe2ff; }
+  .sw { flex: none; position: relative; width: 51px; height: 31px; padding: 0; border: 0; border-radius: 999px; background: #3a3d44; cursor: pointer;
+    transition: background-color .25s ease; -webkit-tap-highlight-color: transparent; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 999px; background: #fff;
+    box-shadow: 0 3px 8px rgba(0,0,0,.28), 0 1px 1px rgba(0,0,0,.16); transition: transform .25s cubic-bezier(.3,.9,.3,1), width .2s ease; }
+  .sw.on { background: var(--accent); }
+  .sw.on::after { transform: translateX(20px); }
+  .sw.pressing::after { width: 33px; }
+  .sw.on.pressing::after { transform: translateX(14px); }
+  .sw.na { opacity: .4; }
+  .swNote { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
   .roomdlg .prow { align-items: center; }
   .roomdlg .nrow { margin-top: 10px; }
   .roomAv { width: 48px; height: 48px; flex: none; font-size: 19px; }
   .roomAvWrap { width: 48px; height: 48px; }
   .roomdlg .prow { justify-content: space-between; }
   .rbtn.del { color: #f0908a; height: 44px; }
-  .rbtn.pressing, .sw.pressing { box-shadow: 0 0 0 2px var(--accent); }
-  .roomdlg .rsec.leave { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
-  .roomdlg .rsec.leave .primary { margin-top: 0; }
+  .rbtn.pressing { box-shadow: 0 0 0 2px var(--accent); }
+  .roomdlg .rsec.leave { margin-top: 12px; text-align: center; }
+  .leaveLink { padding: 8px 12px; border: 0; background: none; font-size: 13px; font-weight: 600; color: #b9726d; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .leaveLink.pressing { color: #f0908a; }
   #roomErrMsg { min-height: 22px; margin: 12px 0 0; font-size: 14px; color: #ff8f86; }
   .primary.pressing { filter: brightness(1.12); }
 
@@ -756,7 +769,6 @@
 <div id="roomModal" role="dialog" aria-modal="true" aria-labelledby="roomTitle">
   <div class="dlg roomdlg">
     <p id="roomTitle">무수한 실모단</p>
-    <p class="once">닉네임·과목·응시 횟수·점수가 방 친구들에게 공유돼요.<br>점수 공개는 방 설정에서 끌 수 있어요.</p>
 
     <div id="roomJoinView">
       <label class="flabel" for="nickInput">닉네임</label>
@@ -787,15 +799,15 @@
         </div>
       </section>
       <section class="rsec">
-        <h3 class="rhead">공개 · 알림</h3>
+        <h3 class="rhead">기타</h3>
         <div class="rlist">
-          <div class="rline hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw">켜짐</button></div>
-          <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on">켜짐</button></div>
-          <div class="rline hidden" id="pushLine"><span>채팅 알림</span><button id="pushToggle" class="sw">꺼짐</button></div>
+          <div class="rline hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="이 방에서 사진 사용"></button></div>
+          <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="내 점수 공개"></button></div>
+          <div class="rline hidden" id="pushLine"><span>채팅 알림 <small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
         </div>
       </section>
       <section class="rsec leave">
-        <button id="roomLeave" class="primary ghost danger">방 나가기</button>
+        <button id="roomLeave" class="leaveLink" type="button">방 나가기</button>
       </section>
     </div>
 
@@ -1820,14 +1832,18 @@
   function refreshRoomPhoto() {                      // 방 설정 창의 프로필 사진 영역
     if (!room || !$("roomAv")) return;
     var av = $("roomAv"); av.textContent = "";
-    if (photo && validPhoto(photo)) { var im = el("img"); im.src = photo; im.alt = ""; av.appendChild(im); av.style.background = "#111214"; }
+    if (photo && photoUsable() && validPhoto(photo)) { var im = el("img"); im.src = photo; im.alt = ""; av.appendChild(im); av.style.background = "#111214"; }
     else { av.textContent = room.name.charAt(0); av.style.background = avatarColor(room.name); }
     $("photoChange").innerHTML = PEN_ICON;           // 프로필 카드와 같은 펜 아이콘
     $("photoDel").classList.toggle("hidden", !photo);
     $("photoUseLine").classList.toggle("hidden", !photo);
     var u = photoUsable(); setSw($("photoUseToggle"), u, u ? "켜짐" : "꺼짐");
   }
-  function setSw(btn, on, text) { btn.textContent = text; btn.classList.toggle("on", !!on); }
+  function setSw(btn, on, text) {                    // 아이폰 스위치처럼: 글자 없이 켜짐/꺼짐 상태만 표시
+    btn.classList.toggle("on", !!on); btn.setAttribute("aria-checked", on ? "true" : "false");
+    var na = text === "앱에서만"; btn.classList.toggle("na", na);
+    var note = btn.parentNode && btn.parentNode.querySelector(".swNote"); if (note) note.textContent = na ? "앱에서만 가능" : "";
+  }
   // [/채팅 알림]
   function myState() {
     var subs = { "_": 0 };                          // 빈 값은 서버가 지워 버리므로 자리 표시용 항목을 항상 넣음
@@ -2779,6 +2795,16 @@
     }).catch(function () {});
   }
 
+  function closePhotoZoom() { var o = $("photoZoom"); if (o && o.parentNode) o.parentNode.removeChild(o); }
+  function openPhotoZoom(src) {                       // 프로필 사진을 눌렀을 때 크게 보기 (아무 데나 누르면 닫힘)
+    closePhotoZoom();
+    var o = el("div"); o.id = "photoZoom";
+    var im = el("img"); im.src = src; im.alt = "";
+    o.appendChild(im); o.addEventListener("click", function (e) { e.stopPropagation(); closePhotoZoom(); });
+    document.body.appendChild(o);
+    requestAnimationFrame(function () { o.classList.add("on"); });
+  }
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePhotoZoom(); });
   function openProfile(m, anchor) {
     var pop = $("profilePop");
     pop.textContent = "";
@@ -2786,6 +2812,7 @@
     profileKey = m.uid; profileM = m;
     var top = el("div", "pTop"), wrap = el("div", "avWrap"), av = el("div", "avatar"), who = el("div", "pWho"), nm = el("div", "pName", m.name);
     fillAvatar(av, m); wrap.appendChild(av);
+    av.addEventListener("click", function (e) { var im = av.querySelector("img"); if (!im) return; e.stopPropagation(); openPhotoZoom(im.src); });
     if (hostId && m.id === hostId) {                    // 방장: 사진 오른쪽 위에 왕관
       var bc = el("span", "avCrown"); bc.innerHTML = CROWN_SVG; bc.setAttribute("title", "방장");
       wrap.appendChild(bc);
@@ -2955,7 +2982,7 @@
   document.addEventListener("click", function (e) {
     if (!profileKey) return;
     var t = e.target;
-    if (t && t.closest && t.closest("#profilePop, #spyPop, #modal, #cropModal")) return;
+    if (t && t.closest && t.closest("#profilePop, #spyPop, #modal, #cropModal, #photoZoom")) return;
     closeProfile();
   });
   home.addEventListener("scroll", closeProfile, { passive: true });
@@ -3587,7 +3614,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .rbtn, .sw, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .rbtn, .sw, .leaveLink, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
