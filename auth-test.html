@@ -117,12 +117,14 @@
       return call(t, "PUT", "/meta", { host: uid }).then(function (a) {
         log("① 방 정보 만들기 → " + a.s, a.s === 200 ? "ok" : "bad");
         if (a.s !== 200) { log("→ v2 규칙이 아직 게시되지 않았거나 문법 오류로 적용되지 않았어요.", "bad"); return; }
-        return call(t, "PUT", "/meta/title", "규칙확인").then(function (b) {
-          log("② 방 이름(title) 쓰기 → " + b.s, b.s === 200 ? "ok" : "bad");
-          return call(t, "PUT", "/members/" + uid, { name: "점검", day: "2000-01-01", share: false }).then(function (m) {
+        return call(t, "PUT", "/members/" + uid, { name: "점검", day: "2000-01-01", share: false }).then(function (m) {      // 방 이름은 방 멤버만 쓸 수 있으므로 먼저 멤버로 등록
+          log("② 방 멤버로 등록 → " + m.s, m.s === 200 ? "ok" : "bad");
+          return call(t, "PUT", "/meta/title", "규칙확인").then(function (b) {
+            log("③ 방 이름(title) 쓰기 → " + b.s, b.s === 200 ? "ok" : "bad");
             return call(t, "DELETE", "/members/" + uid).then(function () { return call(t, "DELETE", "/meta"); }).then(function (d) {
-              log("③ 임시 방 지우기 → " + d.s, d.s === 200 ? "ok" : "bad");
-              if (b.s === 200) log("→ 새 규칙이 게시돼 있어요. (방 이름 공유 가능)", "ok");
+              log("④ 임시 방 지우기 → " + d.s, d.s === 200 ? "ok" : "bad");
+              if (m.s !== 200) log("→ 점검을 끝까지 못 했어요. 위 ②의 응답 코드를 알려 주세요.", "bad");
+              else if (b.s === 200) log("→ 새 규칙이 게시돼 있어요. (방 이름 공유 가능)", "ok");
               else log("→ 옛 규칙이에요. 새 규칙 전체를 다시 붙여넣어 게시해 주세요. (방 이름이 이 기기에만 저장돼요)", "bad");
             });
           });
