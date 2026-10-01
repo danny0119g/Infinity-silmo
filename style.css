@@ -615,3 +615,17 @@
   .roCheck svg { width: 16px; height: 16px; display: block; }
   .roomOpt.add { margin-top: 3px; padding-top: 11px; border-top: 1px solid var(--line); border-radius: 0 0 9px 9px; font-size: 14px; font-weight: 700; color: var(--muted); }
   .roomOpt:disabled { opacity: .45; cursor: default; }
+
+  /* 로그인 화면 */
+  #loginScreen { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; background: #121316; }
+  #loginScreen.hidden { display: none; }
+  body.loginOpen { overflow: hidden; }
+  .loginBox { width: min(360px, 100%); margin: auto; text-align: center; }
+  .loginBox h1 { margin: 0 0 8px; font-size: 26px; font-weight: 800; }
+  .loginSub { margin: 0 0 28px; font-size: 15px; color: var(--muted); }
+  .loginGoogle { display: flex; justify-content: center; min-height: 44px; }
+  .loginErr { min-height: 22px; margin: 14px 0 0; font-size: 14px; color: #ff8f86; }
+  .loginAnon { margin-top: 18px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .loginAnon:disabled { opacity: .5; cursor: default; }
+  .loginAnon.pressing { border-color: var(--accent); color: var(--text); }
+  .loginNote { margin: 22px 0 0; font-size: 12px; line-height: 1.6; color: #6f7681; }

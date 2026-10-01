@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>로그인 점검</title>
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="로그인 점검">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<style>
+  :root { color-scheme: dark; --line: #343840; --muted: #9aa0aa; --accent: #3d8bfd; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px 40px; background: #121316; color: #eef0f4; font: 16px/1.5 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width: 520px; margin: 0 auto; }
+  h1 { margin: 8px 0 4px; font-size: 22px; }
+  p.sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  section { margin: 0 0 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #1b1d21; }
+  h2 { margin: 0 0 10px; font-size: 14px; color: var(--muted); font-weight: 700; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 15px; }
+  .row b { color: var(--muted); font-weight: 600; flex: none; }
+  .row span { text-align: right; overflow-wrap: anywhere; }
+  button { font: inherit; font-size: 15px; font-weight: 700; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: #eef0f4; cursor: pointer; margin: 4px 6px 4px 0; }
+  button:active { border-color: var(--accent); }
+  button:disabled { opacity: .45; }
+  #gbtn { min-height: 44px; margin: 4px 0 10px; }
+  pre { margin: 0; padding: 12px; max-height: 280px; overflow: auto; border-radius: 10px; background: #0d0e10; font: 12px/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ok { color: #6fd29a; } .bad { color: #ff8f86; }
+</style>
+</head>
+<body>
+<main>
+  <h1>로그인 점검</h1>
+  <p class="sub">구글 로그인과 서버 연결이 이 기기에서 되는지 확인하는 페이지예요. 앱에는 영향이 없어요.</p>
+
+  <section>
+    <h2>이 기기</h2>
+    <div class="row"><b>열린 방식</b><span id="mode">-</span></div>
+    <div class="row"><b>주소</b><span id="origin">-</span></div>
+  </section>
+
+  <section>
+    <h2>현재 로그인 상태</h2>
+    <div class="row"><b>종류</b><span id="kind">로그인 안 됨</span></div>
+    <div class="row"><b>계정 ID</b><span id="uid">-</span></div>
+    <div class="row"><b>토큰 남은 시간</b><span id="left">-</span></div>
+  </section>
+
+  <section>
+    <h2>시험하기 (위에서부터 차례로)</h2>
+    <div id="gbtn"></div>
+    <button id="bAnon">이 기기에서만 쓰기 (익명)</button>
+    <button id="bRefresh">토큰 새로 받기</button>
+    <button id="bDb">서버 읽기 시험</button>
+    <button id="bOut">로그아웃</button>
+  </section>
+
+  <section>
+    <h2>결과 <button id="bCopy" style="float:right;margin:-6px 0 0">복사</button></h2>
+    <pre id="log">(아직 아무것도 안 했어요)</pre>
+  </section>
+</main>
+<script src="js/auth.js?v=20261001151053"></script>
+<script>
+(function () {
+  var DB = "https://infinitesilmo-default-rtdb.asia-southeast1.firebasedatabase.app";
+  function $(id) { return document.getElementById(id); }
+  var logEl = $("log"), lines = [];
+  function log(t, cls) {
+    var time = new Date().toTimeString().slice(0, 8);
+    lines.push(time + "  " + t);
+    var d = document.createElement("div"); d.textContent = time + "  " + t; if (cls) d.className = cls;
+    if (lines.length === 1) logEl.textContent = "";
+    logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+  }
+  var standalone = !!(navigator.standalone || (window.matchMedia && matchMedia("(display-mode: standalone)").matches));
+  $("mode").textContent = standalone ? "홈 화면 앱" : "브라우저 탭";
+  $("origin").textContent = location.origin;
+  log("열린 방식: " + (standalone ? "홈 화면 앱" : "브라우저 탭") + " / " + (navigator.userAgent.match(/(iPad|iPhone|Macintosh|Windows|Android)[^)]*/) || ["?"])[0]);
+  function render() {
+    $("kind").textContent = fbAuth ? (fbAuth.kind === "google" ? "구글 계정" : "이 기기에서만 (익명)") : "로그인 안 됨";
+    $("uid").textContent = fbAuth ? fbAuth.uid.slice(0, 6) + "…" + fbAuth.uid.slice(-4) : "-";
+    var s = fbAuth ? Math.round((fbAuth.exp - Date.now()) / 1000) : 0;
+    $("left").textContent = fbAuth ? (s > 0 ? Math.floor(s / 60) + "분 " + (s % 60) + "초" : "만료됨 (다음 요청 때 자동 갱신)") : "-";
+  }
+  setInterval(render, 1000); render();
+  function done(a) { log("로그인 성공: " + (a.kind === "google" ? "구글 계정" : "익명") + ", 계정 ID " + a.uid.slice(0, 6) + "…", "ok"); render(); }
+  function fail(e) { log("실패: " + authErrorText(e) + "  [" + (e && e.message) + "]", "bad"); }
+  log("구글 버튼을 불러오는 중…");
+  authRenderGoogleButton($("gbtn"), done, fail).then(function () { if ($("gbtn").children.length) log("구글 버튼을 불러왔어요. 눌러서 로그인해 보세요.", "ok"); });
+  $("bAnon").onclick = function () { log("익명 로그인 요청…"); authSignInAnonymous().then(done, fail); };
+  $("bRefresh").onclick = function () { if (!fbAuth) { log("먼저 로그인해 주세요.", "bad"); return; } log("토큰 갱신 요청…"); authRefresh().then(function (a) { log("갱신 성공. 새 토큰 " + Math.round((a.exp - Date.now()) / 60000) + "분짜리", "ok"); render(); }, fail); };
+  $("bDb").onclick = function () {
+    if (!fbAuth) { log("먼저 로그인해 주세요.", "bad"); return; }
+    log("서버 읽기 요청…");
+    authToken().then(function (t) {
+      return fetch(DB + "/_authtest.json?auth=" + encodeURIComponent(t)).then(function (r) { return r.text().then(function (b) { return { r: r, b: b }; }); });
+    }).then(function (x) {
+      var ok = x.r.ok;
+      log("서버 응답 " + x.r.status + " " + (x.b || "").slice(0, 120), ok ? "ok" : "bad");
+      if (!ok && /expired|invalid|malformed/i.test(x.b)) log("→ 로그인 토큰을 서버가 받아들이지 않았어요.", "bad");
+      else if (!ok) log("→ 로그인은 인정됐지만 이 경로의 서버 규칙이 막고 있어요. (아직 규칙을 바꾸기 전이면 정상일 수 있어요)");
+      else log("→ 서버가 로그인 토큰을 받아들였어요.", "ok");
+    }, fail);
+  };
+  $("bOut").onclick = function () { authSignOut(); log("로그아웃했어요."); render(); };
+  $("bCopy").onclick = function () {
+    var t = lines.join("\n"), b = this;
+    function okc() { b.textContent = "복사했어요"; setTimeout(function () { b.textContent = "복사"; }, 1500); }
+    try { navigator.clipboard.writeText(t).then(okc, function () { getSelection().selectAllChildren(logEl); }); } catch (e) { getSelection().selectAllChildren(logEl); }
+  };
+})();
+</script>
+</body>
+</html>

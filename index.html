@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001144453">
+<meta name="app-version" content="20261001151053">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="무수한 실모">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
-<link rel="stylesheet" href="style.css?v=20261001144453">
+<link rel="stylesheet" href="style.css?v=20261001151053">
 </head>
 <body>
 
@@ -258,19 +258,32 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261001144453"></script>
-<script src="js/records.js?v=20261001144453"></script>
-<script src="js/chart.js?v=20261001144453"></script>
-<script src="js/room-base.js?v=20261001144453"></script>
-<script src="js/push.js?v=20261001144453"></script>
-<script src="js/room-sync.js?v=20261001144453"></script>
-<script src="js/profile.js?v=20261001144453"></script>
-<script src="js/scoreask.js?v=20261001144453"></script>
-<script src="js/chat.js?v=20261001144453"></script>
-<script src="js/photo.js?v=20261001144453"></script>
-<script src="js/room-modal.js?v=20261001144453"></script>
-<script src="js/dialogs.js?v=20261001144453"></script>
-<script src="js/exam.js?v=20261001144453"></script>
-<script src="js/refresh.js?v=20261001144453"></script>
+<div id="loginScreen" class="hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+  <div class="loginBox">
+    <h1 id="loginTitle">무수한 실모</h1>
+    <p class="loginSub">친구들과 같이 실모를 치려면 로그인해 주세요.</p>
+    <div id="loginGoogle" class="loginGoogle"></div>
+    <p id="loginErr" class="loginErr" role="alert"></p>
+    <button type="button" id="loginAnon" class="loginAnon">구글 로그인이 안 될 때 · 이 기기에서만 쓰기</button>
+    <p class="loginNote">방에는 내가 정한 닉네임만 보여요.<br>구글 이메일은 다른 사람에게 공개되지 않아요.<br>"이 기기에서만 쓰기"는 앱을 지우거나 다른 기기로 옮기면 방이 이어지지 않아요.</p>
+  </div>
+</div>
+
+<script src="js/core.js?v=20261001151053"></script>
+<script src="js/auth.js?v=20261001151053"></script>
+<script src="js/records.js?v=20261001151053"></script>
+<script src="js/chart.js?v=20261001151053"></script>
+<script src="js/room-base.js?v=20261001151053"></script>
+<script src="js/push.js?v=20261001151053"></script>
+<script src="js/room-sync.js?v=20261001151053"></script>
+<script src="js/profile.js?v=20261001151053"></script>
+<script src="js/scoreask.js?v=20261001151053"></script>
+<script src="js/chat.js?v=20261001151053"></script>
+<script src="js/photo.js?v=20261001151053"></script>
+<script src="js/room-modal.js?v=20261001151053"></script>
+<script src="js/dialogs.js?v=20261001151053"></script>
+<script src="js/exam.js?v=20261001151053"></script>
+<script src="js/login.js?v=20261001151053"></script>
+<script src="js/refresh.js?v=20261001151053"></script>
 </body>
 </html>
