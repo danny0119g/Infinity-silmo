@@ -221,7 +221,8 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px;
   }
   .mem .info { min-width: 0; }
-  .mem .head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+  .mem .head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 5px; }
+  .mem .head .metag { margin-left: 4px; }
   .mem .nm { font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
   .metag { flex: none; font-size: 12px; font-weight: 600; line-height: 1.3; color: #7b818c; border: 1px solid #343840; border-radius: 999px; padding: 2px 9px; }
   #profilePop {
@@ -245,6 +246,31 @@
   .pmItem.del { color: #f0908a; }
   .pmItem.pressing { background: rgba(255,255,255,.09); }
   .pmItem.del.pressing { background: rgba(216,38,28,.22); }
+  .pRec { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(240,104,94,.38); background: rgba(216,38,28,.10); }
+  .pRecHead { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: #ff8f86; }
+  .rdot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #e5483f; animation: recBlink 1.6s ease-in-out infinite; }
+  @keyframes recBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .rdot { animation: none; } }
+  .pRecSub { margin-top: 4px; font-size: 13px; color: var(--muted); }
+  .pAskWrap { margin-top: 12px; }
+  .pAskSub { margin-bottom: 6px; font-size: 12px; color: var(--muted); }
+  .pAsk { width: 100%; height: 38px; border-radius: 10px; background: transparent; border: 1px solid #4a4f58; font-size: 14px; font-weight: 700; color: var(--text); }
+  .pAsk:disabled { color: var(--muted); border-color: var(--line); cursor: default; }
+  .pAsk.pressing:not(:disabled) { border-color: var(--accent); }
+  #askLayer { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
+  .bub {
+    position: fixed; width: 230px; display: flex; align-items: flex-start; gap: 6px; pointer-events: auto;
+    padding: 8px 8px 8px 12px; background: #1b1d21; border: 1px solid #484e59; border-radius: 14px; box-shadow: 0 10px 26px rgba(0,0,0,.5);
+  }
+  .bub.ask { border-color: #3d6fb4; }
+  .bubMain { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 2px 0; color: var(--text); font: inherit; }
+  .bubQ { font-size: 14px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+  .bubS { margin-top: 2px; font-size: 12px; color: var(--muted); }
+  .bubX { flex: none; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 1; }
+  .bubRow { flex: 1; min-width: 0; display: flex; gap: 6px; }
+  .bubIn { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: #111214; color: var(--text); }
+  .bubSend { flex: none; padding: 0 12px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
+  .bubSend.pressing { filter: brightness(1.12); }
   .pActs { display: flex; gap: 8px; margin-top: 14px; }
   .pAct {
     height: 38px; border-radius: 10px; background: transparent; border: 1px solid #4a4f58;
@@ -547,6 +573,7 @@
     </aside>
   </main>
   <div id="profilePop" role="dialog" aria-label="프로필"></div>
+  <div id="askLayer"></div>
   <input type="file" id="photoInput" accept="image/*" hidden>
 </section>
 
@@ -1561,6 +1588,16 @@
   var CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
   var liveBlocked = false, photoSent = "", photoBlocked = false, photoCache = {}, profileM = null;
   var hostId = "", hostBlocked = false, metaBlocked = false, penMenuOpen = false, crop = null, JSONH = { "Content-Type": "application/json" };
+  var inbox = [], asked = {}, bubbles = {}, msgBlocked = false, dismissedMsg = {};
+  // 방금 끝낸 시험 (끝난 뒤 5분 동안 친구들이 "점수 물어보기"를 할 수 있게, 응시 상태에 e:2 로 함께 올림)
+  var DONE_KEY = "examTimer.done.v1";
+  function loadDone() { try { var d = JSON.parse(localStorage.getItem(DONE_KEY)); if (d && typeof d.s === "string" && typeof d.t === "number") return d; } catch (e) {} return null; }
+  var lastDone = loadDone();
+  function markDone() {
+    if (!current) return;
+    lastDone = { s: String(current.subject).slice(0, 30), t: Math.floor(Date.now() / 1000) };
+    try { localStorage.setItem(DONE_KEY, JSON.stringify(lastDone)); } catch (e) {}
+  }
   var memRoom = null, deviceId = "", others = [], netErr = false, lastSent = "", syncTimer = 0, netChain = Promise.resolve(), roomBusy = false;
   function rnd(n, chars) {
     var a = new Uint32Array(n), out = "", i;
@@ -1609,8 +1646,9 @@
   }
   // 지금 응시 중이면 {과목, 시작 시각(초), 추가 시간 여부}
   function liveInfo() {
-    if (!current || !liveStart || (phase !== "running" && phase !== "extra")) return null;
-    return { s: String(current.subject).slice(0, 30), t: Math.floor(liveStart / 1000), e: phase === "extra" ? 1 : 0 };
+    if (current && liveStart && (phase === "running" || phase === "extra")) return { s: String(current.subject).slice(0, 30), t: Math.floor(liveStart / 1000), e: phase === "extra" ? 1 : 0 };
+    if (lastDone && Date.now() / 1000 - lastDone.t <= 300) return { s: lastDone.s, t: lastDone.t, e: 2 };         // 방금 끝남
+    return null;
   }
   function dbFetch(path, opts) {
     var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null, to = 0;
@@ -1668,6 +1706,7 @@
     if (code) {
       enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+      enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
     }
     keepPageScroll(renderTogether);
     notice("방장이 방에서 내보냈어요.");
@@ -1678,8 +1717,10 @@
     var pm = dbFetch("/rooms/" + code + "/members", { cache: "no-store" });
     var pmeta = metaBlocked ? Promise.resolve(undefined)
       : dbFetch("/rooms/" + code + "/meta", { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") metaBlocked = true; return undefined; });
-    return Promise.all([pm, pmeta]).then(function (res) {
-      var data = res[0], meta = res[1];
+    var pin = msgBlocked ? Promise.resolve(undefined)
+      : dbFetch("/rooms/" + code + "/msgs/" + me, { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; return undefined; });
+    return Promise.all([pm, pmeta, pin]).then(function (res) {
+      var data = res[0], meta = res[1], mbox = res[2];
       if (!room || room.code !== code) return;
       var t = todayStr(), list = [];
       if (data && typeof data === "object") Object.keys(data).forEach(function (uid) {
@@ -1691,11 +1732,20 @@
           if (k !== "_" && typeof c === "number" && c > 0) { subs.push({ name: k, count: c }); total += c; }
         });
         var lv = null;
-        if (m.live && typeof m.live === "object" && typeof m.live.s === "string" && typeof m.live.t === "number") lv = { s: m.live.s.slice(0, 30), t: m.live.t, e: m.live.e === 1 };
+        if (m.live && typeof m.live === "object" && typeof m.live.s === "string" && typeof m.live.t === "number") lv = { s: m.live.s.slice(0, 30), t: m.live.t, e: (typeof m.live.e === "number") ? m.live.e : 0 };
         list.push({ uid: uid, id: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv });
       });
       list.sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });   // 실모를 많이 친 사람이 위로
       others = list;
+      var nowS = Date.now() / 1000, inb = [];
+      if (mbox && typeof mbox === "object") Object.keys(mbox).forEach(function (from) {      // 나에게 온 점수 질문 / 답장
+        var it = mbox[from];
+        if (!it || typeof it !== "object" || (it.k !== "ask" && it.k !== "reply") || typeof it.t !== "number" || nowS - it.t > 1800) return;
+        if (dismissedMsg[from + ":" + it.k + ":" + it.t]) return;
+        inb.push({ from: from, k: it.k, s: typeof it.s === "string" ? it.s.slice(0, 30) : "", x: typeof it.x === "string" ? it.x.slice(0, 80) : "", t: it.t });
+        if (it.k === "reply") delete asked[from];
+      });
+      inbox = inb;
       if (meta !== undefined) {
         hostId = (meta && typeof meta.host === "string") ? meta.host : "";
         if (meta && meta.kicked && meta.kicked[me] === true) { handleKicked(); return; }
@@ -1716,7 +1766,7 @@
     var box = $("togetherBody"), btn = $("roomBtn");
     box.textContent = "";
     if (!room) {
-      closeProfile();
+      closeProfile(); inbox = []; syncBubbles({});
       btn.textContent = "방 만들기 · 입장";
       box.appendChild(el("p", "hint", "방을 만들어 친구들을 초대하면\n서로 오늘 어떤 과목을 몇 번 응시했는지 볼 수 있어요."));
       return;
@@ -1727,9 +1777,10 @@
     var meItem = { uid: "me", id: getDeviceId(), name: room.name, subs: mine, total: mt, me: true };
     var rest = others.slice().sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
     var list = [meItem].concat(rest);                 // 나는 맨 위에 고정, 나머지는 응시 많은 순
-    var ul = el("ul", "members");
+    var ul = el("ul", "members"), lis = {};
     list.forEach(function (m) {
       var li = el("li", "mem" + (m.me ? " me" : "")), info = el("div", "info"), head = el("div", "head");
+      lis[m.id] = li;
       function toggleProfile(e) { e.stopPropagation(); if (profileKey === m.uid) closeProfile(); else openProfile(m, li); }
       li.setAttribute("role", "button"); li.tabIndex = 0;
       li.addEventListener("click", toggleProfile);
@@ -1746,6 +1797,7 @@
       ul.appendChild(li);
     });
     box.appendChild(ul);
+    syncBubbles(lis);
     if (list.length === 1) box.appendChild(el("p", "hint", "친구가 초대 코드로 입장하면 여기에 나타나요."));
     if (netErr) box.appendChild(el("p", "hint", "서버에 연결하지 못했어요. 잠시 후 다시 시도할게요."));
     if (profileKey) {                                 // 갱신된 내용으로 열려 있는 프로필도 함께 새로 그림
@@ -1768,12 +1820,13 @@
     var p = $("profilePop"); if (p) p.classList.remove("on");
     clearOpenMark();
   }
+  function liveMin(m) { var min = Math.floor((Date.now() / 1000 - m.live.t) / 60); return min < 0 ? 0 : min; }
+  function isLive(m) { return !!m.live && (m.live.e === 0 || m.live.e === 1) && liveMin(m) <= 90; }          // 오래된 상태는 무시 (앱이 꺼진 채 남은 경우)
+  function justDone(m) { return !!m.live && m.live.e === 2 && (Date.now() / 1000 - m.live.t) <= 300; }       // 끝난 지 5분 이내
   function liveText(m) {
-    if (!m.live) return "";
-    var min = Math.floor((Date.now() / 1000 - m.live.t) / 60);
-    if (min < 0) min = 0;
-    if (min > 90) return "";                          // 오래된 상태는 무시 (앱이 꺼진 채 남은 경우)
-    return (m.live.e ? "추가 시간 중" : "응시 중") + " · " + m.live.s + " · " + (min < 1 ? "방금 시작" : min + "분 경과");
+    if (!isLive(m)) return "";
+    var min = liveMin(m);
+    return (m.live.e === 1 ? "추가 시간" : "응시 중") + " · " + m.live.s + " · " + (min < 1 ? "방금 시작" : min + "분 경과");
   }
 
   // 프로필 사진 (작은 JPEG, 기기에 저장 + 방 서버의 photos 칸에 올림)
@@ -1858,6 +1911,118 @@
     });
   }
 
+  // 점수 물어보기: 질문한 사람의 카드 옆에 말풍선이 뜨고, 눌러서 아무 말이나 적어 보내면 그대로 답장이 감
+  function askScore(m) {
+    if (!room || !m.live) return;
+    var code = room.code, now = Math.floor(Date.now() / 1000), subj = m.live.s;
+    asked[m.id] = Date.now();
+    keepPageScroll(renderTogether);
+    enqueue(function () {
+      return dbFetch("/rooms/" + code + "/msgs/" + m.id + "/" + getDeviceId(), { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "ask", s: subj, t: now }) })
+        .catch(function (err) {
+          delete asked[m.id];
+          if (err && err.message === "http 401") { msgBlocked = true; notice("서버 규칙을 업데이트해야 점수를 물어볼 수 있어요."); }
+          keepPageScroll(renderTogether);
+        });
+    });
+  }
+  function dropMsg(it) {
+    dismissedMsg[it.from + ":" + it.k + ":" + it.t] = true;
+    inbox = inbox.filter(function (x) { return x !== it; });
+  }
+  function dismissMsg(it) {
+    if (!room) return;
+    var code = room.code;
+    dropMsg(it);
+    keepPageScroll(renderTogether);
+    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+  }
+  function sendReply(it, text) {
+    text = String(text).replace(/\s+/g, " ").trim().slice(0, 60);
+    if (!room || !text) return;
+    var code = room.code, me = getDeviceId(), now = Math.floor(Date.now() / 1000);
+    dropMsg(it);
+    keepPageScroll(renderTogether);
+    enqueue(function () {
+      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: text, t: now }) })
+        .catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; });
+    });
+    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+  }
+  function buildBubble(it, name) {
+    var b = el("div", "bub " + it.k), main, x = el("button", "bubX", "✕");
+    x.type = "button"; x.setAttribute("aria-label", "닫기");
+    x.addEventListener("click", function (e) { e.stopPropagation(); dismissMsg(it); });
+    if (it.k === "reply") {
+      main = el("div", "bubMain");
+      main.appendChild(el("div", "bubQ", name + ": " + it.x));
+      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "점수 답장"));
+      b.appendChild(main);
+    } else {
+      main = el("button", "bubMain");
+      main.type = "button";
+      main.appendChild(el("div", "bubQ", name + "님이 점수를 물어봤어요"));
+      main.appendChild(el("div", "bubS", (it.s ? it.s + " · " : "") + "눌러서 답하기"));
+      main.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var row = el("div", "bubRow"), inp = el("input", "bubIn"), send = el("button", "bubSend", "보내기");
+        inp.type = "text"; inp.maxLength = 60; inp.placeholder = "점수나 한마디"; inp.setAttribute("autocomplete", "off");
+        send.type = "button";
+        function go() { sendReply(it, inp.value); }
+        send.addEventListener("click", function (ev) { ev.stopPropagation(); go(); });
+        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); go(); } });
+        row.appendChild(inp); row.appendChild(send);
+        b.replaceChild(row, main);
+        placeBubbleByEl(b);
+        inp.focus();
+      });
+      b.appendChild(main);
+    }
+    b.appendChild(x);
+    return b;
+  }
+  function placeBubble(bb) {
+    var node = bb.el, anchor = bb.li;
+    if (!anchor || !anchor.getBoundingClientRect) return;
+    var r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
+    if (r.left - G - pw >= 8) { x = r.left - G - pw; y = r.top; }
+    else if (r.right + G + pw <= vw - 8) { x = r.right + G; y = r.top; }
+    else { x = Math.min(Math.max(8, r.left), vw - pw - 8); y = r.bottom + 6; if (y + ph > vh - 8) y = r.top - ph - 6; }
+    y = Math.max(8, Math.min(y, vh - ph - 8));
+    node.style.left = x + "px"; node.style.top = y + "px";
+    node.style.visibility = (r.bottom < 0 || r.top > vh) ? "hidden" : "";
+  }
+  function placeBubbleByEl(node) { Object.keys(bubbles).forEach(function (k) { if (bubbles[k].el === node) placeBubble(bubbles[k]); }); }
+  function syncBubbles(lis) {
+    var layer = $("askLayer"), keep = {}, names = {};
+    if (!layer) return;
+    Object.keys(lis).forEach(function (id) { var n = lis[id].querySelector(".nm"); names[id] = n ? n.textContent : ""; });
+    inbox.forEach(function (it) {
+      var li = lis[it.from];
+      if (!li) return;
+      var key = it.from + ":" + it.k, sig = it.t + "|" + it.k + "|" + it.x, bb = bubbles[key];
+      if (!bb || bb.sig !== sig) {
+        if (bb) layer.removeChild(bb.el);
+        bb = { sig: sig, el: buildBubble(it, names[it.from] || "친구"), li: li };
+        bubbles[key] = bb;
+        layer.appendChild(bb.el);
+      }
+      bb.li = li; keep[key] = true;
+      placeBubble(bb);
+    });
+    Object.keys(bubbles).forEach(function (k) {
+      if (!keep[k]) { if (bubbles[k].el.parentNode) bubbles[k].el.parentNode.removeChild(bubbles[k].el); delete bubbles[k]; }
+    });
+  }
+  var bubTick = 0;
+  function repositionBubbles() {
+    if (bubTick) return;
+    bubTick = requestAnimationFrame(function () { bubTick = 0; Object.keys(bubbles).forEach(function (k) { placeBubble(bubbles[k]); }); });
+  }
+  home.addEventListener("scroll", repositionBubbles, { passive: true });
+  document.querySelector(".together").addEventListener("scroll", repositionBubbles, { passive: true });
+  window.addEventListener("resize", repositionBubbles);
+
   function openProfile(m, anchor) {
     var pop = $("profilePop");
     pop.textContent = "";
@@ -1885,8 +2050,6 @@
     who.appendChild(el("div", "pSub", "오늘 " + m.total + "개 응시"));
     top.appendChild(wrap); top.appendChild(who);
     pop.appendChild(top);
-    var lt = liveText(m);
-    if (lt) { var lv = el("div", "pLive"); lv.appendChild(el("span", "ldot")); lv.appendChild(document.createTextNode(lt)); pop.appendChild(lv); }
     pop.appendChild(el("div", "pSec", "오늘의 응시"));
     if (m.subs.length) {
       m.subs.forEach(function (c) {
@@ -1896,6 +2059,21 @@
         pop.appendChild(row);
       });
     } else pop.appendChild(el("div", "pRow none", "아직 응시 전이에요"));
+    if (!m.me && isLive(m)) {                           // 지금 시험 중: 녹화 중 느낌의 "응시 중" 표시
+      var rmin = liveMin(m), rec = el("div", "pRec"), rh = el("div", "pRecHead");
+      rh.appendChild(el("span", "rdot")); rh.appendChild(el("span", "", m.live.e === 1 ? "추가 시간" : "응시 중"));
+      rec.appendChild(rh);
+      rec.appendChild(el("div", "pRecSub", m.live.s + " · " + (rmin < 1 ? "방금 시작" : rmin + "분 경과")));
+      pop.appendChild(rec);
+    } else if (!m.me && justDone(m)) {                  // 방금(5분 이내) 끝냈고 지금은 안 치는 중: 점수 물어보기
+      var aw = el("div", "pAskWrap"), already = asked[m.id] && Date.now() - asked[m.id] < 300000;
+      aw.appendChild(el("div", "pAskSub", "방금 친 시험 · " + m.live.s));
+      var ab = el("button", "pAsk", already ? "물어봤어요" : "점수 물어보기");
+      ab.type = "button"; ab.disabled = !!already;
+      ab.addEventListener("click", function (e) { e.stopPropagation(); askScore(m); });
+      aw.appendChild(ab);
+      pop.appendChild(aw);
+    }
     if (isHost() && !m.me) {                            // 방장만, 다른 사람의 프로필에서: 방장 넘기기(아이콘) + 추방
       var acts = el("div", "pActs"), xf = el("button", "pAct xfer"), kk = el("button", "pAct kick", "추방");
       xf.type = "button"; kk.type = "button";
@@ -1906,7 +2084,7 @@
       acts.appendChild(xf); acts.appendChild(kk);
       pop.appendChild(acts);
     }
-    pop.appendChild(el("div", "pNote", "소개·목표 같은 프로필 꾸미기는 준비 중이에요."));
+    if (m.me || !(isLive(m) || justDone(m))) pop.appendChild(el("div", "pNote", "소개·목표 같은 프로필 꾸미기는 준비 중이에요."));
     if (m.me && (photoBlocked || liveBlocked || hostBlocked)) pop.appendChild(el("div", "pNote", "친구들에게 사진·응시 상태·방장 표시를 보여 주려면 서버 규칙 업데이트가 필요해요."));
     placeProfile(anchor);
     loadFriendPhoto(m);
@@ -2105,6 +2283,7 @@
       }
       if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+      if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       closeRoomModal();
       keepPageScroll(renderTogether);
     });
@@ -2441,6 +2620,7 @@
     accum = e;
     render(e);
     hideWarn(); closeAsk();
+    markDone();
     phase = "ended1";
     updateButtons();
     openScore(1);
@@ -2450,6 +2630,7 @@
   function endExtra() {
     pause();
     render(accum);
+    markDone();
     phase = "ended2";
     updateButtons();
     openScore(2);
@@ -2597,7 +2778,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
