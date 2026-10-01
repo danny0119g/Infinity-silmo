@@ -47,7 +47,7 @@
   }
   .top { width: 100%; padding: max(16px, env(safe-area-inset-top, 0px)) 20px 0; }
   .topIn {
-    max-width: 760px; margin: 0 auto; min-height: 56px;
+    max-width: 1120px; margin: 0 auto; min-height: 56px;
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
   }
   .topIn h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
@@ -60,7 +60,7 @@
 
   .homeMain {
     margin: 0 auto; width: 100%; max-width: 800px; padding: 42px 20px max(44px, env(safe-area-inset-bottom, 0px));
-    display: flex; flex-direction: column; gap: 30px;
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 30px;
   }
   .slots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; width: 100%; }
   .slot {
@@ -197,7 +197,21 @@
   }
 
   /* ---------- 함께 응시 ---------- */
-  .together { width: 100%; }
+  /* 좁은 화면(폰): 한 줄 배치. 방 칸은 시작 버튼 바로 아래 */
+  .mainCol { display: contents; }
+  .mainCol > .slots { order: 1; }
+  .mainCol > .hint { order: 2; }
+  .together { order: 3; width: 100%; background: #1f2227; border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+  .mainCol > .trend { order: 4; }
+  .mainCol > .records { order: 5; }
+  /* 넓은 화면(아이패드 등): 오른쪽에 방 열을 세로로 */
+  @media (min-width: 720px) {
+    .homeMain { max-width: 1160px; grid-template-columns: minmax(0, 1fr) 270px; align-items: start; }
+    .mainCol { display: flex; flex-direction: column; gap: 30px; min-width: 0; grid-column: 1; grid-row: 1; }
+    .together { order: 0; grid-column: 2; grid-row: 1; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+    .slot .main { font-size: clamp(24px, 3.6vw, 46px); overflow-wrap: anywhere; }
+    .slot.empty .main { font-size: clamp(34px, 6vw, 68px); }
+  }
   .togetherHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .together h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
   #togetherBody .hint { padding: 6px 0; }
@@ -206,7 +220,29 @@
     display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px;
   }
-  .mem .nm { font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+  .mem .info { min-width: 0; }
+  .mem .head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+  .mem .nm {
+    padding: 0; margin: 0; background: none; border: 0; font: inherit; font-size: 17px; font-weight: 800; color: var(--text);
+    text-align: left; overflow-wrap: anywhere; cursor: pointer;
+    text-decoration: underline; text-decoration-color: rgba(255,255,255,.22); text-underline-offset: 4px;
+  }
+  .metag { flex: none; font-size: 12px; font-weight: 600; line-height: 1.3; color: #7b818c; border: 1px solid #343840; border-radius: 999px; padding: 2px 9px; }
+  #profilePop {
+    position: fixed; z-index: 8; display: none; width: 240px; padding: 16px;
+    background: #1b1d21; border: 1px solid #484e59; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.55);
+  }
+  #profilePop.on { display: block; }
+  .pTop { display: flex; align-items: center; gap: 12px; }
+  .avatar { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff; }
+  .pName { font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+  .pName .metag { margin-left: 8px; vertical-align: middle; }
+  .pSub { margin-top: 2px; font-size: 13px; color: var(--muted); }
+  .pSec { margin: 14px 0 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+  .pRow { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; font-weight: 600; }
+  .pRow .c { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .pRow.none { color: var(--muted); font-weight: 500; }
+  .pNote { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); line-height: 1.5; }
   .mem .dt { margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.5; }
   .mem .cnt { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .mem.me { border-color: #4a5a78; }
@@ -413,19 +449,12 @@
   </header>
 
   <main class="homeMain">
+    <div class="mainCol">
     <div class="slots">
       <button class="slot" id="slot1" data-slot="1"></button>
       <button class="slot" id="slot2" data-slot="2"></button>
     </div>
     <p class="hint">중간에 그만두려면 시계 화면의 탈주하기를 누르세요.</p>
-
-    <section class="together">
-      <div class="togetherHead">
-        <h2>함께 응시</h2>
-        <button class="pill" id="roomBtn">방 만들기 · 입장</button>
-      </div>
-      <div id="togetherBody"></div>
-    </section>
 
     <section class="trend">
       <div class="trendHead">
@@ -452,7 +481,17 @@
         <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
       </div>
     </div>
+    </div>
+
+    <aside class="together">
+      <div class="togetherHead">
+        <h2>함께 응시</h2>
+        <button class="pill" id="roomBtn">방 만들기 · 입장</button>
+      </div>
+      <div id="togetherBody"></div>
+    </aside>
   </main>
+  <div id="profilePop" role="dialog" aria-label="프로필"></div>
 </section>
 
 <section id="stage">
@@ -1529,7 +1568,7 @@
           var c = ss[k];
           if (k !== "_" && typeof c === "number" && c > 0) { subs.push({ name: k, count: c }); total += c; }
         });
-        list.push({ name: m.name.slice(0, 12), subs: subs, total: total, me: false });
+        list.push({ uid: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false });
       });
       others = list; netErr = false;
     }).catch(function () { netErr = true; });
@@ -1542,6 +1581,7 @@
     var box = $("togetherBody"), btn = $("roomBtn");
     box.textContent = "";
     if (!room) {
+      closeProfile();
       btn.textContent = "방 만들기 · 입장";
       box.appendChild(el("p", "hint", "방을 만들어 친구들을 초대하면\n서로 오늘 어떤 과목을 몇 번 응시했는지 볼 수 있어요."));
       return;
@@ -1549,13 +1589,19 @@
     btn.textContent = "방 설정";
     var mine = countsOf(loadAll()), mt = 0;
     mine.forEach(function (c) { mt += c.count; });
-    var list = others.concat([{ name: room.name, subs: mine, total: mt, me: true }]);
+    var list = others.concat([{ uid: "me", name: room.name, subs: mine, total: mt, me: true }]);
     list.sort(function (a, b) { return (b.total - a.total) || (a.me ? -1 : b.me ? 1 : 0) || (a.name < b.name ? -1 : 1); });
     var ul = el("ul", "members");
     list.forEach(function (m) {
       var li = el("li", "mem" + (m.me ? " me" : "")), info = el("div", "info"), head = el("div", "head");
-      head.appendChild(el("span", "nm", m.name));
-      if (m.me) head.appendChild(el("span", "badge", "나"));
+      var nb = el("button", "nm", m.name);
+      nb.type = "button";
+      nb.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (profileKey === m.uid) closeProfile(); else openProfile(m, li);
+      });
+      head.appendChild(nb);
+      if (m.me) head.appendChild(el("span", "metag", "나"));
       info.appendChild(head);
       info.appendChild(el("div", "dt", m.subs.length ? m.subs.map(function (c) { return c.name + " " + c.count + "회"; }).join(", ") : "아직 응시 전"));
       li.appendChild(info);
@@ -1565,7 +1611,60 @@
     box.appendChild(ul);
     if (list.length === 1) box.appendChild(el("p", "hint", "친구가 초대 코드로 입장하면 여기에 나타나요."));
     if (netErr) box.appendChild(el("p", "hint", "서버에 연결하지 못했어요. 잠시 후 다시 시도할게요."));
+    if (profileKey) {                                 // 갱신된 내용으로 열려 있는 프로필도 함께 새로 그림
+      var pm = null, pl = null;
+      list.forEach(function (m, i) { if (m.uid === profileKey) { pm = m; pl = ul.children[i]; } });
+      if (pm) openProfile(pm, pl); else closeProfile();
+    }
   }
+
+  // 프로필 (초안): 닉네임을 누르면 그 카드 옆에 작은 창이 뜸
+  var profileKey = "";
+  var AV_COLORS = ["#4f7cff", "#2fa37a", "#c46a3a", "#a0527c", "#7a62c9", "#3b8aa6", "#8a8f3a", "#c25757"];
+  function avatarColor(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return AV_COLORS[h % AV_COLORS.length]; }
+  function closeProfile() { profileKey = ""; var p = $("profilePop"); if (p) p.classList.remove("on"); }
+  function openProfile(m, anchor) {
+    var pop = $("profilePop");
+    pop.textContent = "";
+    var top = el("div", "pTop"), av = el("div", "avatar", m.name.charAt(0)), who = el("div", ""), nm = el("div", "pName", m.name);
+    av.style.background = avatarColor(m.name);
+    if (m.me) nm.appendChild(el("span", "metag", "나"));
+    who.appendChild(nm);
+    who.appendChild(el("div", "pSub", "오늘 " + m.total + "개 응시"));
+    top.appendChild(av); top.appendChild(who);
+    pop.appendChild(top);
+    pop.appendChild(el("div", "pSec", "오늘의 응시"));
+    if (m.subs.length) {
+      m.subs.forEach(function (c) {
+        var row = el("div", "pRow"), dot = el("span", "cdot");
+        dot.style.background = SUBJECT_COLORS[c.name] || "#9aa0aa";
+        row.appendChild(dot); row.appendChild(el("span", "", c.name)); row.appendChild(el("span", "c", c.count + "회"));
+        pop.appendChild(row);
+      });
+    } else pop.appendChild(el("div", "pRow none", "아직 응시 전이에요"));
+    pop.appendChild(el("div", "pNote", "소개·목표 같은 프로필 꾸미기는 준비 중이에요."));
+    profileKey = m.uid;
+    placeProfile(anchor);
+  }
+  function placeProfile(anchor) {
+    var pop = $("profilePop");
+    pop.style.visibility = "hidden"; pop.classList.add("on");
+    var r = anchor.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pw = pop.offsetWidth, ph = pop.offsetHeight, G = 10, x, y;
+    if (r.left - G - pw >= 8) { x = r.left - G - pw; y = r.top; }                           // 카드 왼쪽 옆 (오른쪽 열이므로 기본)
+    else if (r.right + G + pw <= vw - 8) { x = r.right + G; y = r.top; }                     // 왼쪽이 좁으면 오른쪽 옆
+    else { x = Math.min(Math.max(8, r.left), vw - pw - 8); y = r.bottom + 8; if (y + ph > vh - 8) y = r.top - ph - 8; }   // 폰: 카드 아래(안 되면 위)
+    y = Math.max(8, Math.min(y, vh - ph - 8));
+    pop.style.left = x + "px"; pop.style.top = y + "px"; pop.style.visibility = "";
+  }
+  document.addEventListener("click", function (e) {
+    if (!profileKey) return;
+    var t = e.target;
+    if (t && t.closest && t.closest("#profilePop")) return;
+    closeProfile();
+  });
+  home.addEventListener("scroll", closeProfile, { passive: true });
+  document.querySelector(".together").addEventListener("scroll", closeProfile, { passive: true });
+  window.addEventListener("resize", closeProfile);
 
   // 방 창
   var roomModal = $("roomModal"), nickInput = $("nickInput"), codeInput = $("codeInput"), nickEdit = $("nickEdit"), roomMsg = $("roomErrMsg");
@@ -2126,6 +2225,7 @@
     if (modal.classList.contains("on")) { closeAsk(); return; }
     if (lateModal.classList.contains("on")) { closeLate(); return; }
     if (roomModal.classList.contains("on")) { closeRoomModal(); return; }
+    if (profileKey) { closeProfile(); return; }
     if (picker.classList.contains("on")) { closePicker(); return; }
     if (stage.classList.contains("on") && phase === "running") askAbandon();
   });
