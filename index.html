@@ -280,7 +280,7 @@
   .chatHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 12px; border-bottom: 1px solid var(--line); }
   .chatName { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chatX { flex: none; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 1; }
-  .chatMsgs { height: 172px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
+  .chatMsgs { height: clamp(96px, 30vh, 172px); overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
   .cm { max-width: 86%; padding: 6px 10px; border-radius: 12px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
   .cm.me { align-self: flex-end; background: rgba(61,139,253,.30); border-bottom-right-radius: 4px; }
   .cm.them { align-self: flex-start; background: #2b2f36; border-bottom-left-radius: 4px; }
@@ -2112,21 +2112,19 @@
   function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
   function msgText(m) { return m.k === "ask" ? "" : (m.x || ""); }
-  function vpBox() {                                 // 지금 화면에 실제로 보이는 영역 (아이패드 키보드가 올라오면 줄어듦)
-    var vv = window.visualViewport;
-    if (vv) return { l: vv.offsetLeft, t: vv.offsetTop, w: vv.width, h: vv.height };
-    return { l: 0, t: 0, w: window.innerWidth, h: window.innerHeight };
-  }
   function placeNear(node, anchor) {
     if (!anchor || !anchor.getBoundingClientRect) return;
-    var v = vpBox(), r = anchor.getBoundingClientRect(), pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
-    var L = v.l + 8, T = v.t + 8, R = v.l + v.w - 8, B = v.t + v.h - 8;
-    if (r.left - G - pw >= L) { x = r.left - G - pw; y = r.top; }
-    else if (r.right + G + pw <= R) { x = r.right + G; y = r.top; }
-    else { x = Math.min(Math.max(L, r.left), R - pw); y = r.bottom + 6; if (y + ph > B) y = r.top - ph - 6; }
-    y = Math.max(T, Math.min(y, B - ph));
+    var ae = document.activeElement;
+    if (ae && ae.tagName === "INPUT" && node.contains(ae) && node.style.left) return;      // 입력 중에는 창을 건드리지 않음 (건드리면 아이패드 키보드가 튕겨 내려감)
+    var vw = window.innerWidth, vh = window.innerHeight, r = anchor.getBoundingClientRect(), pw = node.offsetWidth, ph = node.offsetHeight, G = 10, x, y;
+    var B = vh - 8;
+    if (node.classList.contains("chatwin") || node.classList.contains("bub")) B = Math.min(B, vh * 0.46);   // 입력칸이 키보드에 가려지지 않게 화면 위쪽 절반 안에: 가려지면 사파리가 화면을 억지로 밀어서 키보드가 튕김
+    if (r.left - G - pw >= 8) { x = r.left - G - pw; y = r.top; }
+    else if (r.right + G + pw <= vw - 8) { x = r.right + G; y = r.top; }
+    else { x = Math.min(Math.max(8, r.left), vw - pw - 8); y = r.bottom + 6; if (y + ph > B) y = r.top - ph - 6; }
+    y = Math.max(8, Math.min(y, B - ph));
     node.style.left = Math.round(x) + "px"; node.style.top = Math.round(y) + "px";
-    node.style.visibility = (r.bottom < v.t || r.top > v.t + v.h) ? "hidden" : "";
+    node.style.visibility = (r.bottom < 0 || r.top > vh) ? "hidden" : "";
   }
   function renderChatMsgs(c) {
     var box = c.msgsEl, stick = c.stick || (box.scrollHeight - box.scrollTop - box.clientHeight < 28), me = getDeviceId();
@@ -2261,7 +2259,6 @@
     });
   }
   setInterval(chatTick, 3000);
-  if (window.visualViewport) { window.visualViewport.addEventListener("resize", repositionBubbles); window.visualViewport.addEventListener("scroll", repositionBubbles); }
 
   function openChatFromReply(it) {                    // 내가 물어봤고, 상대가 답한 말풍선을 눌렀을 때
     var peer = it.from;
