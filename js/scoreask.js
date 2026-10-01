@@ -7,7 +7,7 @@
     asked[m.id] = Date.now(); askMeta[m.id] = { s: subj, t: now };
     keepPageScroll(renderTogether);
     enqueue(function () {
-      return dbFetch("/rooms/" + code + "/msgs/" + m.id + "/" + getDeviceId(), { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "ask", s: subj, t: now }) })
+      return dbFetch(ROOMS_ROOT + code + "/msgs/" + m.id + "/" + getDeviceId(), { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "ask", s: subj, t: now }) })
         .catch(function (err) {
           delete asked[m.id];
           if (err && err.message === "http 401") { msgBlocked = true; notice("서버 규칙을 업데이트해야 점수를 물어볼 수 있어요."); }
@@ -27,9 +27,9 @@
     var code = room.code, me = getDeviceId(), now = Math.floor(Date.now() / 1000);
     dropMsg(it);
     keepPageScroll(renderTogether);
-    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
     enqueue(function () {
-      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: String(it.s || "").slice(0, 30), x: DECLINE_X, t: now }) })
+      return dbFetch(ROOMS_ROOT + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: String(it.s || "").slice(0, 30), x: DECLINE_X, t: now }) })
         .catch(function (err) { if (err && err.message === "http 401") notice("서버 규칙을 업데이트하면 상대에게 거절했다고 알릴 수 있어요."); });
     });
   }
@@ -37,14 +37,14 @@
     if (!room) return;
     var code = room.code;
     dropMsg(it);
-    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
   }
   function dismissMsg(it) {
     if (!room) return;
     var code = room.code;
     dropMsg(it);
     keepPageScroll(renderTogether);
-    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + getDeviceId() + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
   }
   // 점수 답장 형식: "38|g"  (g=방금 입력한 점수와 같음, y=호머식 점수와 같음, r=다름, n=확인할 점수가 없음)
   var SCORE_FMT = /^(\d{1,2})\|([gyrn])$/;
@@ -85,10 +85,10 @@
     dropMsg(it);
     keepPageScroll(renderTogether);
     enqueue(function () {
-      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: x, t: now }) })
+      return dbFetch(ROOMS_ROOT + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: x, t: now }) })
         .catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; });
     });
-    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
     return true;
   }
   function buildBubble(it, name) {

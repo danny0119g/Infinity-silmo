@@ -1,5 +1,20 @@
 // [room-sync.js] 방 서버 통신: 내 상태 올리기, 15초 폴링, 멤버 목록 그리기
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
+  // 새 구조(v2)의 내 칸: 암호 칸 없이 제대로 된 이름의 칸으로 나눔
+  function myStateV2(r, active) {
+    var counts = {}, any = false;
+    countsOf(loadAll()).forEach(function (c) {
+      var key = c.name.replace(/[.$#\[\]\/]/g, "").slice(0, 30);
+      if (key) { counts[key] = Math.min(99, (counts[key] || 0) + c.count); any = true; }
+    });
+    var st = { name: r.name, day: todayStr(), share: shareOn(r.code) };
+    if (any) st.counts = counts;
+    if (st.share) { var sm = scoreMap(); if (Object.keys(sm).length) st.scores = sm; }
+    var lv = liveBlocked ? null : liveInfo();
+    if (lv) st.live = lv;
+    if (active && document.visibilityState === "visible") st.on = Math.floor(Date.now() / 1000);       // 앱이 화면에 보이는 동안 남기는 신호: 알림 서버가 이걸 보고 알림을 건너뜀
+    return st;
+  }
   function myState(r, active) {                      // r: 올릴 방, active: 지금 보고 있는 방인지 (보는 방에만 "보는 중" 신호를 남김)
     var subs = { "_": 0 };                          // 빈 값은 서버가 지워 버리므로 자리 표시용 항목을 항상 넣음
     countsOf(loadAll()).forEach(function (c) {
@@ -20,23 +35,37 @@
     return null;
   }
   function dbFetch(path, opts) {
-    var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null, to = 0;
     opts = opts || {};
-    if (ctl) { opts.signal = ctl.signal; to = setTimeout(function () { ctl.abort(); }, 10000); }
-    return fetch(DB_URL + path + ".json", opts).then(function (res) {
-      clearTimeout(to);
-      if (!res.ok) throw new Error("http " + res.status);
-      return res.json();
-    }, function (err) { clearTimeout(to); throw err; });
+    function go(tok) {
+      var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null, to = 0;
+      if (ctl) { opts.signal = ctl.signal; to = setTimeout(function () { ctl.abort(); }, 10000); }
+      return fetch(DB_URL + path + ".json" + (tok ? "?auth=" + encodeURIComponent(tok) : ""), opts).then(function (res) {
+        clearTimeout(to);
+        if (!res.ok) throw new Error("http " + res.status);
+        return res.json();
+      }, function (err) { clearTimeout(to); throw err; });
+    }
+    if (!USE_V2) return go("");
+    if (!fbAuth) return Promise.reject(new Error("NO_AUTH"));
+    return authToken().then(go);                     // 새 구조: 모든 요청에 내 로그인 토큰(1시간짜리, 자동 갱신)을 붙임
   }
   function enqueue(fn) { netChain = netChain.then(fn, fn); return netChain; }      // 요청을 한 줄로 세워서 순서가 뒤바뀌지 않게
+  var lastPushBy = {}, roomPending = {}, accountReady = !USE_V2;      // accountReady: 새 구조에서 방 목록·옛 방 이전 확인이 끝났는지
+  function syncPushRecord(r) {                       // 새 구조: 내 알림 주소는 따로 저장 (방 멤버만 읽을 수 있음)
+    var code = r.code, want = pushSub || "";
+    if (lastPushBy[code] === want) return Promise.resolve();
+    var path = ROOMS_ROOT + code + "/push/" + getDeviceId();
+    var req = want ? dbFetch(path, { method: "PUT", headers: JSONH, body: JSON.stringify(want) }) : dbFetch(path, { method: "DELETE" });
+    return req.then(function () { lastPushBy[code] = want; });
+  }
   function pushMe(force, r) {                        // 내 상태를 방에 올림 (r을 안 주면 지금 보는 방)
     r = r || room;
     if (!r) return Promise.resolve();
-    var code = r.code, isActive = !!room && room.code === code, st = myState(r, isActive), body = JSON.stringify(st);
-    if (!force && body === lastSentBy[code]) return Promise.resolve();
+    if (USE_V2 && (!fbAuth || !accountReady || roomPending[r.code])) return Promise.resolve();      // 로그인 전이거나 아직 새 구조로 옮겨지지 않은 방
+    var code = r.code, isActive = !!room && room.code === code, st = USE_V2 ? myStateV2(r, isActive) : myState(r, isActive), body = JSON.stringify(st);
+    if (!force && body === lastSentBy[code] && (!USE_V2 || lastPushBy[code] === (pushSub || ""))) return Promise.resolve();
     function put(b) {
-      return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: b })
+      return dbFetch(ROOMS_ROOT + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: b })
         .then(function () { lastSentBy[code] = b; if (isActive) netErr = false; });
     }
     return put(body).catch(function (err) {
@@ -45,7 +74,7 @@
         return put(JSON.stringify(st));
       }
       throw err;
-    }).catch(function () { if (isActive) netErr = true; delete lastSentBy[code]; });
+    }).then(function () { return USE_V2 ? syncPushRecord(r) : null; }).catch(function () { if (isActive) netErr = true; delete lastSentBy[code]; });
   }
   // 프로필 사진은 별도 칸(photos)에 올려서, 실패해도 기록 동기화에는 영향이 없게 함
   var PHOTOUSE_KEY = "examTimer.photoUse.v1";
@@ -67,7 +96,7 @@
     if (!r || !photo || !photoUsable(r.code)) return Promise.resolve();
     var code = r.code, mine = photo;
     if (!force && (photoSentBy[code] === mine || photoBlocked)) return Promise.resolve();
-    return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mine) })
+    return dbFetch(ROOMS_ROOT + code + "/photos/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mine) })
       .then(function () { photoSentBy[code] = mine; photoBlocked = false; })
       .catch(function (err) { if (err && err.message === "http 401") photoBlocked = true; });
   }
@@ -80,7 +109,7 @@
   function putHost(id) {
     if (!room) return Promise.resolve(false);
     var code = room.code;
-    return dbFetch("/rooms/" + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(id) })
+    return dbFetch(ROOMS_ROOT + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(id) })
       .then(function () { hostId = id; hostBlocked = false; return true; })
       .catch(function (err) { if (err && err.message === "http 401") hostBlocked = true; return false; });
   }
@@ -89,8 +118,9 @@
     rooms = rooms.filter(function (r) { return r.code !== code; });
     delete lastSentBy[code]; delete photoSentBy[code];
     var me = getDeviceId();
-    ["members", "photos", "msgs"].forEach(function (k) {
-      enqueue(function () { return dbFetch("/rooms/" + code + "/" + k + "/" + me, { method: "DELETE" }).catch(function () {}); });
+    delete lastPushBy[code];
+    (USE_V2 ? ["members", "photos", "msgs", "push"] : ["members", "photos", "msgs"]).forEach(function (k) {
+      enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/" + k + "/" + me, { method: "DELETE" }).catch(function () {}); });
     });
     if (wasActive) { activateRoom(rooms[0] || null); afterSwitch(); } else { saveRooms(); renderRoomSwitch(); }
     return label;
@@ -117,17 +147,21 @@
   // 보고 있지 않은 방들: 내 상태·알림 주소는 계속 맞춰 올리고(바뀔 때만), 방장이 내보냈는지는 1분에 한 번만 확인
   var kickCheckAt = {};
   function syncOtherRooms(force) {
+    if (USE_V2 && (!fbAuth || !accountReady)) return;
     rooms.slice().forEach(function (r) {
       if (room && r.code === room.code) return;
       enqueue(function () {
         if (!roomByCode(r.code)) return;
-        var now = Date.now(), chk = Promise.resolve(false);
+        var now = Date.now(), chk = Promise.resolve(null);
         if (force || !kickCheckAt[r.code] || now - kickCheckAt[r.code] > 60000) {
           kickCheckAt[r.code] = now;
-          chk = dbFetch("/rooms/" + r.code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { return v === true; }, function () { return false; });
+          chk = USE_V2
+            ? dbFetch(ROOMS_ROOT + r.code + "/meta", { cache: "no-store" }).then(function (m) { return { exists: !!m, kicked: !!(m && m.kicked && m.kicked[getDeviceId()] === true) }; }, function () { return null; })
+            : dbFetch(ROOMS_ROOT + r.code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { return { exists: true, kicked: v === true }; }, function () { return null; });
         }
-        return chk.then(function (kicked) {
-          if (kicked) { var label = dropRoom(r.code); notice("\"" + label + "\" 방에서 내보내졌어요."); return; }
+        return chk.then(function (info) {
+          if (info && info.kicked) { var label = dropRoom(r.code); notice("\"" + label + "\" 방에서 내보내졌어요."); return; }
+          if (USE_V2 && info) roomPending[r.code] = !info.exists;
           return pushMe(force, r);
         });
       });
@@ -136,19 +170,33 @@
   function pullOthers() {
     if (!room) return Promise.resolve();
     var code = room.code, me = getDeviceId();
-    var pm = dbFetch("/rooms/" + code + "/members", { cache: "no-store" });
+    var pm401 = false;
+    var pm = dbFetch(ROOMS_ROOT + code + "/members", { cache: "no-store" });
+    if (USE_V2) pm = pm.catch(function (err) { if (err && err.message === "http 401") { pm401 = true; return null; } throw err; });      // 새 구조: 멤버가 아니면(아직 옮겨지지 않은 방, 내보내진 방) 읽기가 막힘
     var pmeta = metaBlocked ? Promise.resolve(undefined)
-      : dbFetch("/rooms/" + code + "/meta", { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") metaBlocked = true; return undefined; });
+      : dbFetch(ROOMS_ROOT + code + "/meta", { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") metaBlocked = true; return undefined; });
     var pin = msgBlocked ? Promise.resolve(undefined)
-      : dbFetch("/rooms/" + code + "/msgs/" + me, { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; return undefined; });
+      : dbFetch(ROOMS_ROOT + code + "/msgs/" + me, { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") msgBlocked = true; return undefined; });
     return Promise.all([pm, pmeta, pin]).then(function (res) {
       var data = res[0], meta = res[1], mbox = res[2];
       if (!room || room.code !== code) return;
+      if (USE_V2) {                                   // 새 구조: 방 정보(meta)가 아직 없으면 옛 방이 옮겨지길 기다리는 중
+        if (meta === null) { roomPending[code] = true; others = []; hostId = ""; netErr = false; return; }
+        roomPending[code] = false;
+        if (pm401 && meta && !(meta.kicked && meta.kicked[me] === true)) { netErr = true; return; }
+      }
       var t = todayStr(), list = [];
       if (data && typeof data === "object") Object.keys(data).forEach(function (uid) {
         var m = data[uid];
         if (uid === me || !m || typeof m !== "object" || m.day !== t || typeof m.name !== "string") return;
         var ss = (m.subjects && typeof m.subjects === "object") ? m.subjects : {}, subs = [], total = 0, shared = false, series = [];
+        if (USE_V2) {                                 // 새 구조의 칸: counts(과목별 횟수), share(점수 공개), scores(과목별 점수 목록)
+          var cs = (m.counts && typeof m.counts === "object") ? m.counts : {};
+          Object.keys(cs).forEach(function (k) { var c = cs[k]; if (typeof c === "number" && c > 0) { subs.push({ name: k, count: c }); total += c; } });
+          shared = m.share === true;
+          if (shared && m.scores && typeof m.scores === "object") Object.keys(m.scores).forEach(function (k) { if (typeof m.scores[k] === "string") series.push({ s: k, v: parseSeries(m.scores[k]) }); });
+          ss = {};
+        }
         Object.keys(ss).forEach(function (k) {
           var c = ss[k];
           if (k === "_" || k.indexOf("~푸시|") === 0 || k.indexOf("~온|") === 0) return;
@@ -207,7 +255,7 @@
     });
   }
   function pollTick() {
-    if (!room || document.visibilityState !== "visible" || home.style.display === "none") return;
+    if (!room || (USE_V2 && (!fbAuth || !accountReady)) || document.visibilityState !== "visible" || home.style.display === "none") return;
     try {                                              // 점수 공유가 새로 생긴 걸 이미 방에 있던 사람에게 한 번만 알림
       if (!localStorage.getItem("examTimer.shareNotice.v1")) {
         localStorage.setItem("examTimer.shareNotice.v1", "1");
@@ -262,6 +310,7 @@
     syncBubbles(lis);
     syncChats(lis, list);
     if (list.length === 1) box.appendChild(el("p", "hint", "친구가 초대 코드로 입장하면 여기에 나타나요."));
+    if (USE_V2 && roomPending[room.code]) box.appendChild(el("p", "hint", "아직 새 버전으로 옮겨지지 않은 방이에요.\n방장이 앱을 열면 이어져요."));
     if (netErr) box.appendChild(el("p", "hint", "서버에 연결하지 못했어요. 잠시 후 다시 시도할게요."));
     if (profileKey) {                                 // 갱신된 내용으로 열려 있는 프로필도 함께 새로 그림
       var pm = null, pl = null;

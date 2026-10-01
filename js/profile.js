@@ -108,7 +108,7 @@
     closePenMenu();
     photo = ""; memPhoto = ""; photoSentBy = {};
     try { localStorage.removeItem(PHOTO_KEY); } catch (e) {}
-    rooms.forEach(function (r) { enqueue(function () { return dbFetch("/rooms/" + r.code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); }); });
+    rooms.forEach(function (r) { enqueue(function () { return dbFetch(ROOMS_ROOT + r.code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); }); });
     keepPageScroll(renderTogether);
   }
   function fillAvatar(av, m) {
@@ -131,7 +131,7 @@
     var c = photoCache[m.uid], uid = m.uid, code = room.code;
     if ((c && Date.now() - c.t < 60000) || photoBusy[uid]) return;
     photoBusy[uid] = true;
-    dbFetch("/rooms/" + code + "/photos/" + uid, { cache: "no-store" }).then(function (d) {
+    dbFetch(ROOMS_ROOT + code + "/photos/" + uid, { cache: "no-store" }).then(function (d) {
       photoBusy[uid] = false;
       if (!room || room.code !== code) return;
       photoCache[uid] = { data: validPhoto(d) ? d : "", t: Date.now() };
@@ -171,16 +171,17 @@
     if (penMenuOpen && !(e.target.closest && e.target.closest(".penMenu, .avPen"))) closePenMenu();
   });
 
-  // 방장 기능: 추방 / 방장 넘기기 (서버에 로그인이 없어서, 이 제한은 앱 화면에서만 지켜져요)
+  // 방장 기능: 추방 / 방장 넘기기 (새 구조에서는 서버 규칙이 방장만 가능하게 막고, 옛 구조에서는 앱 화면에서만 지켜져요)
   function kickMember(m) {
     ask(m.name + "님을 추방하겠습니까?", "추방", true, function () {
       if (!room || !isHost()) return;
       var code = room.code, id = m.id;
       others = others.filter(function (x) { return x.id !== id; });
       closeProfile(); keepPageScroll(renderTogether);
-      enqueue(function () { return dbFetch("/rooms/" + code + "/meta/kicked/" + id, { method: "PUT", headers: JSONH, body: "true" }).catch(function () {}); });   // 접속 중인 사람이 알아채고 스스로 나가게
-      enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + id, { method: "DELETE" }).catch(function () {}); });
-      enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + id, { method: "DELETE" }).catch(function () {}); });
+      enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/meta/kicked/" + id, { method: "PUT", headers: JSONH, body: "true" }).catch(function () {}); });   // 접속 중인 사람이 알아채고 스스로 나가게
+      enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/members/" + id, { method: "DELETE" }).catch(function () {}); });
+      enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/photos/" + id, { method: "DELETE" }).catch(function () {}); });
+      if (USE_V2) enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/push/" + id, { method: "DELETE" }).catch(function () {}); });
     });
   }
   function transferHost(m) {

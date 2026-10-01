@@ -3,7 +3,7 @@
   // ---------- 작은 채팅창 ----------
   // 점수 물어보기 → 상대 답장 → 질문한 사람이 그 답장을 누르면, 서로의 카드 옆에 작은 채팅창이 열림 (앞의 두 마디 포함).
   // 둘 중 한 명이라도 실모를 시작하면 상대 창에 안내가 뜨고(입력창은 사라짐) 잠시 뒤 저절로 닫힘.
-  var CHAT_ID = /^[a-z0-9]{6,20}$/, CHAT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+  var CHAT_ID = /^[A-Za-z0-9]{6,40}$/, CHAT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
   // 열려 있는 대화를 기기에 기억해 두었다가, 새로고침하면 상대가 아직 방에 있고 대화가 안 끝났을 때 다시 띄움
   var CHATS_KEY = "examTimer.chats.v1", pulled = false;
   function loadSavedChats() {
@@ -26,7 +26,7 @@
     } catch (e) {}
   }
   function pairKey(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
-  function chatNode(code, peer) { return "/rooms/" + code + "/chats/" + pairKey(getDeviceId(), peer); }
+  function chatNode(code, peer) { return ROOMS_ROOT + code + "/chats/" + pairKey(getDeviceId(), peer); }
   function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
   function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
@@ -281,11 +281,11 @@
     var local = {};
     local[ka] = seeds[ka]; local[kr] = seeds[kr];
     dropMsg(it);
-    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + peer, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + me + "/" + peer, { method: "DELETE" }).catch(function () {}); });
     buildChat(peer, nm ? nm.textContent : "친구", local, li);
     enqueue(function () {                             // 서버에 앞의 두 마디를 먼저 올리고, 상대에게 "대화가 열렸다"고 알림
       return dbFetch(node, { method: "PUT", headers: JSONH, body: JSON.stringify(seeds) })
-        .then(function () { return dbFetch("/rooms/" + code + "/msgs/" + peer + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "chat", s: seeds[ka].s, t: nowS }) }); })
+        .then(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + peer + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "chat", s: seeds[ka].s, t: nowS }) }); })
         .catch(function (err) { if (err && err.message === "http 401") { chatBlocked = true; removeChat(peer); notice("서버 규칙을 업데이트해야 대화할 수 있어요."); } });
     });
     keepPageScroll(renderTogether);
@@ -295,7 +295,7 @@
     invites = invites.filter(function (x) { return x !== iv; });
     if (!room) return;
     var code = room.code;
-    enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId() + "/" + iv.from, { method: "DELETE" }).catch(function () {}); });
+    enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + getDeviceId() + "/" + iv.from, { method: "DELETE" }).catch(function () {}); });
   }
   function handleInvite(iv, lis, byId) {              // 상대가 대화를 열었을 때: 내 쪽에도 창을 띄움
     var peer = iv.from, m = byId[peer], li = lis[peer];

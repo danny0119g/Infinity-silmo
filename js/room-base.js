@@ -4,6 +4,7 @@
   // 서버(Firebase Realtime Database)에는 닉네임·오늘 날짜·과목별 응시 횟수만 올라간다. 점수와 시간은 이 기기에만 남는다.
   var DB_URL = "https://infinitesilmo-default-rtdb.asia-southeast1.firebasedatabase.app";
   var ROOM_KEY = "examTimer.room.v1", DEV_KEY = "examTimer.device.v1";
+  var ROOMS_ROOT = USE_V2 ? "/v2/rooms/" : "/rooms/";        // 서버에서 방 데이터가 있는 자리 (새 구조는 v2 아래)
   var CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
   var liveBlocked = false, photoSentBy = {}, photoBlocked = false, photoCache = {}, profileM = null;
   var hostId = "", hostBlocked = false, metaBlocked = false, penMenuOpen = false, crop = null, JSONH = { "Content-Type": "application/json" };
@@ -46,7 +47,8 @@
     for (i = 0; i < n; i++) out += chars.charAt(a[i] % chars.length);
     return out;
   }
-  function getDeviceId() {
+  function getDeviceId() { return USE_V2 ? (fbAuth ? fbAuth.uid : "") : getLegacyDeviceId(); }     // 새 구조에서는 로그인한 계정 ID가 내 ID
+  function getLegacyDeviceId() {                     // 예전 기기 ID (옛 방의 방장 확인에만 씀)
     if (deviceId) return deviceId;
     try { deviceId = localStorage.getItem(DEV_KEY) || ""; } catch (e) {}
     if (!/^[a-z0-9]{10,20}$/.test(deviceId)) {
@@ -58,6 +60,7 @@
   // ---------- 여러 방 ----------
   // rooms: 들어간 방 목록 [{code, name(이 방에서의 내 닉네임), label(방 이름: 이 기기에서만 보임)}]
   // room : 지금 보고 있는 방 (rooms 안의 한 항목). 화면·15초 확인·채팅은 이 방 하나만 보고, 내 상태와 알림 주소는 모든 방에 올림.
+  var CHATS_KEY_NAME = "examTimer.chats.v1";
   var ROOMS_KEY = "examTimer.rooms.v1", SHAREROOMS_KEY = "examTimer.shareRooms.v1", MAX_ROOMS = 8, DEFAULT_LABEL = "무수한 실모단";
   function validRoomObj(r) { return !!r && typeof r.code === "string" && /^[a-z0-9]{6,12}$/.test(r.code) && typeof r.name === "string" && !!r.name; }
   function cleanRoomObj(r) { var o = { code: r.code, name: r.name.slice(0, 12) }; if (typeof r.label === "string" && r.label.trim()) o.label = r.label.trim().slice(0, 14); return o; }
@@ -65,6 +68,11 @@
     var list = [], seen = {}, o = null, legacy = false;
     try { o = JSON.parse(localStorage.getItem(ROOMS_KEY)); } catch (e) {}
     if (o && typeof o.forEach === "function") o.forEach(function (r) { if (validRoomObj(r) && !seen[r.code] && list.length < MAX_ROOMS) { seen[r.code] = 1; list.push(cleanRoomObj(r)); } });
+    if (USE_V2 && fbAuth) {                           // 다른 계정이 쓰던 기기면 그 계정의 방 목록을 이어받지 않음
+      var owner = ""; try { owner = localStorage.getItem("examTimer.roomsOwner.v1") || ""; } catch (e) {}
+      if (owner && owner !== fbAuth.uid) { try { localStorage.removeItem(ROOMS_KEY); localStorage.removeItem(ROOM_KEY); localStorage.removeItem(CHATS_KEY_NAME); localStorage.removeItem("examTimer.roomsSynced.v1"); } catch (e) {} return []; }
+      if (!owner) { try { localStorage.setItem("examTimer.roomsOwner.v1", fbAuth.uid); } catch (e) {} }
+    }
     if (!list.length) {                               // 방 하나만 쓰던 예전 저장 형식에서 이어받기 (그때의 점수 공개 설정도 그 방으로 옮김)
       var old = null; try { old = JSON.parse(localStorage.getItem(ROOM_KEY)); } catch (e) {}
       if (validRoomObj(old)) {
@@ -75,7 +83,7 @@
     return list;
   }
   var rooms = loadRooms();
-  function saveRooms() { try { localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms)); } catch (e) {} }
+  function saveRooms() { try { localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms)); } catch (e) {} if (USE_V2 && typeof scheduleRoomListPush === "function") scheduleRoomListPush(); }
   function roomByCode(code) { for (var i = 0; i < rooms.length; i++) if (rooms[i].code === code) return rooms[i]; return null; }
   function roomLabel(r) { return (r && r.label) || DEFAULT_LABEL; }
   function loadRoom() {                              // 마지막으로 보던 방 (예전 버전과 호환되게 ROOM_KEY에는 보던 방의 코드·닉네임을 계속 저장)
@@ -133,6 +141,19 @@
     return order.map(function (k) { return { name: k, count: m[k] }; });
   }
   // 과목별 점수 목록을 "~과목|38,44:46,-,40" 꼴의 이름으로 만듦 (본점수[:호머식], 미입력은 -)
+  function scoreMap() {                              // 새 구조: { 과목: "38,44:46,-" }
+    var by = {}, out = {};
+    loadAll().forEach(function (r) {
+      var sj = recSubject(r).replace(/[.$#\[\]\/|~,]/g, "").slice(0, 30);
+      if (!sj) return;
+      if (!by[sj]) by[sj] = [];
+      var a = (r.score1 != null) ? String(r.score1) : "-";
+      if (r.usedExtra && r.score2 != null) a += ":" + r.score2;
+      by[sj].push(a);
+    });
+    Object.keys(by).forEach(function (sj) { out[sj] = by[sj].slice(-30).join(","); });
+    return out;
+  }
   function scoreKeys() {
     var by = {}, order = [];
     loadAll().forEach(function (r) {

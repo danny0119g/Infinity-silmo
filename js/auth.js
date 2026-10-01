@@ -1,5 +1,8 @@
 // [auth.js] 로그인 (Firebase Authentication REST + Google Identity Services). SDK 없이 동작.
 // 이 파일은 앱(index.html)과 로그인 점검 페이지(auth-test.html)가 같이 씁니다. 다른 파일에 의존하지 않음.
+  // 새 서버 구조(v2: 로그인 필요) 스위치. false면 지금까지처럼 로그인 없이 옛 구조로 동작. 규칙을 새로 붙여넣은 뒤에 true로 바꿈.
+  var AUTH_REQUIRED = false;
+  var USE_V2 = AUTH_REQUIRED;
   var FB_API_KEY = "AIzaSyAuq8pMbt6u56cuReLLBo1j9CIYWh-MpeQ";                                  // 웹 앱용 공개 키 (비밀이 아님)
   var GOOGLE_CLIENT_ID = "710576098481-rmhuv2j1ejtb7dob9s1k49d304qrojl4.apps.googleusercontent.com";
   var AUTH_KEY = "examTimer.auth.v1";

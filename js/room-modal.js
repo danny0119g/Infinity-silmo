@@ -16,6 +16,7 @@
     refreshRoomPhoto();
     setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
     $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
+    renderAccount();
     roomModal.classList.add("on");
   }
   function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
@@ -25,11 +26,21 @@
     if (!had && rooms.length >= MAX_ROOMS) { setRoomMsg("방은 최대 " + MAX_ROOMS + "개까지 들어갈 수 있어요."); return; }
     roomBusy = true;
     setRoomMsg(joining ? "입장하는 중…" : "방을 만드는 중…", false);
-    var check = joining
-      ? dbFetch("/rooms/" + code + "/members", { cache: "no-store" }).then(function (d) { if (!d || typeof d !== "object") throw new Error("noroom"); }).then(function () {
-          return dbFetch("/rooms/" + code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { if (v === true) throw new Error("kicked"); }, function () {});
-        })
-      : Promise.resolve();
+    var me = getDeviceId(), check;
+    if (USE_V2) {                                    // 새 구조: 입장은 방 정보(meta) 확인, 만들기는 meta부터 만들어야 함(규칙이 방이 있어야 멤버로 쓰게 함)
+      check = joining
+        ? dbFetch(ROOMS_ROOT + code + "/meta", { cache: "no-store" }).then(function (m) {
+            if (!m || typeof m !== "object" || typeof m.host !== "string") throw new Error("noroom");
+            if (m.kicked && m.kicked[me] === true) throw new Error("kicked");
+          })
+        : dbFetch(ROOMS_ROOT + code + "/meta", { method: "PUT", headers: JSONH, body: JSON.stringify({ host: me }) });
+    } else {
+      check = joining
+        ? dbFetch(ROOMS_ROOT + code + "/members", { cache: "no-store" }).then(function (d) { if (!d || typeof d !== "object") throw new Error("noroom"); }).then(function () {
+            return dbFetch(ROOMS_ROOT + code + "/meta/kicked/" + me, { cache: "no-store" }).then(function (v) { if (v === true) throw new Error("kicked"); }, function () {});
+          })
+        : Promise.resolve();
+    }
     function rollback() {                            // 서버에 연결하지 못하면 방 목록과 보던 방을 원래대로 돌림
       if (had) had.name = hadName; else rooms = rooms.filter(function (r) { return r.code !== code; });
       saveRooms();
@@ -46,7 +57,7 @@
       roomBusy = false;
       closeRoomModal();
       if (!had) setPhotoUse(code, photo ? "ask" : true);
-      var hp = joining ? Promise.resolve() : enqueue(function () { return putHost(getDeviceId()); });     // 방을 만든 사람이 방장
+      var hp = (joining || USE_V2) ? Promise.resolve() : enqueue(function () { return putHost(getDeviceId()); });     // 방을 만든 사람이 방장
       hp.then(pullOthers).then(function () { renderRoomSwitch(); keepPageScroll(renderTogether); });
       renderRoomSwitch();
       keepPageScroll(renderTogether);
@@ -94,7 +105,7 @@
     var code = room.code;
     if (photoUsable()) {                             // 이 방에서는 사진을 안 쓰기: 올려 둔 사진도 서버에서 지움
       setPhotoUse(code, false); photoSentBy = {};
-      enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+      enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       setRoomMsg("이 방에서는 사진이 보이지 않아요.", false);
     } else {
       setPhotoUse(code, true); photoSentBy = {}; photoBlocked = false;
@@ -148,8 +159,8 @@
       var code = room.code, wasHost = isHost(), succ = others.length ? others[0] : null;
       closeAllChats("gone");
       if (wasHost) {                                 // 방장이 나가면 다음 사람에게 넘기고, 혼자였다면 방 정보를 정리
-        if (succ) enqueue(function () { return dbFetch("/rooms/" + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(succ.id) }).catch(function () {}); });
-        else enqueue(function () { return dbFetch("/rooms/" + code + "/meta", { method: "DELETE" }).catch(function () {}); });
+        if (succ) enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(succ.id) }).catch(function () {}); });
+        else enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/meta", { method: "DELETE" }).catch(function () {}); });
       }
       dropRoom(code);                                // 내 기록 지우기 + 남은 방이 있으면 그 방으로 이동
       closeRoomModal();
