@@ -1,15 +1,15 @@
 // [room-sync.js] 방 서버 통신: 내 상태 올리기, 15초 폴링, 멤버 목록 그리기
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
-  function myState() {
+  function myState(r, active) {                      // r: 올릴 방, active: 지금 보고 있는 방인지 (보는 방에만 "보는 중" 신호를 남김)
     var subs = { "_": 0 };                          // 빈 값은 서버가 지워 버리므로 자리 표시용 항목을 항상 넣음
     countsOf(loadAll()).forEach(function (c) {
       var key = c.name.replace(/[.$#\[\]\/]/g, "").slice(0, 30);
       if (key) subs[key] = Math.min(99, (subs[key] || 0) + c.count);
     });
     if (pushSub) subs["~푸시|" + pushSub] = 1;
-    if (document.visibilityState === "visible") subs["~온|" + Math.floor(Date.now() / 1000)] = 1;     // 앱이 화면에 보이는 동안 남기는 신호: 서버가 이걸 보고 알림을 건너뜀
-    if (shareOn()) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
-    var st = { name: room.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
+    if (active && document.visibilityState === "visible") subs["~온|" + Math.floor(Date.now() / 1000)] = 1;     // 앱이 화면에 보이는 동안 남기는 신호: 서버가 이걸 보고 알림을 건너뜀
+    if (shareOn(r.code)) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
+    var st = { name: r.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
     if (lv) st.live = lv;
     return st;
   }
@@ -30,49 +30,51 @@
     }, function (err) { clearTimeout(to); throw err; });
   }
   function enqueue(fn) { netChain = netChain.then(fn, fn); return netChain; }      // 요청을 한 줄로 세워서 순서가 뒤바뀌지 않게
-  function pushMe(force) {
-    if (!room) return Promise.resolve();
-    var code = room.code, st = myState(), body = JSON.stringify(st);
-    if (!force && body === lastSent) return Promise.resolve();
+  function pushMe(force, r) {                        // 내 상태를 방에 올림 (r을 안 주면 지금 보는 방)
+    r = r || room;
+    if (!r) return Promise.resolve();
+    var code = r.code, isActive = !!room && room.code === code, st = myState(r, isActive), body = JSON.stringify(st);
+    if (!force && body === lastSentBy[code]) return Promise.resolve();
     function put(b) {
       return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: b })
-        .then(function () { lastSent = b; netErr = false; });
+        .then(function () { lastSentBy[code] = b; if (isActive) netErr = false; });
     }
     return put(body).catch(function (err) {
-      if (st.live && err && err.message === "http 401") {          // 서버 규칙이 아직 응시 상태를 받지 않으면 그것만 빼고 다시 올림
+      if (st.live && err && err.message === "http 401") {          // 서버 규칙이 live 칸을 막고 있으면 그것만 빼고 다시 올림
         liveBlocked = true; delete st.live;
         return put(JSON.stringify(st));
       }
       throw err;
-    }).catch(function () { netErr = true; lastSent = ""; });
+    }).catch(function () { if (isActive) netErr = true; delete lastSentBy[code]; });
   }
   // 프로필 사진은 별도 칸(photos)에 올려서, 실패해도 기록 동기화에는 영향이 없게 함
   var PHOTOUSE_KEY = "examTimer.photoUse.v1";
   function loadPhotoUse() { try { var o = JSON.parse(localStorage.getItem(PHOTOUSE_KEY)); if (o && typeof o === "object") return o; } catch (e) {} return {}; }
   var photoUse = loadPhotoUse();
   function setPhotoUse(code, v) { photoUse[code] = v; try { localStorage.setItem(PHOTOUSE_KEY, JSON.stringify(photoUse)); } catch (e) {} }
-  function photoUsable() { if (!room) return true; var v = photoUse[room.code]; return v !== false && v !== "ask"; }
+  function photoUsable(code) { code = code || (room && room.code); if (!code) return true; var v = photoUse[code]; return v !== false && v !== "ask"; }
   function askPhotoUse() {                           // 방에 들어올 때마다: 이 방에서 지금 사진을 쓸지 물어봄
     if (!room || !photo || photoUse[room.code] !== "ask" || $("modal").classList.contains("on")) return;
     var code = room.code;
     ask("이 방에서 프로필 사진을 쓰겠습니까?", "사용", false, function () {
-      setPhotoUse(code, true); photoSent = ""; photoBlocked = false;
+      setPhotoUse(code, true); photoSentBy = {}; photoBlocked = false;
       keepPageScroll(renderTogether);
       enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
     }, function () { setPhotoUse(code, false); keepPageScroll(renderTogether); });
   }
-  function pushPhoto(force) {
-    if (!room || !photo || !photoUsable()) return Promise.resolve();
-    if (!force && (photoSent === photo || photoBlocked)) return Promise.resolve();
-    var code = room.code, mine = photo;
+  function pushPhoto(force, r) {                     // 프로필 사진을 방에 올림 (r을 안 주면 지금 보는 방)
+    r = r || room;
+    if (!r || !photo || !photoUsable(r.code)) return Promise.resolve();
+    var code = r.code, mine = photo;
+    if (!force && (photoSentBy[code] === mine || photoBlocked)) return Promise.resolve();
     return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mine) })
-      .then(function () { photoSent = mine; photoBlocked = false; })
+      .then(function () { photoSentBy[code] = mine; photoBlocked = false; })
       .catch(function (err) { if (err && err.message === "http 401") photoBlocked = true; });
   }
   function scheduleSync() {
     if (!room) return;
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(function () { enqueue(function () { return pushMe(false); }).then(function () { keepPageScroll(renderTogether); }); }, 700);
+    syncTimer = setTimeout(function () { enqueue(function () { return pushMe(false); }).then(function () { keepPageScroll(renderTogether); }); syncOtherRooms(false); }, 700);
   }
   // 방장 지정 (서버의 meta/host)
   function putHost(id) {
@@ -82,17 +84,54 @@
       .then(function () { hostId = id; hostBlocked = false; return true; })
       .catch(function (err) { if (err && err.message === "http 401") hostBlocked = true; return false; });
   }
-  function handleKicked() {                           // 방장이 나를 내보냈을 때
-    var code = room ? room.code : "";
-    saveRoom(null); others = []; hostId = ""; lastSent = ""; photoSent = ""; photoCache = {}; photoBusy = {};
-    closeProfile(); destroyAllChats();
-    if (code) {
-      enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
-      enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
-      enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
-    }
+  function dropRoom(code) {                          // 이 기기의 방 목록에서 빼고, 서버에 남은 내 흔적(상태·사진·받은 편지)도 지움
+    var wasActive = !!room && room.code === code, label = roomLabel(roomByCode(code));
+    rooms = rooms.filter(function (r) { return r.code !== code; });
+    delete lastSentBy[code]; delete photoSentBy[code];
+    var me = getDeviceId();
+    ["members", "photos", "msgs"].forEach(function (k) {
+      enqueue(function () { return dbFetch("/rooms/" + code + "/" + k + "/" + me, { method: "DELETE" }).catch(function () {}); });
+    });
+    if (wasActive) { activateRoom(rooms[0] || null); afterSwitch(); } else { saveRooms(); renderRoomSwitch(); }
+    return label;
+  }
+  function handleKicked() {                          // 방장이 나를 내보냈을 때 (지금 보던 방)
+    if (!room) return;
+    var label = dropRoom(room.code);
+    notice((rooms.length ? "\"" + label + "\"" : "") + " 방장이 방에서 내보냈어요.");
+  }
+  function afterSwitch() {                           // 보는 방이 바뀐 뒤: 새 방에 내 상태를 올리고 친구 목록을 새로 받아 옴
+    renderRoomSwitch();
     keepPageScroll(renderTogether);
-    notice("방장이 방에서 내보냈어요.");
+    if (!room) return;
+    enqueue(function () { return pushMe(true).then(function () { return pushPhoto(true); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
+    syncOtherRooms(true);                            // 방금까지 보던 방에서는 "보는 중" 신호를 지움
+    askPhotoUse();
+  }
+  function switchRoom(code) {
+    var r = roomByCode(code);
+    if (!r || (room && room.code === code)) return;
+    activateRoom(r);
+    afterSwitch();
+  }
+  // 보고 있지 않은 방들: 내 상태·알림 주소는 계속 맞춰 올리고(바뀔 때만), 방장이 내보냈는지는 1분에 한 번만 확인
+  var kickCheckAt = {};
+  function syncOtherRooms(force) {
+    rooms.slice().forEach(function (r) {
+      if (room && r.code === room.code) return;
+      enqueue(function () {
+        if (!roomByCode(r.code)) return;
+        var now = Date.now(), chk = Promise.resolve(false);
+        if (force || !kickCheckAt[r.code] || now - kickCheckAt[r.code] > 60000) {
+          kickCheckAt[r.code] = now;
+          chk = dbFetch("/rooms/" + r.code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { return v === true; }, function () { return false; });
+        }
+        return chk.then(function (kicked) {
+          if (kicked) { var label = dropRoom(r.code); notice("\"" + label + "\" 방에서 내보내졌어요."); return; }
+          return pushMe(force, r);
+        });
+      });
+    });
   }
   function pullOthers() {
     if (!room) return Promise.resolve();
@@ -176,10 +215,12 @@
       }
     } catch (e) {}
     askPhotoUse();
+    syncOtherRooms(false);
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }
   function renderTogether() {
     var box = $("togetherBody"), btn = $("roomBtn");
+    renderRoomSwitch();
     var rmEl = $("roomModal"); if (rmEl && rmEl.classList.contains("on") && room) refreshRoomPhoto();      // 설정 창이 열려 있으면 사진 상태도 같이 갱신
     box.textContent = "";
     if (!room) {

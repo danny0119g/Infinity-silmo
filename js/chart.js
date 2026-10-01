@@ -547,7 +547,7 @@
   });
 
   document.addEventListener("visibilitychange", function () {
-    if (room) { lastSent = ""; enqueue(function () { return pushMe(true); }); }       // 화면을 보기 시작/그만둔 것을 바로 알려서 알림이 알맞게 오게 함
+    if (room) { lastSentBy = {}; enqueue(function () { return pushMe(true); }); }       // 화면을 보기 시작/그만둔 것을 바로 알려서 알림이 알맞게 오게 함
     presenceSync();
     if (document.visibilityState === "hidden") {
       if (swDrag) endSwitchDrag(false, swDrag.lastX);

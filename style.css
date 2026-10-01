@@ -595,3 +595,23 @@
     #abandon:hover { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
     #endBtn:hover { filter: brightness(1.08); }
   }
+
+  /* 방 전환 메뉴 */
+  .roomSwitchWrap { min-width: 0; margin: -5px 0 -5px -9px; }
+  .roomSwitch { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; margin: 0; padding: 5px 9px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--muted); font-size: 16px; font-weight: 700; cursor: pointer; }
+  .roomSwitch span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .roomSwitch svg { flex: none; width: 14px; height: 14px; transition: transform .2s ease; }
+  .roomSwitch[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .roomSwitch.pressing { border-color: var(--accent); color: var(--text); }
+  .roomMenu { position: fixed; z-index: 12; display: none; min-width: 220px; max-width: calc(100vw - 16px); padding: 6px; flex-direction: column; gap: 2px;
+    background: #1b1d21; border: 1px solid #484e59; border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.55); }
+  .roomMenu.on { display: flex; }
+  .roomOpt { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+  .roomOpt.pressing { background: rgba(255,255,255,.09); }
+  .roText { display: flex; flex-direction: column; min-width: 0; }
+  .roName { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .roSub { margin-top: 1px; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .roCheck { flex: none; display: inline-flex; color: var(--accent); }
+  .roCheck svg { width: 16px; height: 16px; display: block; }
+  .roomOpt.add { margin-top: 3px; padding-top: 11px; border-top: 1px solid var(--line); border-radius: 0 0 9px 9px; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .roomOpt:disabled { opacity: .45; cursor: default; }

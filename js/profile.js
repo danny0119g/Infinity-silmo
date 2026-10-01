@@ -99,16 +99,16 @@
   function savePhoto(p) { memPhoto = p; photo = p; try { localStorage.setItem(PHOTO_KEY, p); } catch (e) {} }
   function applyPhoto(data) {
     if (room) setPhotoUse(room.code, true);           // 새로 고른 사진은 이 방에서 바로 사용
-    savePhoto(data); photoSent = ""; photoBlocked = false;
+    savePhoto(data); photoSentBy = {}; photoBlocked = false;
     keepPageScroll(renderTogether);
     enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
+    rooms.forEach(function (r) { if (!room || r.code !== room.code) enqueue(function () { return pushPhoto(true, r); }); });      // 다른 방에도 (사진을 쓰기로 한 방만)
   }
   function removePhoto() {
     closePenMenu();
-    photo = ""; memPhoto = ""; photoSent = "";
+    photo = ""; memPhoto = ""; photoSentBy = {};
     try { localStorage.removeItem(PHOTO_KEY); } catch (e) {}
-    var code = room ? room.code : "";
-    if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+    rooms.forEach(function (r) { enqueue(function () { return dbFetch("/rooms/" + r.code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); }); });
     keepPageScroll(renderTogether);
   }
   function fillAvatar(av, m) {
@@ -153,7 +153,7 @@
       use.type = "button";
       use.addEventListener("click", function (e) {
         e.stopPropagation(); closePenMenu();
-        setPhotoUse(room.code, true); photoSent = ""; photoBlocked = false;
+        setPhotoUse(room.code, true); photoSentBy = {}; photoBlocked = false;
         keepPageScroll(renderTogether);
         enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
       });

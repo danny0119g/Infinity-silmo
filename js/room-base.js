@@ -5,7 +5,7 @@
   var DB_URL = "https://infinitesilmo-default-rtdb.asia-southeast1.firebasedatabase.app";
   var ROOM_KEY = "examTimer.room.v1", DEV_KEY = "examTimer.device.v1";
   var CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
-  var liveBlocked = false, photoSent = "", photoBlocked = false, photoCache = {}, profileM = null;
+  var liveBlocked = false, photoSentBy = {}, photoBlocked = false, photoCache = {}, profileM = null;
   var hostId = "", hostBlocked = false, metaBlocked = false, penMenuOpen = false, crop = null, JSONH = { "Content-Type": "application/json" };
   var inbox = [], asked = {}, bubbles = {}, msgBlocked = false, dismissedMsg = {}, prevLive = {}, doneInfer = {}, chats = {}, lastLis = {}, invites = [], chatBlocked = false, chatClosedAt = {}, askMeta = {};
   // 방금 끝낸 시험 (끝난 뒤 5분 동안 친구들이 "점수 물어보기"를 할 수 있게, 응시 상태에 e:2 로 함께 올림)
@@ -39,7 +39,7 @@
     lastDone = { s: String(current.subject).slice(0, 30), t: Math.floor(Date.now() / 1000) };
     try { localStorage.setItem(DONE_KEY, JSON.stringify(lastDone)); } catch (e) {}
   }
-  var memRoom = null, deviceId = "", others = [], netErr = false, lastSent = "", syncTimer = 0, netChain = Promise.resolve(), roomBusy = false;
+  var memRoom = null, deviceId = "", others = [], netErr = false, lastSentBy = {}, syncTimer = 0, netChain = Promise.resolve(), roomBusy = false;
   function rnd(n, chars) {
     var a = new Uint32Array(n), out = "", i;
     try { crypto.getRandomValues(a); } catch (e) { for (i = 0; i < n; i++) a[i] = Math.floor(Math.random() * 4294967296); }
@@ -55,16 +55,73 @@
     }
     return deviceId;
   }
-  function loadRoom() {
-    var r = null;
-    try { r = JSON.parse(localStorage.getItem(ROOM_KEY)); } catch (e) {}
-    if (r && typeof r.code === "string" && /^[a-z0-9]{6,12}$/.test(r.code) && typeof r.name === "string" && r.name) return { code: r.code, name: r.name.slice(0, 12) };
-    return memRoom;
+  // ---------- 여러 방 ----------
+  // rooms: 들어간 방 목록 [{code, name(이 방에서의 내 닉네임), label(방 이름: 이 기기에서만 보임)}]
+  // room : 지금 보고 있는 방 (rooms 안의 한 항목). 화면·15초 확인·채팅은 이 방 하나만 보고, 내 상태와 알림 주소는 모든 방에 올림.
+  var ROOMS_KEY = "examTimer.rooms.v1", SHAREROOMS_KEY = "examTimer.shareRooms.v1", MAX_ROOMS = 8, DEFAULT_LABEL = "무수한 실모단";
+  function validRoomObj(r) { return !!r && typeof r.code === "string" && /^[a-z0-9]{6,12}$/.test(r.code) && typeof r.name === "string" && !!r.name; }
+  function cleanRoomObj(r) { var o = { code: r.code, name: r.name.slice(0, 12) }; if (typeof r.label === "string" && r.label.trim()) o.label = r.label.trim().slice(0, 14); return o; }
+  function loadRooms() {
+    var list = [], seen = {}, o = null, legacy = false;
+    try { o = JSON.parse(localStorage.getItem(ROOMS_KEY)); } catch (e) {}
+    if (o && typeof o.forEach === "function") o.forEach(function (r) { if (validRoomObj(r) && !seen[r.code] && list.length < MAX_ROOMS) { seen[r.code] = 1; list.push(cleanRoomObj(r)); } });
+    if (!list.length) {                               // 방 하나만 쓰던 예전 저장 형식에서 이어받기 (그때의 점수 공개 설정도 그 방으로 옮김)
+      var old = null; try { old = JSON.parse(localStorage.getItem(ROOM_KEY)); } catch (e) {}
+      if (validRoomObj(old)) {
+        list.push(cleanRoomObj(old));
+        try { if (localStorage.getItem("examTimer.share.v1") === "0") { var m = {}; m[old.code] = false; localStorage.setItem(SHAREROOMS_KEY, JSON.stringify(m)); } } catch (e) {}
+      }
+    }
+    return list;
+  }
+  var rooms = loadRooms();
+  function saveRooms() { try { localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms)); } catch (e) {} }
+  function roomByCode(code) { for (var i = 0; i < rooms.length; i++) if (rooms[i].code === code) return rooms[i]; return null; }
+  function roomLabel(r) { return (r && r.label) || DEFAULT_LABEL; }
+  function loadRoom() {                              // 마지막으로 보던 방 (예전 버전과 호환되게 ROOM_KEY에는 보던 방의 코드·닉네임을 계속 저장)
+    var o = null; try { o = JSON.parse(localStorage.getItem(ROOM_KEY)); } catch (e) {}
+    return (o && roomByCode(o.code)) || rooms[0] || null;
   }
   var room = loadRoom();
-  function saveRoom(r) {
-    memRoom = r; room = r;
-    try { if (r) localStorage.setItem(ROOM_KEY, JSON.stringify(r)); else localStorage.removeItem(ROOM_KEY); } catch (e) {}
+  function persistRoom() {
+    saveRooms();
+    try { if (room) localStorage.setItem(ROOM_KEY, JSON.stringify({ code: room.code, name: room.name })); else localStorage.removeItem(ROOM_KEY); } catch (e) {}
+  }
+  function defaultLabel() {                          // 새 방의 기본 이름: 무수한 실모단, 방 2, 방 3 …
+    var used = {}; rooms.forEach(function (r) { used[roomLabel(r)] = 1; });
+    if (!used[DEFAULT_LABEL]) return DEFAULT_LABEL;
+    for (var n = 2; n <= MAX_ROOMS + 1; n++) if (!used["방 " + n]) return "방 " + n;
+    return "방";
+  }
+  function addRoom(code, name) {                     // 목록에 넣고(이미 있으면 닉네임만 바꾸고) 그 항목을 돌려줌
+    var r = roomByCode(code);
+    if (r) r.name = name; else { r = { code: code, name: name, label: defaultLabel() }; rooms.push(r); }
+    saveRooms();
+    return r;
+  }
+  function resetRoomState() {                        // 방을 바꿀 때 이전 방의 흔적을 전부 비움 (다른 방 친구·사진·대화가 섞이지 않게)
+    destroyAllChats(); closeProfile(); closePenMenu(); syncBubbles({});
+    others = []; hostId = ""; netErr = false; liveBlocked = false; photoBlocked = false; photoCache = {}; photoBusy = {};
+    hostBlocked = false; metaBlocked = false; msgBlocked = false; chatBlocked = false;
+    prevLive = {}; doneInfer = {}; inbox = []; invites = []; asked = {}; dismissedMsg = {}; chatClosedAt = {}; askMeta = {}; lastLis = {};
+    pulled = false; pendingRestore = {};
+  }
+  function activateRoom(r) {                         // 보는 방을 바꿈 (r이 null이면 방 없음)
+    if ((room && r && room.code === r.code) || (!room && !r)) return;
+    resetRoomState();                                // 이전 방이 아직 설정된 상태에서 정리해야 채팅 저장 등이 이전 방 기준으로 끝남
+    room = r || null;
+    persistRoom();
+    saveChats();
+  }
+  // 점수 공개 여부는 방마다 따로 (기본: 켜짐)
+  function shareOn(code) {
+    code = code || (room && room.code);
+    try { var m = JSON.parse(localStorage.getItem(SHAREROOMS_KEY)); if (code && m && typeof m === "object" && typeof m[code] === "boolean") return m[code]; } catch (e) {}
+    return true;
+  }
+  function setShareOn(code, on) {
+    var m = {}; try { m = JSON.parse(localStorage.getItem(SHAREROOMS_KEY)) || {}; } catch (e) {}
+    m[code] = !!on; try { localStorage.setItem(SHAREROOMS_KEY, JSON.stringify(m)); } catch (e) {}
   }
   function countsOf(all) {
     var m = {}, order = [];
@@ -75,9 +132,6 @@
     });
     return order.map(function (k) { return { name: k, count: m[k] }; });
   }
-  // 내 점수 공개 여부 (기본: 켜짐)
-  var SHARE_KEY = "examTimer.share.v1";
-  function shareOn() { try { return localStorage.getItem(SHARE_KEY) !== "0"; } catch (e) { return true; } }
   // 과목별 점수 목록을 "~과목|38,44:46,-,40" 꼴의 이름으로 만듦 (본점수[:호머식], 미입력은 -)
   function scoreKeys() {
     var by = {}, order = [];

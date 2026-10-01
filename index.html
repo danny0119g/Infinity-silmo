@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001143642">
+<meta name="app-version" content="20261001144453">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="무수한 실모">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
-<link rel="stylesheet" href="style.css?v=20261001143642">
+<link rel="stylesheet" href="style.css?v=20261001144453">
 </head>
 <body>
 
@@ -68,7 +68,11 @@
 
     <aside class="together">
       <div class="togetherHead">
-        <h2>무수한 실모단</h2>
+        <h2 id="togetherTitle">무수한 실모단</h2>
+        <div id="roomSwitchWrap" class="roomSwitchWrap hidden">
+          <button type="button" id="roomSwitch" class="roomSwitch" aria-haspopup="listbox" aria-expanded="false" aria-label="방 바꾸기"><span id="roomSwitchLabel">무수한 실모단</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div id="roomMenu" class="roomMenu" role="listbox"></div>
+        </div>
         <button class="pill" id="roomBtn">방 만들기 · 입장</button>
       </div>
       <div id="togetherBody"></div>
@@ -184,6 +188,13 @@
 
     <div id="roomInView" class="hidden">
       <section class="rsec">
+        <h3 class="rhead">방 이름 <small class="swNote">나에게만 보여요</small></h3>
+        <div class="rrow">
+          <input id="labelEdit" class="tinput nick" type="text" maxlength="14" autocomplete="off" aria-label="방 이름">
+          <button id="labelSave" class="rbtn">저장</button>
+        </div>
+      </section>
+      <section class="rsec">
         <h3 class="rhead">초대 코드</h3>
         <div class="rrow">
           <input id="roomCodeShow" class="tinput code" type="text" readonly aria-label="초대 코드">
@@ -247,19 +258,19 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261001143642"></script>
-<script src="js/records.js?v=20261001143642"></script>
-<script src="js/chart.js?v=20261001143642"></script>
-<script src="js/room-base.js?v=20261001143642"></script>
-<script src="js/push.js?v=20261001143642"></script>
-<script src="js/room-sync.js?v=20261001143642"></script>
-<script src="js/profile.js?v=20261001143642"></script>
-<script src="js/scoreask.js?v=20261001143642"></script>
-<script src="js/chat.js?v=20261001143642"></script>
-<script src="js/photo.js?v=20261001143642"></script>
-<script src="js/room-modal.js?v=20261001143642"></script>
-<script src="js/dialogs.js?v=20261001143642"></script>
-<script src="js/exam.js?v=20261001143642"></script>
-<script src="js/refresh.js?v=20261001143642"></script>
+<script src="js/core.js?v=20261001144453"></script>
+<script src="js/records.js?v=20261001144453"></script>
+<script src="js/chart.js?v=20261001144453"></script>
+<script src="js/room-base.js?v=20261001144453"></script>
+<script src="js/push.js?v=20261001144453"></script>
+<script src="js/room-sync.js?v=20261001144453"></script>
+<script src="js/profile.js?v=20261001144453"></script>
+<script src="js/scoreask.js?v=20261001144453"></script>
+<script src="js/chat.js?v=20261001144453"></script>
+<script src="js/photo.js?v=20261001144453"></script>
+<script src="js/room-modal.js?v=20261001144453"></script>
+<script src="js/dialogs.js?v=20261001144453"></script>
+<script src="js/exam.js?v=20261001144453"></script>
+<script src="js/refresh.js?v=20261001144453"></script>
 </body>
 </html>
