@@ -229,6 +229,47 @@
     background: #1b1d21; border: 1px solid #484e59; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.55);
   }
   #profilePop.on { display: block; }
+  .crown { flex: none; display: inline-flex; color: #e0b84f; }
+  .crown svg { width: 15px; height: 15px; display: block; }
+  .avCrown {
+    position: absolute; right: -5px; top: -5px; width: 24px; height: 24px; border-radius: 50%; pointer-events: none;
+    display: flex; align-items: center; justify-content: center; background: #2b2f36; border: 1px solid #4a4f58; color: #e0b84f;
+  }
+  .avCrown svg { width: 14px; height: 14px; display: block; }
+  .penMenu {
+    position: absolute; z-index: 2; left: calc(100% + 8px); bottom: -8px; min-width: 140px; padding: 4px;
+    display: flex; flex-direction: column; gap: 2px;
+    background: #1b1d21; border: 1px solid #484e59; border-radius: 10px; box-shadow: 0 8px 22px rgba(0,0,0,.55);
+  }
+  .pmItem { padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; white-space: nowrap; font-size: 13px; font-weight: 700; color: var(--text); }
+  .pmItem.del { color: #f0908a; }
+  .pmItem.pressing { background: rgba(255,255,255,.09); }
+  .pmItem.del.pressing { background: rgba(216,38,28,.22); }
+  .pActs { display: flex; gap: 8px; margin-top: 14px; }
+  .pAct {
+    height: 38px; border-radius: 10px; background: transparent; border: 1px solid #4a4f58;
+    display: flex; align-items: center; justify-content: center; gap: 2px; font-size: 14px; font-weight: 700;
+  }
+  .pAct.xfer { flex: none; width: 54px; color: var(--muted); }
+  .pAct.xfer svg { width: 16px; height: 16px; display: block; }
+  .pAct.xfer .cr { display: flex; color: #e0b84f; }
+  .pAct.kick { flex: 1; color: #f0908a; border-color: #6b3a37; }
+  .pAct.xfer.pressing { border-color: var(--accent); }
+  .pAct.kick.pressing { border-color: var(--second); background: rgba(216,38,28,.18); }
+  @media (hover: hover) and (pointer: fine) { .pAct.xfer:hover { border-color: var(--accent); } .pAct.kick:hover { border-color: var(--second); } }
+  #cropModal { position: fixed; inset: 0; z-index: 11; display: none; overflow-y: auto; padding: 24px; background: rgba(10,11,13,.82); }
+  #cropModal.on { display: flex; }
+  .cropdlg { margin: auto; width: auto; max-width: 440px; }
+  #cropStage { position: relative; margin: 0 auto 14px; overflow: hidden; border-radius: 12px; background: #111214; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #cropImg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; user-select: none; }
+  #cropBox { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(10,11,13,.62); cursor: move; touch-action: none; }
+  #cropBox::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px dashed rgba(255,255,255,.55); pointer-events: none; }
+  .ch { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); touch-action: none; }
+  .ch::after { content: ""; position: absolute; inset: -14px; }
+  .ch[data-c="tl"] { left: -9px; top: -9px; cursor: nwse-resize; }
+  .ch[data-c="tr"] { right: -9px; top: -9px; cursor: nesw-resize; }
+  .ch[data-c="bl"] { left: -9px; bottom: -9px; cursor: nesw-resize; }
+  .ch[data-c="br"] { right: -9px; bottom: -9px; cursor: nwse-resize; }
   .pTop { display: flex; align-items: center; gap: 12px; }
   .avWrap { position: relative; flex: none; width: 56px; height: 56px; }
   .avatar { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #fff; }
@@ -499,7 +540,7 @@
 
     <aside class="together">
       <div class="togetherHead">
-        <h2>함께 응시</h2>
+        <h2>무수한 실모단</h2>
         <button class="pill" id="roomBtn">방 만들기 · 입장</button>
       </div>
       <div id="togetherBody"></div>
@@ -580,9 +621,26 @@
   </div>
 </div>
 
+<div id="cropModal" role="dialog" aria-modal="true" aria-label="프로필 사진 자르기">
+  <div class="dlg cropdlg">
+    <p>사진 자르기</p>
+    <div id="cropStage">
+      <img id="cropImg" alt="">
+      <div id="cropBox">
+        <i class="ch" data-c="tl"></i><i class="ch" data-c="tr"></i><i class="ch" data-c="bl"></i><i class="ch" data-c="br"></i>
+      </div>
+    </div>
+    <p class="once">네모를 끌어 옮기고, 모서리를 끌어 크기를 바꿔요.</p>
+    <div class="row">
+      <button id="cropCancel">취소</button>
+      <button id="cropOk" class="yes">확인</button>
+    </div>
+  </div>
+</div>
+
 <div id="roomModal" role="dialog" aria-modal="true" aria-labelledby="roomTitle">
   <div class="dlg roomdlg">
-    <p id="roomTitle">함께 응시</p>
+    <p id="roomTitle">무수한 실모단</p>
     <p class="once">닉네임·과목·응시 횟수만 공유돼요.<br>점수와 시간은 공유되지 않아요.</p>
 
     <div id="roomJoinView">
@@ -1502,6 +1560,7 @@
   var ROOM_KEY = "examTimer.room.v1", DEV_KEY = "examTimer.device.v1";
   var CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
   var liveBlocked = false, photoSent = "", photoBlocked = false, photoCache = {}, profileM = null;
+  var hostId = "", hostBlocked = false, metaBlocked = false, penMenuOpen = false, crop = null, JSONH = { "Content-Type": "application/json" };
   var memRoom = null, deviceId = "", others = [], netErr = false, lastSent = "", syncTimer = 0, netChain = Promise.resolve(), roomBusy = false;
   function rnd(n, chars) {
     var a = new Uint32Array(n), out = "", i;
@@ -1594,12 +1653,35 @@
     clearTimeout(syncTimer);
     syncTimer = setTimeout(function () { enqueue(function () { return pushMe(false); }).then(function () { keepPageScroll(renderTogether); }); }, 700);
   }
+  // 방장 지정 (서버의 meta/host)
+  function putHost(id) {
+    if (!room) return Promise.resolve(false);
+    var code = room.code;
+    return dbFetch("/rooms/" + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(id) })
+      .then(function () { hostId = id; hostBlocked = false; return true; })
+      .catch(function (err) { if (err && err.message === "http 401") hostBlocked = true; return false; });
+  }
+  function handleKicked() {                           // 방장이 나를 내보냈을 때
+    var code = room ? room.code : "";
+    saveRoom(null); others = []; hostId = ""; lastSent = ""; photoSent = ""; photoCache = {};
+    closeProfile();
+    if (code) {
+      enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+      enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+    }
+    keepPageScroll(renderTogether);
+    notice("방장이 방에서 내보냈어요.");
+  }
   function pullOthers() {
     if (!room) return Promise.resolve();
-    var code = room.code;
-    return dbFetch("/rooms/" + code + "/members", { cache: "no-store" }).then(function (data) {
+    var code = room.code, me = getDeviceId();
+    var pm = dbFetch("/rooms/" + code + "/members", { cache: "no-store" });
+    var pmeta = metaBlocked ? Promise.resolve(undefined)
+      : dbFetch("/rooms/" + code + "/meta", { cache: "no-store" }).catch(function (err) { if (err && err.message === "http 401") metaBlocked = true; return undefined; });
+    return Promise.all([pm, pmeta]).then(function (res) {
+      var data = res[0], meta = res[1];
       if (!room || room.code !== code) return;
-      var t = todayStr(), me = getDeviceId(), list = [];
+      var t = todayStr(), list = [];
       if (data && typeof data === "object") Object.keys(data).forEach(function (uid) {
         var m = data[uid];
         if (uid === me || !m || typeof m !== "object" || m.day !== t || typeof m.name !== "string") return;
@@ -1610,9 +1692,20 @@
         });
         var lv = null;
         if (m.live && typeof m.live === "object" && typeof m.live.s === "string" && typeof m.live.t === "number") lv = { s: m.live.s.slice(0, 30), t: m.live.t, e: m.live.e === 1 };
-        list.push({ uid: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv });
+        list.push({ uid: uid, id: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv });
       });
-      others = list; netErr = false;
+      list.sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });   // 실모를 많이 친 사람이 위로
+      others = list;
+      if (meta !== undefined) {
+        hostId = (meta && typeof meta.host === "string") ? meta.host : "";
+        if (meta && meta.kicked && meta.kicked[me] === true) { handleKicked(); return; }
+        if (!hostBlocked) {                           // 방장이 비었거나 방에 없으면, 남은 사람 중 한 명(아이디가 가장 앞선 사람)이 자동으로 이어받음
+          var ids = [me];
+          list.forEach(function (x) { ids.push(x.id); });
+          if (!hostId || ids.indexOf(hostId) < 0) { ids.sort(); if (ids[0] === me) enqueue(function () { return putHost(me); }); }
+        }
+      }
+      netErr = false;
     }).catch(function () { netErr = true; });
   }
   function pollTick() {
@@ -1631,8 +1724,9 @@
     btn.textContent = "방 설정";
     var mine = countsOf(loadAll()), mt = 0;
     mine.forEach(function (c) { mt += c.count; });
-    var list = others.concat([{ uid: "me", name: room.name, subs: mine, total: mt, me: true }]);
-    list.sort(function (a, b) { return (b.total - a.total) || (a.me ? -1 : b.me ? 1 : 0) || (a.name < b.name ? -1 : 1); });
+    var meItem = { uid: "me", id: getDeviceId(), name: room.name, subs: mine, total: mt, me: true };
+    var rest = others.slice().sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+    var list = [meItem].concat(rest);                 // 나는 맨 위에 고정, 나머지는 응시 많은 순
     var ul = el("ul", "members");
     list.forEach(function (m) {
       var li = el("li", "mem" + (m.me ? " me" : "")), info = el("div", "info"), head = el("div", "head");
@@ -1641,6 +1735,7 @@
       li.addEventListener("click", toggleProfile);
       li.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleProfile(e); } });
       head.appendChild(el("span", "nm", m.name));
+      if (hostId && m.id === hostId) { var cr = el("span", "crown"); cr.innerHTML = CROWN_SVG; cr.setAttribute("title", "방장"); head.appendChild(cr); }
       if (m.me) head.appendChild(el("span", "metag", "나"));
       info.appendChild(head);
       var lt = liveText(m);
@@ -1664,9 +1759,12 @@
   var profileKey = "";
   var AV_COLORS = ["#4f7cff", "#2fa37a", "#c46a3a", "#a0527c", "#7a62c9", "#3b8aa6", "#8a8f3a", "#c25757"];
   function avatarColor(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return AV_COLORS[h % AV_COLORS.length]; }
+  var CROWN_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 8l4.6 4.2L12 5l4.4 7.2L21 8l-1.8 10H4.8L3 8z"/><rect x="5" y="19.5" width="14" height="2" rx="1"/></svg>';
+  var ARROW_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  function isHost() { return !!hostId && hostId === getDeviceId(); }
   function clearOpenMark() { Array.prototype.forEach.call(document.querySelectorAll(".mem.open"), function (x) { x.classList.remove("open"); }); }
   function closeProfile() {
-    profileKey = ""; profileM = null;
+    profileKey = ""; profileM = null; penMenuOpen = false;
     var p = $("profilePop"); if (p) p.classList.remove("on");
     clearOpenMark();
   }
@@ -1677,12 +1775,26 @@
     if (min > 90) return "";                          // 오래된 상태는 무시 (앱이 꺼진 채 남은 경우)
     return (m.live.e ? "추가 시간 중" : "응시 중") + " · " + m.live.s + " · " + (min < 1 ? "방금 시작" : min + "분 경과");
   }
-  // 프로필 사진 (96~112px로 줄인 작은 JPEG, 기기에 저장 + 방 서버의 photos 칸에 올림)
+
+  // 프로필 사진 (작은 JPEG, 기기에 저장 + 방 서버의 photos 칸에 올림)
   var PHOTO_KEY = "examTimer.photo.v1", memPhoto = "";
   function validPhoto(p) { return typeof p === "string" && p.length <= 12000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(p); }
   function loadPhoto() { var p = ""; try { p = localStorage.getItem(PHOTO_KEY) || ""; } catch (e) {} if (!p) p = memPhoto; return validPhoto(p) ? p : ""; }
   var photo = loadPhoto();
   function savePhoto(p) { memPhoto = p; photo = p; try { localStorage.setItem(PHOTO_KEY, p); } catch (e) {} }
+  function applyPhoto(data) {
+    savePhoto(data); photoSent = ""; photoBlocked = false;
+    keepPageScroll(renderTogether);
+    enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
+  }
+  function removePhoto() {
+    closePenMenu();
+    photo = ""; memPhoto = ""; photoSent = "";
+    try { localStorage.removeItem(PHOTO_KEY); } catch (e) {}
+    var code = room ? room.code : "";
+    if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+    keepPageScroll(renderTogether);
+  }
   function fillAvatar(av, m) {
     av.textContent = "";
     var src = m.me ? photo : ((photoCache[m.uid] || {}).data || "");
@@ -1702,6 +1814,50 @@
       if (profileKey === uid && profileM) { var av = document.querySelector("#profilePop .avatar"); if (av) fillAvatar(av, profileM); }
     }).catch(function () { photoCache[uid] = { data: "", t: Date.now() - 50000 }; });    // 실패하면 10초 뒤 다시 시도
   }
+
+  // 펜 버튼 옆의 작은 메뉴 (수정 / 삭제)
+  function closePenMenu() { penMenuOpen = false; var mn = document.querySelector("#profilePop .penMenu"); if (mn) mn.parentNode.removeChild(mn); }
+  function buildPenMenu(wrap) {
+    var old = wrap.querySelector(".penMenu"); if (old) wrap.removeChild(old);
+    var mn = el("div", "penMenu"), ed = el("button", "pmItem", "프로필 사진 수정");
+    ed.type = "button";
+    ed.addEventListener("click", function (e) { e.stopPropagation(); closePenMenu(); $("photoInput").click(); });
+    mn.appendChild(ed);
+    if (photo) {
+      var del = el("button", "pmItem del", "프로필 사진 삭제");
+      del.type = "button";
+      del.addEventListener("click", function (e) { e.stopPropagation(); removePhoto(); });
+      mn.appendChild(del);
+    }
+    wrap.appendChild(mn);
+  }
+  $("profilePop").addEventListener("click", function (e) {
+    if (penMenuOpen && !(e.target.closest && e.target.closest(".penMenu, .avPen"))) closePenMenu();
+  });
+
+  // 방장 기능: 추방 / 방장 넘기기 (서버에 로그인이 없어서, 이 제한은 앱 화면에서만 지켜져요)
+  function kickMember(m) {
+    ask(m.name + "님을 추방하겠습니까?", "추방", true, function () {
+      if (!room || !isHost()) return;
+      var code = room.code, id = m.id;
+      others = others.filter(function (x) { return x.id !== id; });
+      closeProfile(); keepPageScroll(renderTogether);
+      enqueue(function () { return dbFetch("/rooms/" + code + "/meta/kicked/" + id, { method: "PUT", headers: JSONH, body: "true" }).catch(function () {}); });   // 접속 중인 사람이 알아채고 스스로 나가게
+      enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + id, { method: "DELETE" }).catch(function () {}); });
+      enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + id, { method: "DELETE" }).catch(function () {}); });
+    });
+  }
+  function transferHost(m) {
+    ask(m.name + "님에게 방장을 넘기겠습니까?", "넘기기", false, function () {
+      if (!room || !isHost()) return;
+      closeProfile();
+      enqueue(function () { return putHost(m.id); }).then(function () {
+        if (hostId !== m.id) notice("방장을 넘기지 못했어요.\n서버 규칙을 업데이트했는지 확인해 주세요.");
+        keepPageScroll(renderTogether);
+      });
+    });
+  }
+
   function openProfile(m, anchor) {
     var pop = $("profilePop");
     pop.textContent = "";
@@ -1709,12 +1865,20 @@
     profileKey = m.uid; profileM = m;
     var top = el("div", "pTop"), wrap = el("div", "avWrap"), av = el("div", "avatar"), who = el("div", "pWho"), nm = el("div", "pName", m.name);
     fillAvatar(av, m); wrap.appendChild(av);
+    if (hostId && m.id === hostId) {                    // 방장: 사진 오른쪽 위에 왕관
+      var bc = el("span", "avCrown"); bc.innerHTML = CROWN_SVG; bc.setAttribute("title", "방장");
+      wrap.appendChild(bc);
+    }
     if (m.me) {                                         // 내 프로필: 사진 오른쪽 아래에 작은 동그란 펜 버튼
       var pen = el("button", "avPen");
       pen.type = "button"; pen.innerHTML = PEN_ICON;
       pen.setAttribute("aria-label", "프로필 사진 편집"); pen.setAttribute("title", "프로필 사진 편집");
-      pen.addEventListener("click", function (e) { e.stopPropagation(); $("photoInput").click(); });
+      pen.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (penMenuOpen) closePenMenu(); else { penMenuOpen = true; buildPenMenu(wrap); }
+      });
       wrap.appendChild(pen);
+      if (penMenuOpen) buildPenMenu(wrap);
       nm.appendChild(el("span", "metag", "나"));
     }
     who.appendChild(nm);
@@ -1732,34 +1896,103 @@
         pop.appendChild(row);
       });
     } else pop.appendChild(el("div", "pRow none", "아직 응시 전이에요"));
+    if (isHost() && !m.me) {                            // 방장만, 다른 사람의 프로필에서: 방장 넘기기(아이콘) + 추방
+      var acts = el("div", "pActs"), xf = el("button", "pAct xfer"), kk = el("button", "pAct kick", "추방");
+      xf.type = "button"; kk.type = "button";
+      xf.innerHTML = '<span class="cr">' + CROWN_SVG + '</span>' + ARROW_SVG;
+      xf.setAttribute("aria-label", "방장 권한 넘기기"); xf.setAttribute("title", "방장 권한 넘기기");
+      xf.addEventListener("click", function (e) { e.stopPropagation(); transferHost(m); });
+      kk.addEventListener("click", function (e) { e.stopPropagation(); kickMember(m); });
+      acts.appendChild(xf); acts.appendChild(kk);
+      pop.appendChild(acts);
+    }
     pop.appendChild(el("div", "pNote", "소개·목표 같은 프로필 꾸미기는 준비 중이에요."));
-    if (m.me && (photoBlocked || liveBlocked)) pop.appendChild(el("div", "pNote", "친구들에게 사진·응시 상태를 보여 주려면 서버 규칙 업데이트가 필요해요."));
+    if (m.me && (photoBlocked || liveBlocked || hostBlocked)) pop.appendChild(el("div", "pNote", "친구들에게 사진·응시 상태·방장 표시를 보여 주려면 서버 규칙 업데이트가 필요해요."));
     placeProfile(anchor);
     loadFriendPhoto(m);
   }
+
+  // 사진 고르기 → 1:1 자르기 창
   $("photoInput").addEventListener("change", function () {
     var f = this.files && this.files[0];
     this.value = "";
-    if (!f) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      var img = new Image();
-      img.onload = function () {
-        var S = 112, c = document.createElement("canvas"), side = Math.min(img.width, img.height);
-        c.width = c.height = S;
-        var ctx = c.getContext("2d");
-        if (!ctx || !side) return;
-        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);      // 가운데를 정사각형으로 잘라 줄임
-        var data = "";
-        try { data = c.toDataURL("image/jpeg", 0.72); } catch (e) {}
-        if (!validPhoto(data)) return;
-        savePhoto(data); photoSent = ""; photoBlocked = false;
-        keepPageScroll(renderTogether);
-        enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
-      };
-      img.src = reader.result;
+    if (f) openCrop(f);
+  });
+  function clampN(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function openCrop(file) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      var iw = img.naturalWidth, ih = img.naturalHeight;
+      if (!iw || !ih) { URL.revokeObjectURL(url); return; }
+      var maxW = Math.max(160, Math.min(340, window.innerWidth - 80)), maxH = Math.max(160, Math.min(340, window.innerHeight - 280));
+      var k = Math.min(maxW / iw, maxH / ih), dw = Math.round(iw * k), dh = Math.round(ih * k);
+      var stageEl = $("cropStage"), size = Math.round(Math.min(dw, dh) * 0.9);
+      stageEl.style.width = dw + "px"; stageEl.style.height = dh + "px";
+      $("cropImg").src = url;
+      crop = { img: img, url: url, dw: dw, dh: dh, size: size, x: Math.round((dw - size) / 2), y: Math.round((dh - size) / 2), drag: null };
+      drawCrop();
+      $("cropModal").classList.add("on");
     };
-    reader.readAsDataURL(f);
+    img.onerror = function () { URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+  function drawCrop() {
+    var b = crop, box = $("cropBox");
+    if (!b) return;
+    box.style.left = b.x + "px"; box.style.top = b.y + "px"; box.style.width = b.size + "px"; box.style.height = b.size + "px";
+  }
+  function closeCrop() {
+    if (crop) { try { URL.revokeObjectURL(crop.url); } catch (e) {} }
+    crop = null;
+    $("cropModal").classList.remove("on");
+  }
+  (function () {
+    var stageEl = $("cropStage");
+    stageEl.addEventListener("pointerdown", function (e) {
+      var b = crop;
+      if (!b) return;
+      var r = stageEl.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+      var c = e.target && e.target.getAttribute ? e.target.getAttribute("data-c") : null;
+      if (c) {                                          // 모서리: 반대쪽 모서리를 고정한 채 정사각형으로 크기 조절
+        var right = c.charAt(1) === "r", bottom = c.charAt(0) === "b";
+        b.drag = { type: "resize", ax: right ? b.x : b.x + b.size, ay: bottom ? b.y : b.y + b.size, sx: right ? 1 : -1, sy: bottom ? 1 : -1 };
+      } else if (px >= b.x && px <= b.x + b.size && py >= b.y && py <= b.y + b.size) {
+        b.drag = { type: "move", ox: px - b.x, oy: py - b.y };
+      } else return;
+      try { stageEl.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+    stageEl.addEventListener("pointermove", function (e) {
+      var b = crop;
+      if (!b || !b.drag) return;
+      var r = stageEl.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, d = b.drag;
+      if (d.type === "move") {
+        b.x = clampN(px - d.ox, 0, b.dw - b.size); b.y = clampN(py - d.oy, 0, b.dh - b.size);
+      } else {
+        var raw = Math.max((px - d.ax) * d.sx, (py - d.ay) * d.sy);
+        var maxX = d.sx > 0 ? b.dw - d.ax : d.ax, maxY = d.sy > 0 ? b.dh - d.ay : d.ay;
+        var min = Math.min(48, b.dw, b.dh), size = Math.max(min, Math.min(raw, maxX, maxY));
+        b.size = size; b.x = d.sx > 0 ? d.ax : d.ax - size; b.y = d.sy > 0 ? d.ay : d.ay - size;
+      }
+      drawCrop();
+    });
+    function endDrag() { if (crop) crop.drag = null; }
+    stageEl.addEventListener("pointerup", endDrag);
+    stageEl.addEventListener("pointercancel", endDrag);
+  })();
+  $("cropCancel").addEventListener("click", closeCrop);
+  $("cropOk").addEventListener("click", function () {
+    var b = crop;
+    if (!b) return;
+    var k = b.img.naturalWidth / b.dw, S = 112, c = document.createElement("canvas"), data = "";
+    c.width = c.height = S;
+    var ctx = c.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(b.img, b.x * k, b.y * k, b.size * k, b.size * k, 0, 0, S, S);
+      try { data = c.toDataURL("image/jpeg", 0.72); } catch (e) {}
+    }
+    closeCrop();
+    if (validPhoto(data)) applyPhoto(data);
   });
   function placeProfile(anchor) {
     var pop = $("profilePop");
@@ -1774,7 +2007,7 @@
   document.addEventListener("click", function (e) {
     if (!profileKey) return;
     var t = e.target;
-    if (t && t.closest && t.closest("#profilePop")) return;
+    if (t && t.closest && t.closest("#profilePop, #modal, #cropModal")) return;
     closeProfile();
   });
   home.addEventListener("scroll", closeProfile, { passive: true });
@@ -1798,22 +2031,27 @@
     roomBusy = true;
     setRoomMsg(joining ? "입장하는 중…" : "방을 만드는 중…", false);
     var check = joining
-      ? dbFetch("/rooms/" + code + "/members", { cache: "no-store" }).then(function (d) { if (!d || typeof d !== "object") throw new Error("noroom"); })
+      ? dbFetch("/rooms/" + code + "/members", { cache: "no-store" }).then(function (d) { if (!d || typeof d !== "object") throw new Error("noroom"); }).then(function () {
+          return dbFetch("/rooms/" + code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { if (v === true) throw new Error("kicked"); }, function () {});
+        })
       : Promise.resolve();
     check.then(function () {
       saveRoom({ code: code, name: name });
       lastSent = ""; others = []; netErr = false; liveBlocked = false; photoSent = ""; photoBlocked = false; photoCache = {};
+      hostId = ""; hostBlocked = false; metaBlocked = false; closePenMenu();
       return enqueue(function () { return pushMe(true); });
     }).then(function () {
       if (netErr) { saveRoom(null); throw new Error("net"); }
       roomBusy = false;
       closeRoomModal();
       enqueue(function () { return pushPhoto(true); });
-      pullOthers().then(function () { keepPageScroll(renderTogether); });
+      var hp = joining ? Promise.resolve() : enqueue(function () { return putHost(getDeviceId()); });     // 방을 만든 사람이 방장
+      hp.then(pullOthers).then(function () { keepPageScroll(renderTogether); });
       keepPageScroll(renderTogether);
     }).catch(function (err) {
       roomBusy = false;
-      setRoomMsg(err && err.message === "noroom" ? "없는 방이에요. 코드를 다시 확인해 주세요." : "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      var em = err && err.message;
+      setRoomMsg(em === "noroom" ? "없는 방이에요. 코드를 다시 확인해 주세요." : em === "kicked" ? "방장이 내보낸 방이라 다시 들어갈 수 없어요." : "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
     });
   }
   function cleanName(v) { return v.replace(/\s+/g, " ").trim().slice(0, 12); }
@@ -1858,9 +2096,13 @@
   });
   $("roomLeave").addEventListener("click", function () {
     ask("방에서 나가겠습니까?\n서버에 있는 내 기록도 지워져요.", "나가기", true, function () {
-      var code = room ? room.code : "";
-      saveRoom(null); others = []; lastSent = ""; netErr = false;
+      var code = room ? room.code : "", wasHost = isHost(), succ = others.length ? others[0] : null;
+      saveRoom(null); others = []; hostId = ""; lastSent = ""; netErr = false;
       photoSent = ""; photoCache = {};
+      if (code && wasHost) {                         // 방장이 나가면 다음 사람에게 넘기고, 혼자였다면 방 정보를 정리
+        if (succ) enqueue(function () { return dbFetch("/rooms/" + code + "/meta/host", { method: "PUT", headers: JSONH, body: JSON.stringify(succ.id) }).catch(function () {}); });
+        else enqueue(function () { return dbFetch("/rooms/" + code + "/meta", { method: "DELETE" }).catch(function () {}); });
+      }
       if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       closeRoomModal();
@@ -1880,7 +2122,8 @@
     modal.classList.add("on");
     $("modalNo").focus();
   }
-  function closeAsk() { modal.classList.remove("on"); onYes = null; onNo = null; releaseHold(); }   // 아니오·Esc 등으로 닫히면 테두리가 원래대로 풀림
+  function closeAsk() { modal.classList.remove("on"); onYes = null; onNo = null; releaseHold(); $("modalNo").classList.remove("hidden"); }
+  function notice(message) { ask(message, "확인", false, null); $("modalNo").classList.add("hidden"); }   // 아니오·Esc 등으로 닫히면 테두리가 원래대로 풀림
   modalYes.addEventListener("click", function () {
     var cb = onYes;
     closeAsk();
@@ -2344,6 +2587,7 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
+    if ($("cropModal").classList.contains("on")) { closeCrop(); return; }
     if (modal.classList.contains("on")) { closeAsk(); return; }
     if (lateModal.classList.contains("on")) { closeLate(); return; }
     if (roomModal.classList.contains("on")) { closeRoomModal(); return; }
@@ -2353,7 +2597,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen, .pmItem, .pAct";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
