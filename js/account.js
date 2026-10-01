@@ -11,10 +11,23 @@
       return req.catch(function () {});
     });
   }
+  var roomListPending = false, roomListPulledAt = 0;
   function scheduleRoomListPush() {
     if (!USE_V2 || !fbAuth) return;
     if (!roomListReady) { roomListDirty = true; return; }       // 서버 목록을 먼저 받기 전에는 올리지 않음 (옛 목록으로 덮어쓰지 않게)
-    clearTimeout(roomListTimer); roomListTimer = setTimeout(pushRoomList, 800);
+    roomListPending = true;                                     // 아직 서버에 못 올린 변경이 있는 동안에는 서버 목록을 새로 받지 않음
+    clearTimeout(roomListTimer); roomListTimer = setTimeout(function () { pushRoomList().then(function () { roomListPending = false; }, function () { roomListPending = false; }); }, 800);
+  }
+  function refreshRoomList(force) {                  // 앱을 켜 둔 채로도 다른 기기에서 바꾼 방 목록·닉네임·방 이름을 1분마다 받아 옴
+    if (!USE_V2 || !fbAuth || !roomListReady || !accountReady || roomListBusy || roomListDirty || roomListPending || roomBusy) return;
+    if (!force && Date.now() - roomListPulledAt < 60000) return;
+    roomListPulledAt = Date.now(); roomListBusy = true;
+    var before = room ? room.code : "", beforeSig = JSON.stringify(rooms);
+    pullRoomList().then(function () {
+      roomListBusy = false;
+      if ((room ? room.code : "") !== before) { afterSwitch(); return; }
+      if (JSON.stringify(rooms) !== beforeSig) { renderRoomSwitch(); keepPageScroll(renderTogether); syncOtherRooms(true); }
+    }, function () { roomListBusy = false; });
   }
   function validSrvRoom(code, v) { return /^[a-z0-9]{6,12}$/.test(code) && !!v && typeof v === "object" && typeof v.name === "string" && !!v.name; }
   function pullRoomList() {
@@ -33,9 +46,15 @@
         Object.keys(map).forEach(function (code) {
           if (!roomByCode(code) && validSrvRoom(code, map[code]) && rooms.length < MAX_ROOMS) { var o = { code: code, name: map[code].name.slice(0, 12) }; if (typeof map[code].label === "string" && map[code].label.trim()) o.label = map[code].label.trim().slice(0, 14); rooms.push(o); changed = true; }
         });
-      } else {                                       // 처음 연결: 이 기기의 방과 서버의 방을 합치고(이 기기 값 우선) 서버에 올림
+      } else {                                       // 처음 연결: 이 기기의 방과 서버의 방을 합침. 같은 방이면 서버(같은 계정의 다른 기기가 먼저 올린) 값을 따르고, 이 기기에만 있는 방은 서버에 올림
         Object.keys(map).forEach(function (code) {
-          if (!roomByCode(code) && validSrvRoom(code, map[code]) && rooms.length < MAX_ROOMS) { var o = { code: code, name: map[code].name.slice(0, 12) }; if (typeof map[code].label === "string" && map[code].label.trim()) o.label = map[code].label.trim().slice(0, 14); rooms.push(o); changed = true; }
+          var s = map[code], cur = roomByCode(code);
+          if (!validSrvRoom(code, s)) return;
+          var nm = s.name.slice(0, 12), lb = (typeof s.label === "string" && s.label.trim()) ? s.label.trim().slice(0, 14) : undefined;
+          if (cur) {
+            if (cur.name !== nm) { cur.name = nm; changed = true; }
+            if (cur.label !== lb) { if (lb) cur.label = lb; else delete cur.label; changed = true; }
+          } else if (rooms.length < MAX_ROOMS) { var o = { code: code, name: nm }; if (lb) o.label = lb; rooms.push(o); changed = true; }
         });
         roomListDirty = true;
         try { localStorage.setItem(ROOMSYNC_KEY, me); } catch (e) {}

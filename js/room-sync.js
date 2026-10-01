@@ -51,19 +51,21 @@
   }
   function enqueue(fn) { netChain = netChain.then(fn, fn); return netChain; }      // 요청을 한 줄로 세워서 순서가 뒤바뀌지 않게
   var lastPushBy = {}, roomPending = {}, accountReady = !USE_V2;      // accountReady: 새 구조에서 방 목록·옛 방 이전 확인이 끝났는지
+  var lastPushAt = {}, PUSH_REASSERT_MS = 300000;
+  function pushFresh(code) { return !pushSub || Date.now() - (lastPushAt[code] || 0) < PUSH_REASSERT_MS; }
   function syncPushRecord(r) {                       // 새 구조: 내 알림 주소는 따로 저장 (방 멤버만 읽을 수 있음)
     var code = r.code, want = pushSub || "";
-    if (lastPushBy[code] === want) return Promise.resolve();
+    if (!want) { lastPushBy[code] = ""; return Promise.resolve(); }      // 알림을 안 켠 기기는 서버의 알림 주소를 건드리지 않음 (같은 계정의 다른 기기가 올린 것일 수 있음)
+    if (lastPushBy[code] === want && pushFresh(code)) return Promise.resolve();         // 5분마다 다시 올려서, 누가 지웠어도 저절로 복구됨
     var path = ROOMS_ROOT + code + "/push/" + getDeviceId();
-    var req = want ? dbFetch(path, { method: "PUT", headers: JSONH, body: JSON.stringify(want) }) : dbFetch(path, { method: "DELETE" });
-    return req.then(function () { lastPushBy[code] = want; });
+    return dbFetch(path, { method: "PUT", headers: JSONH, body: JSON.stringify(want) }).then(function () { lastPushBy[code] = want; lastPushAt[code] = Date.now(); });
   }
   function pushMe(force, r) {                        // 내 상태를 방에 올림 (r을 안 주면 지금 보는 방)
     r = r || room;
     if (!r) return Promise.resolve();
     if (USE_V2 && (!fbAuth || !accountReady || roomPending[r.code])) return Promise.resolve();      // 로그인 전이거나 아직 새 구조로 옮겨지지 않은 방
     var code = r.code, isActive = !!room && room.code === code, st = USE_V2 ? myStateV2(r, isActive) : myState(r, isActive), body = JSON.stringify(st);
-    if (!force && body === lastSentBy[code] && (!USE_V2 || lastPushBy[code] === (pushSub || ""))) return Promise.resolve();
+    if (!force && body === lastSentBy[code] && (!USE_V2 || (lastPushBy[code] === (pushSub || "") && pushFresh(code)))) return Promise.resolve();
     function put(b) {
       return dbFetch(ROOMS_ROOT + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: b })
         .then(function () { lastSentBy[code] = b; if (isActive) netErr = false; });
@@ -118,7 +120,7 @@
     rooms = rooms.filter(function (r) { return r.code !== code; });
     delete lastSentBy[code]; delete photoSentBy[code];
     var me = getDeviceId();
-    delete lastPushBy[code];
+    delete lastPushBy[code]; delete lastPushAt[code];
     (USE_V2 ? ["members", "photos", "msgs", "push"] : ["members", "photos", "msgs"]).forEach(function (k) {
       enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/" + k + "/" + me, { method: "DELETE" }).catch(function () {}); });
     });
@@ -263,6 +265,7 @@
       }
     } catch (e) {}
     askPhotoUse();
+    if (typeof refreshRoomList === "function") refreshRoomList(false);
     syncOtherRooms(false);
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }

@@ -4,7 +4,16 @@
   var PUSH_URL = "https://silmo-push.danny0119n.workers.dev", PUSH_PUB = "BJLJ-_VzE5N-C0Sf-XdDQMuy-oYOCTV0AXJuwS8UTifQ36P43TT9i_MolHWsmsautZcNqPZlENfdrTEkPapPgeA", PUSH_KEY = "examTimer.push.v1";
   function loadPushSub() { try { var o = JSON.parse(localStorage.getItem(PUSH_KEY)); if (o && o.on && typeof o.sub === "string" && o.sub.length > 20 && o.sub.length < 600) return o.sub; } catch (e) {} return ""; }
   var pushSub = loadPushSub();                       // 내 알림 주소 (친구 목록 칸 안에 숨겨서 올림 → 서버 규칙을 안 바꿔도 됨)
-  function savePushSub(v) { pushSub = v || ""; try { localStorage.setItem(PUSH_KEY, JSON.stringify({ on: !!v, sub: v || "" })); } catch (e) {} lastSentBy = {}; lastPushBy = {}; scheduleSync(); }
+  function savePushSub(v) {
+    var had = !!pushSub;
+    pushSub = v || ""; try { localStorage.setItem(PUSH_KEY, JSON.stringify({ on: !!v, sub: v || "" })); } catch (e) {} lastSentBy = {}; lastPushBy = {}; lastPushAt = {};
+    if (had && !pushSub) clearPushRecords();         // 이 기기가 알림을 끈(또는 허용이 취소된) 경우에만 서버의 내 알림 주소를 지움
+    scheduleSync();
+  }
+  function clearPushRecords() {                      // 새 구조: 모든 방에서 내 알림 주소 삭제 (알림을 안 켠 다른 기기는 절대 지우지 않음: 같은 계정의 다른 기기 것일 수 있어서)
+    if (!USE_V2 || !fbAuth) return;
+    rooms.slice().forEach(function (r) { enqueue(function () { return dbFetch(ROOMS_ROOT + r.code + "/push/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); }); });
+  }
   function pushSupported() { return !!PUSH_URL && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
   function b64uBytes(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
   function pushKeyOf(sub) { var j = sub.toJSON(); return btoa(JSON.stringify({ e: j.endpoint, p: j.keys.p256dh, a: j.keys.auth })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
