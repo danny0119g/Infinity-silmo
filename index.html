@@ -1084,8 +1084,9 @@
     if (!homer && scoreExpanded) {
       var fx = L + plotW / 2, fy = H - B - 9;
       var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
-      fg.appendChild(svgEl("rect", { x: fx - 48, y: fy - 17, width: 96, height: 26, rx: 13, fill: "#363d47", stroke: "#ffffff", "stroke-opacity": 0.22, "stroke-width": 1 }));
-      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#c6ccd6", "pointer-events": "none" });
+      // 윤곽 없이 글자만 (누르는 영역은 보이지 않는 사각형)
+      fg.appendChild(svgEl("rect", { x: fx - 52, y: fy - 19, width: 104, height: 30, fill: "transparent" }));
+      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#aab1bc", "pointer-events": "none" });
       ft.textContent = "다시 가리기";
       fg.appendChild(ft);
       var collapseAgain = function (e) { e.stopPropagation(); scoreExpanded = false; clearSelection(); renderChart(); };
