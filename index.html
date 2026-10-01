@@ -856,7 +856,8 @@
     var H = Math.round(Math.max(250, Math.min(350, W * 0.56)));    // 세로를 넉넉히 해서 점수 변동이 잘 보이게
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
     var collapsed = !homer && !scoreExpanded;               // 29점 아래를 가리고 있는 상태
-    var G = collapsed ? 36 : 0;                             // 가려진(그라데이션) 구간의 높이
+    var GC = 36;                                            // 가린 상태일 때 그라데이션 띠의 높이
+    var G = collapsed ? GC : 0;                             // 가려진(그라데이션) 구간의 높이
     var U = 34;                                             // 하얀 그라데이션이 29점 선 위쪽으로 올라오는 길이
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
     var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
@@ -1072,6 +1073,22 @@
       svg.appendChild(hint);
     }
 
+    // 펼친 상태: "눌러서 전체 보기" 글자가 있던 자리에 "다시 가리기". 누르는 영역도 "눌러서 전체 보기"(가림막 띠)와 똑같은 사각형
+    var hintX = L + plotW / 2, hintY = H - B - 9;
+    if (!homer && scoreExpanded) {
+      var fx = hintX, fy = hintY;
+      var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
+      // 보이지 않는 누르는 영역: 가린 상태의 띠(strip)와 같은 위치·크기
+      fg.appendChild(svgEl("rect", { x: L, y: H - B - GC - 14, width: plotW, height: GC + 20, fill: "transparent" }));
+      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#aab1bc", "pointer-events": "none" });
+      ft.textContent = "다시 가리기";
+      fg.appendChild(ft);
+      var collapseAgain = function (e) { e.stopPropagation(); scoreExpanded = false; clearSelection(); renderChart(); };
+      fg.addEventListener("click", collapseAgain);
+      fg.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); collapseAgain(e); } });
+      svg.appendChild(fg);
+    }
+
     // 누르기 쉽도록 보이지 않는 원을 맨 위에 (가려진 구간의 점은 제외)
     plist.forEach(function (pt) {
       if (!visible(pt.y)) return;
@@ -1090,20 +1107,6 @@
       svg.appendChild(c);
     });
     var hintX = L + plotW / 2, hintY = H - B - 9;      // 가린 상태의 "눌러서 전체 보기" 글자와 같은 자리
-    // 펼친 상태: "눌러서 전체 보기" 글자가 있던 자리(가운데 아래)에 "다시 가리기"
-    if (!homer && scoreExpanded) {
-      var fx = hintX, fy = hintY;
-      var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
-      // 윤곽 없이 글자만 (누르는 영역은 보이지 않는 사각형)
-      fg.appendChild(svgEl("rect", { x: fx - 52, y: fy - 19, width: 104, height: 30, fill: "transparent" }));
-      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#aab1bc", "pointer-events": "none" });
-      ft.textContent = "다시 가리기";
-      fg.appendChild(ft);
-      var collapseAgain = function (e) { e.stopPropagation(); scoreExpanded = false; clearSelection(); renderChart(); };
-      fg.addEventListener("click", collapseAgain);
-      fg.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); collapseAgain(e); } });
-      svg.appendChild(fg);
-    }
     box.appendChild(svg);
 
     // 겹친 점 중에서 고르는 창 (점 옆에 표시)
