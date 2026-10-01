@@ -760,6 +760,7 @@
       <input id="nickEdit" class="tinput" type="text" maxlength="12" autocomplete="off">
       <button id="nickSave" class="primary ghost">닉네임 저장</button>
       <button id="shareToggle" class="primary ghost">내 점수 공개: 켜짐</button>
+      <button id="pushToggle" class="primary ghost hidden">채팅 알림: 꺼짐</button>
       <button id="roomLeave" class="primary ghost danger">방 나가기</button>
     </div>
 
@@ -1747,12 +1748,46 @@
     });
     return order.map(function (sj) { return "~" + sj + "|" + by[sj].slice(-30).join(","); });
   }
+  // [채팅 알림] 알림 서버(Cloudflare Worker) 주소를 PUSH_URL에 넣으면 켜짐. 비어 있으면 이 기능은 통째로 숨겨짐
+  var PUSH_URL = "", PUSH_PUB = "BJLJ-_VzE5N-C0Sf-XdDQMuy-oYOCTV0AXJuwS8UTifQ36P43TT9i_MolHWsmsautZcNqPZlENfdrTEkPapPgeA", PUSH_KEY = "examTimer.push.v1";
+  function loadPushSub() { try { var o = JSON.parse(localStorage.getItem(PUSH_KEY)); if (o && o.on && typeof o.sub === "string" && o.sub.length > 20 && o.sub.length < 600) return o.sub; } catch (e) {} return ""; }
+  var pushSub = loadPushSub();                       // 내 알림 주소 (친구 목록 칸 안에 숨겨서 올림 → 서버 규칙을 안 바꿔도 됨)
+  function savePushSub(v) { pushSub = v || ""; try { localStorage.setItem(PUSH_KEY, JSON.stringify({ on: !!v, sub: v || "" })); } catch (e) {} lastSent = ""; scheduleSync(); }
+  function pushSupported() { return !!PUSH_URL && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+  function b64uBytes(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function pushKeyOf(sub) { var j = sub.toJSON(); return btoa(JSON.stringify({ e: j.endpoint, p: j.keys.p256dh, a: j.keys.auth })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function enablePush() {                            // 반드시 버튼을 누른 직후에 호출 (아이패드 규칙)
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== "granted") throw new Error("denied");
+      return navigator.serviceWorker.register("sw.js");
+    }).then(function () { return navigator.serviceWorker.ready; }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) { return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(PUSH_PUB) }); });
+    }).then(function (sub) { savePushSub(pushKeyOf(sub)); });
+  }
+  function disablePush() {
+    savePushSub("");
+    return (navigator.serviceWorker ? navigator.serviceWorker.getRegistration() : Promise.resolve(null)).then(function (reg) { return reg && reg.pushManager.getSubscription(); }).then(function (sub) { return sub && sub.unsubscribe(); }).catch(function () {});
+  }
+  function refreshPush() {                           // 앱을 열 때: 서비스 워커를 켜 두고, 알림 주소가 바뀌었거나 취소됐으면 맞춰 줌
+    if (!pushSupported() || !pushSub) return;
+    if (Notification.permission !== "granted") { savePushSub(""); return; }
+    navigator.serviceWorker.register("sw.js").then(function () { return navigator.serviceWorker.ready; })
+      .then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (sub) { if (!sub) savePushSub(""); else { var k = pushKeyOf(sub); if (k !== pushSub) savePushSub(k); } }).catch(function () {});
+  }
+  function notifyPush(peer, text) {                  // 상대에게 채팅 알림 요청 (실패해도 대화에는 영향 없음)
+    if (!PUSH_URL || !room) return;
+    try { fetch(PUSH_URL + "/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: room.code, from: getDeviceId(), to: peer, text: text }), keepalive: true }).catch(function () {}); } catch (e) {}
+  }
+  function pushLabel() { return "채팅 알림: " + (!pushSupported() ? "홈 화면 앱에서만 가능" : (pushSub ? "켜짐" : "꺼짐")); }
+  // [/채팅 알림]
   function myState() {
     var subs = { "_": 0 };                          // 빈 값은 서버가 지워 버리므로 자리 표시용 항목을 항상 넣음
     countsOf(loadAll()).forEach(function (c) {
       var key = c.name.replace(/[.$#\[\]\/]/g, "").slice(0, 30);
       if (key) subs[key] = Math.min(99, (subs[key] || 0) + c.count);
     });
+    if (pushSub) subs["~푸시|" + pushSub] = 1;
     if (shareOn()) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
     var st = { name: room.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
     if (lv) st.live = lv;
@@ -1857,7 +1892,7 @@
         var ss = (m.subjects && typeof m.subjects === "object") ? m.subjects : {}, subs = [], total = 0, shared = false, series = [];
         Object.keys(ss).forEach(function (k) {
           var c = ss[k];
-          if (k === "_") return;
+          if (k === "_" || k.indexOf("~푸시|") === 0) return;
           if (k.charAt(0) === "~") {                       // 점수 공개 표시와 과목별 점수 목록
             if (k === "~공개") { shared = true; return; }
             var bar = k.indexOf("|");
@@ -2403,6 +2438,7 @@
     c.stick = false;
     placeNear(c.el, c.li);
   }
+  setTimeout(refreshPush, 1500);
   var CHATSIZE_KEY = "examTimer.chatsize.v1", CHAT_MINW = 250, CHAT_MINH = 96;
   function chatBottomLimit() { var vh = window.innerHeight; return Math.min(vh - 8, vh * 0.46); }   // 입력칸이 키보드에 가려지지 않게 화면 위쪽 안에서만 커짐
   function loadChatSize() {
@@ -2539,7 +2575,7 @@
     renderChatMsgs(c);
     enqueue(function () {
       return dbFetch(node + "/" + key, { method: "PUT", headers: JSONH, body: JSON.stringify(msg) })
-        .then(function () { if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
+        .then(function () { notifyPush(peer, text); if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
         .catch(function (err) {
           if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
           if (err && err.message === "http 401") chatBlocked = true;
@@ -2873,6 +2909,7 @@
     $("roomInView").classList.toggle("hidden", !room);
     if (room) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; }
     $("shareToggle").textContent = "내 점수 공개: " + (shareOn() ? "켜짐" : "꺼짐");
+    $("pushToggle").classList.toggle("hidden", !PUSH_URL); $("pushToggle").textContent = pushLabel();
     roomModal.classList.add("on");
   }
   function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
@@ -2931,6 +2968,13 @@
     this.textContent = "내 점수 공개: " + (on ? "켜짐" : "꺼짐");
     lastSent = ""; scheduleSync();
     setRoomMsg(on ? "친구들이 내 점수를 볼 수 있어요." : "친구들에게 내 점수가 보이지 않아요.", false);
+  });
+  $("pushToggle").addEventListener("click", function () {
+    var btn = this;
+    if (!pushSupported()) { setRoomMsg("아이패드 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
+    if (pushSub) { disablePush().then(function () { btn.textContent = pushLabel(); setRoomMsg("채팅 알림을 껐어요.", false); }); return; }
+    enablePush().then(function () { btn.textContent = pushLabel(); setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
+      .catch(function (err) { btn.textContent = pushLabel(); setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 아이패드 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); });
   });
   $("nickSave").addEventListener("click", function () {
     var name = cleanName(nickEdit.value);
