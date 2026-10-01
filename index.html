@@ -147,9 +147,13 @@
     display: flex; flex-direction: column; max-height: min(56vh, 460px); overflow: hidden;
     background: #1f2227; border: 1px solid var(--line); border-radius: 16px;
   }
-  .recfilter { flex: none; display: flex; gap: 8px; padding: 10px 12px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .rectop { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .recfilter { flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
   .recfilter::-webkit-scrollbar { display: none; }
-  .recfilter:empty { display: none; }
+  #recClear {
+    flex: none; height: 32px; padding: 0 13px; border-radius: 10px; border: 1px solid #4a4f58;
+    background: transparent; color: #f0908a; font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap;
+  }
   .rf {
     flex: none; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px; border-radius: 999px;
     border: 1px solid var(--line); background: transparent; color: var(--muted);
@@ -318,7 +322,7 @@
     width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line);
     border-radius: 20px; padding: 28px 24px 24px; text-align: center;
   }
-  .dlg p { margin: 0 0 24px; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
+  .dlg p { margin: 0 0 24px; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; white-space: pre-line; }
   .dlg .row button.yes.danger { background: var(--second); border-color: var(--second); }
 
   @media (prefers-reduced-motion: reduce) {
@@ -333,6 +337,7 @@
     .legend .item:not(.on):hover { background: rgba(255,255,255,.05); }
     .pointinfo .del:hover { border-color: var(--second); }
     .rf:hover { border-color: #5a606b; }
+    #recClear:hover { border-color: var(--second); }
     .legend .fold:hover { border-color: #5a606b; color: var(--text); }
     .pen:hover { border-color: var(--accent); color: var(--text); }
     .rec .del:hover { border-color: var(--second); }
@@ -382,7 +387,10 @@
     <div class="records">
       <h2>오늘의 응시 기록</h2>
       <div class="recbox" id="recBox">
-        <div class="recfilter" id="recFilter"></div>
+        <div class="rectop" id="recTop">
+          <div class="recfilter" id="recFilter"></div>
+          <button type="button" id="recClear">전체 삭제</button>
+        </div>
         <ul id="records"></ul>
         <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
       </div>
@@ -676,6 +684,7 @@
     if (focusSubject && subs.indexOf(focusSubject) < 0) focusSubject = "";
     var rf = $("recFilter");
     rf.textContent = "";
+    $("recTop").classList.toggle("hidden", !all.length);
     function filterChip(label, value, c) {
       var on = focusSubject === value;
       var bt = el("button", "rf" + (on ? " on" : ""));
@@ -905,6 +914,11 @@
       lg.appendChild(svgEl("stop", { offset: "55%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0.78 }));
       lg.appendChild(svgEl("stop", { offset: "100%", "stop-color": SCORE_CARD_BG, "stop-opacity": 1 }));
       defs.appendChild(lg);
+      var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 그 위에 살짝 하얀 기운을 덧입힘
+      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#ffffff", "stop-opacity": 0 }));
+      wg.appendChild(svgEl("stop", { offset: "62%", "stop-color": "#ffffff", "stop-opacity": 0.16 }));
+      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#ffffff", "stop-opacity": 0.08 }));
+      defs.appendChild(wg);
       svg.appendChild(defs);
       dg = svgEl("g", { "clip-path": "url(#" + uid + ")" });
       svg.appendChild(dg);
@@ -1035,6 +1049,7 @@
     // 29점 아래를 가리는 그라데이션: 눌러서 전체(0~50점) 보기
     if (collapsed) {
       svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "g)", "pointer-events": "none" }));
+      svg.appendChild(svgEl("rect", { x: 0, y: yBottom, width: W, height: G, fill: "url(#" + uid + "w)", "pointer-events": "none" }));
       var strip = svgEl("rect", { x: 0, y: yBottom, width: W, height: G + 6, fill: "transparent", "class": "strip" });
       strip.setAttribute("role", "button"); strip.setAttribute("aria-label", "29점 아래까지 전체 보기");
       strip.addEventListener("click", function (e) {
@@ -1043,7 +1058,7 @@
         renderChart();
       });
       svg.appendChild(strip);
-      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 8, "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: "#8b929d", "pointer-events": "none" });
+      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 8, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#dfe4ec", "pointer-events": "none" });
       hint.textContent = "눌러서 전체 보기";
       svg.appendChild(hint);
     }
@@ -1184,6 +1199,21 @@
   });
 
   // ---------- 점수 늦게 입력 (비어 있는 점수에 한 번만) ----------
+  // 응시 기록 전체 삭제: 한 과목만 보고 있으면 그 과목 기록만, 전체를 보고 있으면 모든 기록
+  $("recClear").addEventListener("click", function () {
+    var all = loadAll();
+    var target = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
+    if (!target.length) return;
+    var label = focusSubject ? focusSubject + " 기록 " + target.length + "개를 모두 삭제하겠습니까?" : "응시 기록 " + target.length + "개를 모두 삭제하겠습니까?";
+    ask(label + "\n되돌릴 수 없어요.", "모두 삭제", true, function () {
+      var gone = {};
+      target.forEach(function (r) { gone[r.id] = true; });
+      saveAll(loadAll().filter(function (r) { return !gone[r.id]; }));
+      clearSelection();
+      renderToday();
+    });
+  });
+
   var lateTarget = null, lateModal = $("lateModal"), lateInput = $("lateInput"), lateErr = $("lateErr");
   function openLate(id, field, label) {
     lateTarget = { id: id, field: field };
