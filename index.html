@@ -423,7 +423,8 @@
   .roomdlg .prow { align-items: center; }
   .roomdlg .nrow { margin-top: 10px; }
   .roomAv { width: 48px; height: 48px; flex: none; font-size: 19px; }
-  .rbtn.grow { flex: 1; height: 44px; }
+  .roomAvWrap { width: 48px; height: 48px; }
+  .roomdlg .prow { justify-content: space-between; }
   .rbtn.del { color: #f0908a; height: 44px; }
   .rbtn.pressing, .sw.pressing { box-shadow: 0 0 0 2px var(--accent); }
   .roomdlg .rsec.leave { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
@@ -786,9 +787,8 @@
       <section class="rsec">
         <h3 class="rhead">내 프로필</h3>
         <div class="rrow prow">
-          <div class="avatar roomAv" id="roomAv"></div>
-          <button id="photoChange" class="rbtn grow">사진 추가</button>
-          <button id="photoDel" class="rbtn del hidden">삭제</button>
+          <div class="avWrap roomAvWrap"><div class="avatar roomAv" id="roomAv"></div><button id="photoChange" class="avPen" type="button" aria-label="프로필 사진 편집" title="프로필 사진 편집"></button></div>
+          <button id="photoDel" class="rbtn del hidden">사진 삭제</button>
         </div>
         <div class="rrow nrow">
           <input id="nickEdit" class="tinput nick" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임">
@@ -1831,7 +1831,7 @@
     var av = $("roomAv"); av.textContent = "";
     if (photo && validPhoto(photo)) { var im = el("img"); im.src = photo; im.alt = ""; av.appendChild(im); av.style.background = "#111214"; }
     else { av.textContent = room.name.charAt(0); av.style.background = avatarColor(room.name); }
-    $("photoChange").textContent = photo ? "사진 바꾸기" : "사진 추가";
+    $("photoChange").innerHTML = PEN_ICON;           // 프로필 카드와 같은 펜 아이콘
     $("photoDel").classList.toggle("hidden", !photo);
     $("photoUseLine").classList.toggle("hidden", !photo);
     var u = photoUsable(); setSw($("photoUseToggle"), u, u ? "켜짐" : "꺼짐");
