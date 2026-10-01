@@ -100,10 +100,14 @@
     font-size: 14px; font-weight: 700; line-height: 1; color: #8b929d; transition: color .2s; pointer-events: none;
   }
   .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #121316; }
-  .chartcard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px; }
-  .chartcard { transition: background .3s, border-color .3s; }
-  .chartcard[data-mode="score"] { background: linear-gradient(180deg, #232b37 0%, #26292f 58%); border-color: #333d4b; }
-  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 0 6px 10px; font-size: 14px; font-weight: 700; }
+  .chartcard {
+    background-color: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px;
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .chartcard[data-mode="score"] { background-color: #252c37; border-color: #333c4a; }
+  @keyframes swapIn { from { opacity: .45; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  .chartcard.swap #chart, .chartcard.swap .legend, .chartcard.swap .pointinfo { animation: swapIn .32s ease-out; }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 0 0 10px; }
   #chart { position: relative; }
   .chooser {
     position: absolute; z-index: 4; min-width: 150px; padding: 8px;
@@ -116,7 +120,14 @@
   }
   .copt:hover { border-color: var(--accent); }
   .cdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-  .legend .item { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .item {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px; border-radius: 999px;
+    border: 1px solid transparent; background: transparent; color: var(--text);
+    font-size: 14px; font-weight: 700; line-height: 1; transition: opacity .2s, background-color .2s, border-color .2s;
+  }
+  .legend .item:hover { background: rgba(255,255,255,.05); }
+  .legend .item.on { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.24); }
+  .legend.has-focus .item:not(.on) { opacity: .42; }
   .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
   #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
   #chart svg text { font-family: inherit; }
@@ -132,7 +143,26 @@
 
   .records { width: 100%; }
   .records h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0 0 12px; }
-  #records { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .recbox {
+    display: flex; flex-direction: column; max-height: min(56vh, 460px); overflow: hidden;
+    background: #1f2227; border: 1px solid var(--line); border-radius: 16px;
+  }
+  .recfilter { flex: none; display: flex; gap: 8px; padding: 10px 12px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .recfilter::-webkit-scrollbar { display: none; }
+  .recfilter:empty { display: none; }
+  .rf {
+    flex: none; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 13px; border-radius: 999px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap;
+  }
+  .rf:hover { border-color: #5a606b; }
+  .rf.on { background: #eef0f4; border-color: #eef0f4; color: #121316; }
+  #records {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; scrollbar-color: #4a4f58 transparent;
+    list-style: none; margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 10px;
+  }
+  #records:empty { display: none; }
   .rec {
     display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
@@ -155,7 +185,7 @@
     padding: 9px 14px; font-size: 14px; color: #f0908a;
   }
   .rec .del:hover { border-color: var(--second); }
-  #recordsEmpty { margin: 0; color: var(--muted); font-size: 14px; }
+  #recordsEmpty { margin: 0; padding: 24px 16px; text-align: center; color: var(--muted); font-size: 14px; }
 
   @media (max-width: 560px) {
     .topRight { width: 100%; justify-content: space-between; }
@@ -297,7 +327,10 @@
   .dlg p { margin: 0 0 24px; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; }
   .dlg .row button.yes.danger { background: var(--second); border-color: var(--second); }
 
-  @media (prefers-reduced-motion: reduce) { .slot, .switch .thumb, .switch .lab { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .slot, .switch .thumb, .switch .lab, .chartcard, .legend .item { transition: none; }
+    .chartcard.swap #chart, .chartcard.swap .legend, .chartcard.swap .pointinfo { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -339,8 +372,11 @@
 
     <div class="records">
       <h2>오늘의 응시 기록</h2>
-      <ul id="records"></ul>
-      <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
+      <div class="recbox" id="recBox">
+        <div class="recfilter" id="recFilter"></div>
+        <ul id="records"></ul>
+        <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
+      </div>
     </div>
   </main>
 </section>
@@ -592,6 +628,7 @@
     return b;
   }
 
+  var recFilter = "";
   function renderToday() {
     var all = loadAll(), nums = attemptNumbers(all), subjects = loadSubjects();
     // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
@@ -607,11 +644,36 @@
     $("todayTotal").textContent = all.length;
     $("todayDetail").textContent = entries.map(function (en) { return en.name + " " + en.count + "회"; }).join(", ");
 
+    // 과목별로 따로 보기 (상자 위쪽 버튼)
+    var color = colorMap(all), subs = [];
+    all.forEach(function (r) { var nm = recSubject(r); if (subs.indexOf(nm) < 0) subs.push(nm); });
+    if (recFilter && subs.indexOf(recFilter) < 0) recFilter = "";
+    var rf = $("recFilter");
+    rf.textContent = "";
+    function filterChip(label, value, c) {
+      var on = recFilter === value;
+      var bt = el("button", "rf" + (on ? " on" : ""));
+      bt.type = "button"; bt.setAttribute("aria-pressed", on ? "true" : "false");
+      if (c) { var d = el("span", "cdot"); d.style.background = c; bt.appendChild(d); }
+      bt.appendChild(document.createTextNode(label));
+      bt.addEventListener("click", function () {
+        recFilter = (value && recFilter === value) ? "" : value;
+        renderToday();
+        $("records").scrollTop = 0;
+      });
+      return bt;
+    }
+    if (subs.length) {
+      rf.appendChild(filterChip("전체", "", null));
+      subs.forEach(function (nm) { rf.appendChild(filterChip(nm, nm, color[nm])); });
+    }
+
     // 가장 최근에 본 것이 위로
-    var ul = $("records");
+    var ul = $("records"), keepTop = ul.scrollTop;
     ul.textContent = "";
     $("recordsEmpty").style.display = all.length ? "none" : "";
-    all.slice().reverse().forEach(function (rec) {
+    var shown = recFilter ? all.filter(function (r) { return recSubject(r) === recFilter; }) : all;
+    shown.slice().reverse().forEach(function (rec) {
       var title = recSubject(rec) + " " + nums[rec.id] + "회";
       var li = el("li", "rec");
       var info = el("div", "info");
@@ -637,14 +699,15 @@
       li.appendChild(info); li.appendChild(del);
       ul.appendChild(li);
     });
+    ul.scrollTop = keepTop;
     renderChart();
   }
 
   // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
   // 점수 추이: 세로축 점수 (위로 갈수록 높음) / 시간 추이: 세로축 시간 (위로 갈수록 짧음)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
-  var TOL = 1;                                   // 같은 회차에서 ±1점(호머식은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
-  var selectedPoint = "", chooser = null, chartMode = "score";
+  var TOL = 1;                                   // 같은 회차에서 ±1점(시간은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
+  var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "";
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
@@ -657,51 +720,110 @@
     return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
   }
   function clearSelection() { selectedPoint = ""; chooser = null; }
+  // 과목마다 색: 처음 등장한 순서대로 정해서 그래프를 바꿔도, 기록이 늘어도 그대로
+  function colorMap(all) {
+    var color = {}, seen = 0;
+    all.forEach(function (r) {
+      var sub = recSubject(r);
+      if (!color[sub]) { color[sub] = PALETTE[seen % PALETTE.length]; seen++; }
+    });
+    return color;
+  }
+  function mean(a) { var t = 0; a.forEach(function (v) { t += v; }); return t / a.length; }
+  function slopeOf(xs, ys) {                    // 최소제곱 직선의 기울기 (회차당 변화량)
+    var mx = mean(xs), my = mean(ys), num = 0, den = 0;
+    for (var i = 0; i < xs.length; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) * (xs[i] - mx); }
+    return den ? num / den : 0;
+  }
+  // 추세곡선: 가까운 점에 더 무게를 두는 국소 직선 회귀(LOWESS 방식)로 부드럽게 이어 그림
+  function trendCurve(xs, ys) {
+    var n = xs.length, k = n <= 8 ? n : Math.ceil(n * 0.7), out = [], S = 48;
+    for (var i = 0; i <= S; i++) {
+      var x = xs[0] + (xs[n - 1] - xs[0]) * i / S;
+      var d = xs.map(function (xx) { return Math.abs(xx - x); });
+      var h = d.slice().sort(function (p, q) { return p - q; })[k - 1] * 1.25 || 1;
+      var sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      for (var j = 0; j < n; j++) {
+        var u = d[j] / h, w = u < 1 ? Math.pow(1 - u * u * u, 3) : 0;
+        sw += w; sx += w * xs[j]; sy += w * ys[j]; sxx += w * xs[j] * xs[j]; sxy += w * xs[j] * ys[j];
+      }
+      var den = sw * sxx - sx * sx, y;
+      y = Math.abs(den) < 1e-9 ? sy / sw : ((sy * sxx - sx * sxy) + (sw * sxy - sx * sy) * x) / den;
+      out.push([x, y]);
+    }
+    return out;
+  }
 
   function renderChart() {
     var box = $("chart"), legend = $("legend"), info = $("pointInfo");
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
     var homer = chartMode === "homer";
     $("chartCard").setAttribute("data-mode", chartMode);
-    var all = loadAll(), nums = attemptNumbers(all);
-    var pts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
+    var all = loadAll(), nums = attemptNumbers(all), color = colorMap(all);
+    var allPts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
+    function val(r) { return homer ? r.elapsed / 60 : r.score1; }
+
+    // 범례: 누르면 그 과목만 보기, 한 번 더 누르면 전체 보기
+    var names = [], hasPts = {};
+    all.forEach(function (r) { var nm = recSubject(r); if (names.indexOf(nm) < 0) names.push(nm); });
+    allPts.forEach(function (r) { hasPts[recSubject(r)] = true; });
+    if (focusSubject && names.indexOf(focusSubject) < 0) focusSubject = "";
+    legend.classList.toggle("has-focus", !!focusSubject);
+    names.forEach(function (name) {
+      if (!hasPts[name] && name !== focusSubject) return;
+      var on = name === focusSubject;
+      var item = el("button", "item" + (on ? " on" : ""));
+      item.type = "button";
+      item.setAttribute("aria-pressed", on ? "true" : "false");
+      item.setAttribute("title", on ? "전체 과목 보기" : name + "만 보기");
+      var sw = el("span", "sw"); sw.style.background = color[name];
+      item.appendChild(sw); item.appendChild(document.createTextNode(name));
+      item.addEventListener("click", function () {
+        focusSubject = on ? "" : name;
+        clearSelection();
+        renderChart();
+      });
+      legend.appendChild(item);
+    });
+
+    var pts = focusSubject ? allPts.filter(function (r) { return recSubject(r) === focusSubject; }) : allPts;
     if (!pts.length) {
       clearSelection();
-      box.appendChild(el("p", "empty", homer
-        ? "추가 시간을 쓴 기록이 생기면 여기에 시간 추이가 그려져요."
-        : "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요."));
+      box.appendChild(el("p", "empty", focusSubject
+        ? focusSubject + "의 " + (homer ? "시간" : "점수") + " 기록이 아직 없어요."
+        : (homer ? "추가 시간을 쓴 기록이 생기면 여기에 시간 추이가 그려져요." : "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요.")));
       return;
     }
     if (!pts.some(function (r) { return r.id === selectedPoint; })) selectedPoint = "";
-    function val(r) { return homer ? r.elapsed / 60 : r.score1; }
 
-    // 색은 과목이 처음 등장한 순서대로 정해서 그래프를 바꿔도, 기록이 늘어도 그대로
-    var color = {}, seen = 0;
-    all.forEach(function (r) {
-      var sub = recSubject(r);
-      if (!color[sub]) { color[sub] = PALETTE[seen % PALETTE.length]; seen++; }
-    });
     var order = [], series = {};
     pts.forEach(function (r) {
       var sub = recSubject(r);
       if (!series[sub]) { series[sub] = []; order.push(sub); }
       series[sub].push({ n: nums[r.id], v: val(r), rec: r });
     });
-    order.forEach(function (name) {
-      var item = el("span", "item");
-      var sw = el("span", "sw"); sw.style.background = color[name];
-      item.appendChild(sw); item.appendChild(document.createTextNode(name));
-      legend.appendChild(item);
-    });
+
+    // 한 과목만 볼 때: 평균·최고(최단)·추세 (점이 2개 이상이면 숫자, 3개 이상이면 추세곡선도)
+    var focus = !!focusSubject, stat = null;
+    if (focus && series[focusSubject] && series[focusSubject].length >= 2) {
+      var sl = series[focusSubject], sxs = sl.map(function (q) { return q.n; }), sys = sl.map(function (q) { return q.v; });
+      stat = {
+        avg: mean(sys),
+        best: homer ? Math.min.apply(null, sys) : Math.max.apply(null, sys),
+        slope: sl.length >= 3 ? slopeOf(sxs, sys) : null,
+        curve: sl.length >= 3 ? trendCurve(sxs, sys) : null
+      };
+    }
 
     var W = Math.max(280, Math.round(box.clientWidth || 600));
     var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
     // 점수 그래프는 숫자 눈금이 왼쪽, 시간 그래프는 오른쪽
     var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
-    var plotW = W - L - R, plotH = H - T - B;
+    var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
+    var plotW = W - L - R, plotH = H - T - B, innerW = plotW - PAD - PADR;
     var maxN = 1;
     pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
-    function X(nn) { return maxN === 1 ? L + plotW / 2 : L + PAD + (nn - 1) * (plotW - 2 * PAD) / (maxN - 1); }
+    function X(nn) { return maxN === 1 ? L + (plotW - PADR + PAD) / 2 : L + PAD + (nn - 1) * innerW / (maxN - 1); }
 
     // 세로축 범위
     var vals = [];
@@ -709,6 +831,7 @@
       vals.push(val(r));
       if (!homer && r.usedExtra && r.score2 != null) vals.push(r.score2);
     });
+    if (stat && stat.curve) stat.curve.forEach(function (c) { vals.push(c[1]); });
     if (homer) vals.push(30);                    // 본 시험 시간(30분)이 항상 보이게
     var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), lo, hi, step;
     if (!homer) {
@@ -743,7 +866,7 @@
       svg.appendChild(rl);
     }
     // 가로축: 회차 (자리가 좁으면 건너뛰며 표시)
-    var spacing = maxN > 1 ? (plotW - 2 * PAD) / (maxN - 1) : 100;
+    var spacing = maxN > 1 ? innerW / (maxN - 1) : 100;
     var every = Math.max(1, Math.ceil(34 / spacing));
     for (var nn = 1; nn <= maxN; nn += every) {
       var xl = svgEl("text", { x: X(nn), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
@@ -776,10 +899,18 @@
       if (list.length > 1) {
         svg.appendChild(svgEl("polyline", {
           points: list.map(function (q) { return X(q.n).toFixed(1) + "," + Y(q.v).toFixed(1); }).join(" "),
-          fill: "none", stroke: color[name], "stroke-width": homer ? 2 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
+          fill: "none", stroke: color[name], "stroke-width": homer ? 2 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round",
+          "stroke-opacity": stat && stat.curve ? 0.55 : 1
         }));
       }
     });
+    // 한 과목만 볼 때의 추세곡선
+    if (stat && stat.curve) {
+      svg.appendChild(svgEl("path", {
+        d: stat.curve.map(function (c, i) { return (i ? "L" : "M") + X(c[0]).toFixed(1) + "," + Y(c[1]).toFixed(1); }).join(" "),
+        fill: "none", stroke: lighten(color[focusSubject], 0.4), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "8 6"
+      }));
+    }
 
     // 점수 그래프: 선택한 점 위에 호머식 점수를 연한 색 점으로 (다른 곳을 누르면 사라짐)
     var homerDotY = null;
@@ -828,6 +959,30 @@
         }
       }
     });
+
+    // 한 과목만 볼 때: 오른쪽 끝에 평균 등을 적어 둠
+    if (stat) {
+      var lines = [
+        "평균 " + stat.avg.toFixed(1) + (homer ? "분" : "점"),
+        (homer ? "최단 " + stat.best.toFixed(1) + "분" : "최고 " + stat.best + "점")
+      ];
+      if (stat.slope != null) {
+        var sg = stat.slope >= 0 ? "+" : "-";
+        lines.push("추세 " + sg + Math.abs(stat.slope).toFixed(1) + (homer ? "분/회" : "/회"));
+      }
+      var endY = Y(stat.curve ? stat.curve[stat.curve.length - 1][1] : series[focusSubject][series[focusSubject].length - 1].v);
+      var ty0 = Math.min(Math.max(endY - 18, T + 8), H - B - 8 - (lines.length - 1) * 15);
+      var tcol = lighten(color[focusSubject], 0.3);
+      lines.forEach(function (ln, i) {
+        var st = svgEl("text", {
+          x: X(maxN) + 16, y: ty0 + i * 15, "text-anchor": "start", "font-size": 12, "font-weight": 700, fill: tcol,
+          stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+        });
+        st.textContent = ln;
+        svg.appendChild(st);
+      });
+    }
+
     // 누르기 쉽도록 보이지 않는 원을 맨 위에
     plist.forEach(function (pt) {
       var c = svgEl("circle", { cx: pt.x, cy: pt.y, r: 14, fill: "transparent", "class": "hit" });
@@ -922,8 +1077,12 @@
     $("trendTitle").textContent = chartMode === "homer" ? "시간 추이" : "점수 추이";
     clearSelection();
     renderChart();
+    var card = $("chartCard");                    // 어느 쪽으로 바꿔도 같은 연한 페이드
+    card.classList.remove("swap"); void card.offsetWidth; card.classList.add("swap");
+    clearTimeout(swapTimer);
+    swapTimer = setTimeout(function () { card.classList.remove("swap"); }, 420);
   });
-  var resizeTimer = 0;
+  var swapTimer = 0, resizeTimer = 0;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () { if (home.style.display !== "none") renderChart(); }, 120);
