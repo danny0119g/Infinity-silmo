@@ -222,11 +222,7 @@
   }
   .mem .info { min-width: 0; }
   .mem .head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
-  .mem .nm {
-    padding: 0; margin: 0; background: none; border: 0; font: inherit; font-size: 17px; font-weight: 800; color: var(--text);
-    text-align: left; overflow-wrap: anywhere; cursor: pointer;
-    text-decoration: underline; text-decoration-color: rgba(255,255,255,.22); text-underline-offset: 4px;
-  }
+  .mem .nm { font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
   .metag { flex: none; font-size: 12px; font-weight: 600; line-height: 1.3; color: #7b818c; border: 1px solid #343840; border-radius: 999px; padding: 2px 9px; }
   #profilePop {
     position: fixed; z-index: 8; display: none; width: 240px; padding: 16px;
@@ -234,7 +230,18 @@
   }
   #profilePop.on { display: block; }
   .pTop { display: flex; align-items: center; gap: 12px; }
-  .avatar { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: #fff; }
+  .avWrap { position: relative; flex: none; width: 56px; height: 56px; }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #fff; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .avPen {
+    position: absolute; right: -5px; bottom: -5px; width: 24px; height: 24px; padding: 0; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: #2b2f36; border: 1px solid #4a4f58; color: var(--muted);
+  }
+  .avPen::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; }
+  .avPen svg { width: 12px; height: 12px; display: block; }
+  .avPen.pressing { border-color: var(--accent); color: var(--text); }
+  .pWho { min-width: 0; }
   .pName { font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
   .pName .metag { margin-left: 8px; vertical-align: middle; }
   .pSub { margin-top: 2px; font-size: 13px; color: var(--muted); }
@@ -246,6 +253,13 @@
   .mem .dt { margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.5; }
   .mem .cnt { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .mem.me { border-color: #4a5a78; }
+  .mem { cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: border-color .15s; }
+  .mem.pressing, .mem.open { border-color: var(--accent); }
+  .mem .st, .pLive { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: #6fe3b0; }
+  .mem .st { margin-top: 5px; }
+  .pLive { margin-top: 12px; }
+  .ldot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #3ddc97; }
+  @media (hover: hover) and (pointer: fine) { .mem:hover { border-color: var(--accent); } .avPen:hover { border-color: var(--accent); } }
   #roomModal {
     position: fixed; inset: 0; z-index: 10; display: none; overflow-y: auto; padding: 24px;
     background: rgba(10,11,13,.72);
@@ -492,6 +506,7 @@
     </aside>
   </main>
   <div id="profilePop" role="dialog" aria-label="프로필"></div>
+  <input type="file" id="photoInput" accept="image/*" hidden>
 </section>
 
 <section id="stage">
@@ -1486,6 +1501,7 @@
   var DB_URL = "https://infinitesilmo-default-rtdb.asia-southeast1.firebasedatabase.app";
   var ROOM_KEY = "examTimer.room.v1", DEV_KEY = "examTimer.device.v1";
   var CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
+  var liveBlocked = false, photoSent = "", photoBlocked = false, photoCache = {}, profileM = null;
   var memRoom = null, deviceId = "", others = [], netErr = false, lastSent = "", syncTimer = 0, netChain = Promise.resolve(), roomBusy = false;
   function rnd(n, chars) {
     var a = new Uint32Array(n), out = "", i;
@@ -1528,7 +1544,14 @@
       var key = c.name.replace(/[.$#\[\]\/]/g, "").slice(0, 30);
       if (key) subs[key] = Math.min(99, (subs[key] || 0) + c.count);
     });
-    return { name: room.name, day: todayStr(), subjects: subs };
+    var st = { name: room.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
+    if (lv) st.live = lv;
+    return st;
+  }
+  // 지금 응시 중이면 {과목, 시작 시각(초), 추가 시간 여부}
+  function liveInfo() {
+    if (!current || !liveStart || (phase !== "running" && phase !== "extra")) return null;
+    return { s: String(current.subject).slice(0, 30), t: Math.floor(liveStart / 1000), e: phase === "extra" ? 1 : 0 };
   }
   function dbFetch(path, opts) {
     var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null, to = 0;
@@ -1543,11 +1566,28 @@
   function enqueue(fn) { netChain = netChain.then(fn, fn); return netChain; }      // 요청을 한 줄로 세워서 순서가 뒤바뀌지 않게
   function pushMe(force) {
     if (!room) return Promise.resolve();
-    var code = room.code, body = JSON.stringify(myState());
+    var code = room.code, st = myState(), body = JSON.stringify(st);
     if (!force && body === lastSent) return Promise.resolve();
-    return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: body })
-      .then(function () { lastSent = body; netErr = false; })
-      .catch(function () { netErr = true; lastSent = ""; });
+    function put(b) {
+      return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: b })
+        .then(function () { lastSent = b; netErr = false; });
+    }
+    return put(body).catch(function (err) {
+      if (st.live && err && err.message === "http 401") {          // 서버 규칙이 아직 응시 상태를 받지 않으면 그것만 빼고 다시 올림
+        liveBlocked = true; delete st.live;
+        return put(JSON.stringify(st));
+      }
+      throw err;
+    }).catch(function () { netErr = true; lastSent = ""; });
+  }
+  // 프로필 사진은 별도 칸(photos)에 올려서, 실패해도 기록 동기화에는 영향이 없게 함
+  function pushPhoto(force) {
+    if (!room || !photo) return Promise.resolve();
+    if (!force && (photoSent === photo || photoBlocked)) return Promise.resolve();
+    var code = room.code, mine = photo;
+    return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mine) })
+      .then(function () { photoSent = mine; photoBlocked = false; })
+      .catch(function (err) { if (err && err.message === "http 401") photoBlocked = true; });
   }
   function scheduleSync() {
     if (!room) return;
@@ -1568,14 +1608,16 @@
           var c = ss[k];
           if (k !== "_" && typeof c === "number" && c > 0) { subs.push({ name: k, count: c }); total += c; }
         });
-        list.push({ uid: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false });
+        var lv = null;
+        if (m.live && typeof m.live === "object" && typeof m.live.s === "string" && typeof m.live.t === "number") lv = { s: m.live.s.slice(0, 30), t: m.live.t, e: m.live.e === 1 };
+        list.push({ uid: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv });
       });
       others = list; netErr = false;
     }).catch(function () { netErr = true; });
   }
   function pollTick() {
     if (!room || document.visibilityState !== "visible" || home.style.display === "none") return;
-    enqueue(function () { return pushMe(false); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
+    enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }
   function renderTogether() {
     var box = $("togetherBody"), btn = $("roomBtn");
@@ -1594,15 +1636,15 @@
     var ul = el("ul", "members");
     list.forEach(function (m) {
       var li = el("li", "mem" + (m.me ? " me" : "")), info = el("div", "info"), head = el("div", "head");
-      var nb = el("button", "nm", m.name);
-      nb.type = "button";
-      nb.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (profileKey === m.uid) closeProfile(); else openProfile(m, li);
-      });
-      head.appendChild(nb);
+      function toggleProfile(e) { e.stopPropagation(); if (profileKey === m.uid) closeProfile(); else openProfile(m, li); }
+      li.setAttribute("role", "button"); li.tabIndex = 0;
+      li.addEventListener("click", toggleProfile);
+      li.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleProfile(e); } });
+      head.appendChild(el("span", "nm", m.name));
       if (m.me) head.appendChild(el("span", "metag", "나"));
       info.appendChild(head);
+      var lt = liveText(m);
+      if (lt) { var stl = el("div", "st"); stl.appendChild(el("span", "ldot")); stl.appendChild(document.createTextNode(lt)); info.appendChild(stl); }
       info.appendChild(el("div", "dt", m.subs.length ? m.subs.map(function (c) { return c.name + " " + c.count + "회"; }).join(", ") : "아직 응시 전"));
       li.appendChild(info);
       li.appendChild(el("div", "cnt", m.total + "개"));
@@ -1622,17 +1664,65 @@
   var profileKey = "";
   var AV_COLORS = ["#4f7cff", "#2fa37a", "#c46a3a", "#a0527c", "#7a62c9", "#3b8aa6", "#8a8f3a", "#c25757"];
   function avatarColor(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return AV_COLORS[h % AV_COLORS.length]; }
-  function closeProfile() { profileKey = ""; var p = $("profilePop"); if (p) p.classList.remove("on"); }
+  function clearOpenMark() { Array.prototype.forEach.call(document.querySelectorAll(".mem.open"), function (x) { x.classList.remove("open"); }); }
+  function closeProfile() {
+    profileKey = ""; profileM = null;
+    var p = $("profilePop"); if (p) p.classList.remove("on");
+    clearOpenMark();
+  }
+  function liveText(m) {
+    if (!m.live) return "";
+    var min = Math.floor((Date.now() / 1000 - m.live.t) / 60);
+    if (min < 0) min = 0;
+    if (min > 90) return "";                          // 오래된 상태는 무시 (앱이 꺼진 채 남은 경우)
+    return (m.live.e ? "추가 시간 중" : "응시 중") + " · " + m.live.s + " · " + (min < 1 ? "방금 시작" : min + "분 경과");
+  }
+  // 프로필 사진 (96~112px로 줄인 작은 JPEG, 기기에 저장 + 방 서버의 photos 칸에 올림)
+  var PHOTO_KEY = "examTimer.photo.v1", memPhoto = "";
+  function validPhoto(p) { return typeof p === "string" && p.length <= 12000 && /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(p); }
+  function loadPhoto() { var p = ""; try { p = localStorage.getItem(PHOTO_KEY) || ""; } catch (e) {} if (!p) p = memPhoto; return validPhoto(p) ? p : ""; }
+  var photo = loadPhoto();
+  function savePhoto(p) { memPhoto = p; photo = p; try { localStorage.setItem(PHOTO_KEY, p); } catch (e) {} }
+  function fillAvatar(av, m) {
+    av.textContent = "";
+    var src = m.me ? photo : ((photoCache[m.uid] || {}).data || "");
+    if (src && validPhoto(src)) {
+      var im = el("img"); im.src = src; im.alt = "";
+      av.appendChild(im); av.style.background = "#111214";
+    } else {
+      av.textContent = m.name.charAt(0); av.style.background = avatarColor(m.name);
+    }
+  }
+  function loadFriendPhoto(m) {                       // 친구 프로필을 열 때 그 친구의 사진만 가져옴
+    if (m.me || !room) return;
+    var c = photoCache[m.uid], uid = m.uid, code = room.code;
+    if (c && Date.now() - c.t < 60000) return;
+    dbFetch("/rooms/" + code + "/photos/" + uid, { cache: "no-store" }).then(function (d) {
+      photoCache[uid] = { data: validPhoto(d) ? d : "", t: Date.now() };
+      if (profileKey === uid && profileM) { var av = document.querySelector("#profilePop .avatar"); if (av) fillAvatar(av, profileM); }
+    }).catch(function () { photoCache[uid] = { data: "", t: Date.now() - 50000 }; });    // 실패하면 10초 뒤 다시 시도
+  }
   function openProfile(m, anchor) {
     var pop = $("profilePop");
     pop.textContent = "";
-    var top = el("div", "pTop"), av = el("div", "avatar", m.name.charAt(0)), who = el("div", ""), nm = el("div", "pName", m.name);
-    av.style.background = avatarColor(m.name);
-    if (m.me) nm.appendChild(el("span", "metag", "나"));
+    clearOpenMark(); anchor.classList.add("open");      // 열려 있는 동안 카드 윤곽을 파랗게 유지
+    profileKey = m.uid; profileM = m;
+    var top = el("div", "pTop"), wrap = el("div", "avWrap"), av = el("div", "avatar"), who = el("div", "pWho"), nm = el("div", "pName", m.name);
+    fillAvatar(av, m); wrap.appendChild(av);
+    if (m.me) {                                         // 내 프로필: 사진 오른쪽 아래에 작은 동그란 펜 버튼
+      var pen = el("button", "avPen");
+      pen.type = "button"; pen.innerHTML = PEN_ICON;
+      pen.setAttribute("aria-label", "프로필 사진 편집"); pen.setAttribute("title", "프로필 사진 편집");
+      pen.addEventListener("click", function (e) { e.stopPropagation(); $("photoInput").click(); });
+      wrap.appendChild(pen);
+      nm.appendChild(el("span", "metag", "나"));
+    }
     who.appendChild(nm);
     who.appendChild(el("div", "pSub", "오늘 " + m.total + "개 응시"));
-    top.appendChild(av); top.appendChild(who);
+    top.appendChild(wrap); top.appendChild(who);
     pop.appendChild(top);
+    var lt = liveText(m);
+    if (lt) { var lv = el("div", "pLive"); lv.appendChild(el("span", "ldot")); lv.appendChild(document.createTextNode(lt)); pop.appendChild(lv); }
     pop.appendChild(el("div", "pSec", "오늘의 응시"));
     if (m.subs.length) {
       m.subs.forEach(function (c) {
@@ -1643,9 +1733,34 @@
       });
     } else pop.appendChild(el("div", "pRow none", "아직 응시 전이에요"));
     pop.appendChild(el("div", "pNote", "소개·목표 같은 프로필 꾸미기는 준비 중이에요."));
-    profileKey = m.uid;
+    if (m.me && (photoBlocked || liveBlocked)) pop.appendChild(el("div", "pNote", "친구들에게 사진·응시 상태를 보여 주려면 서버 규칙 업데이트가 필요해요."));
     placeProfile(anchor);
+    loadFriendPhoto(m);
   }
+  $("photoInput").addEventListener("change", function () {
+    var f = this.files && this.files[0];
+    this.value = "";
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var S = 112, c = document.createElement("canvas"), side = Math.min(img.width, img.height);
+        c.width = c.height = S;
+        var ctx = c.getContext("2d");
+        if (!ctx || !side) return;
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);      // 가운데를 정사각형으로 잘라 줄임
+        var data = "";
+        try { data = c.toDataURL("image/jpeg", 0.72); } catch (e) {}
+        if (!validPhoto(data)) return;
+        savePhoto(data); photoSent = ""; photoBlocked = false;
+        keepPageScroll(renderTogether);
+        enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+  });
   function placeProfile(anchor) {
     var pop = $("profilePop");
     pop.style.visibility = "hidden"; pop.classList.add("on");
@@ -1687,12 +1802,13 @@
       : Promise.resolve();
     check.then(function () {
       saveRoom({ code: code, name: name });
-      lastSent = ""; others = []; netErr = false;
+      lastSent = ""; others = []; netErr = false; liveBlocked = false; photoSent = ""; photoBlocked = false; photoCache = {};
       return enqueue(function () { return pushMe(true); });
     }).then(function () {
       if (netErr) { saveRoom(null); throw new Error("net"); }
       roomBusy = false;
       closeRoomModal();
+      enqueue(function () { return pushPhoto(true); });
       pullOthers().then(function () { keepPageScroll(renderTogether); });
       keepPageScroll(renderTogether);
     }).catch(function (err) {
@@ -1744,7 +1860,9 @@
     ask("방에서 나가겠습니까?\n서버에 있는 내 기록도 지워져요.", "나가기", true, function () {
       var code = room ? room.code : "";
       saveRoom(null); others = []; lastSent = ""; netErr = false;
+      photoSent = ""; photoCache = {};
       if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/members/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
+      if (code) enqueue(function () { return dbFetch("/rooms/" + code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); });
       closeRoomModal();
       keepPageScroll(renderTogether);
     });
@@ -1873,7 +1991,7 @@
 
   // ---------- 시험 상태 ----------
   // phase: idle → running(30분) → ended1(점수 입력 + 추가시간 질문) → extra(추가시간) → ended2(호머식 점수 입력) → idle
-  var phase = "idle", current = null, recId = "";
+  var phase = "idle", current = null, recId = "", liveStart = 0;     // liveStart: 이번 응시를 시작한 실제 시각(ms), 친구들에게 "몇 분 지났는지" 보여 주는 용도
   var accum = 0, runStart = 0, runStartWall = 0, running = false;       // 시계가 실제로 흐른 시간(초)
   var sleepCredit = 0, hiddenAt = null;               // 화면이 잠겨 브라우저 시계가 멈춰 있던 동안 실제로 흐른 시간(초)
   var extraStart = 0;                                  // 추가 시간을 쓰기 시작한 시점(초)
@@ -1940,6 +2058,7 @@
   function updateButtons() {
     $("abandon").classList.toggle("hidden", phase !== "running");
     $("endBtn").classList.toggle("hidden", !(phase === "running" || phase === "extra"));
+    scheduleSync();                                  // 응시 상태(시작·추가 시간·종료)가 바뀌었으니 친구들에게도 알림
   }
 
   function saveRec(fields) {
@@ -2004,12 +2123,12 @@
     extraStart = isFinite(Number(s.extraStart)) ? Number(s.extraStart) : 0;
     home.style.display = "none"; stage.classList.add("on"); done.classList.remove("on");
     if (s.phase === "running" && elapsed < DURATION) {
-      phase = "running"; accum = elapsed; running = false; warned = elapsed >= WARN_AT;
+      phase = "running"; accum = elapsed; running = false; warned = elapsed >= WARN_AT; liveStart = Date.now() - elapsed * 1000;
       updateButtons(); requestWake(); render(accum); resume(); saveSession();
     } else if (s.phase === "running") {                  // 안 보는 사이에 30분이 지났음
       phase = "running"; accum = DURATION; running = false; endRegular(DURATION); saveSession();
     } else if (s.phase === "extra") {
-      phase = "extra"; accum = elapsed; running = false;
+      phase = "extra"; accum = elapsed; running = false; liveStart = Date.now() - elapsed * 1000;
       updateButtons(); requestWake(); render(accum); resume(); saveSession();
     } else if (s.phase === "ended1" || s.phase === "ended2") {
       phase = s.phase; accum = acc; running = false;
@@ -2029,6 +2148,7 @@
     saveAll(all);
 
     phase = "running";
+    liveStart = Date.now();
     accum = 0; running = false; extraStart = 0;
     warned = false; hideWarn();
     // 시작 시각에서 -30초 ~ +30초: 초침은 아무 위치에서나 출발하고, 분침도 아주 조금 앞서거나 뒤처진다
@@ -2049,8 +2169,10 @@
     cancelAnimationFrame(raf);
     running = false;
     phase = "idle";
+    liveStart = 0;
     clearSession();
     dayRollover(recId);
+    scheduleSync();
     hideWarn(); closeAsk();
     releaseWake();
     stage.classList.remove("on");
@@ -2231,7 +2353,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .mem, .avPen";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
