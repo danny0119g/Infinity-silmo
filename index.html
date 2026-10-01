@@ -32,8 +32,10 @@
   .hidden { display: none !important; }
 
   .pill {
+    display: inline-flex; align-items: center; justify-content: center; text-align: center;
+    height: 38px; padding: 0 18px;
     background: rgba(38,41,47,.92); border: 1px solid var(--line); border-radius: 999px;
-    padding: 9px 16px; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+    font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: 0; white-space: nowrap;
   }
   .pill:hover { border-color: var(--accent); }
 
@@ -80,48 +82,35 @@
   .trend { width: 100%; }
   .trendHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .trend h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
-  /* 좌우로 미끄러지는 스위치: 어두운 홈 위를 밝은 상자가 움직임 */
+  /* 좌우로 미끄러지는 스위치 */
   .switch {
-    position: relative; flex: none; width: 208px; height: 42px; padding: 4px;
-    display: grid; grid-template-columns: 1fr 1fr; align-items: stretch;
-    border: 1px solid #343840; border-radius: 13px;
-    background: linear-gradient(180deg, #0e0f11, #17181b);
-    box-shadow: inset 0 2px 6px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.05);
+    position: relative; flex: none; width: 196px; height: 40px; padding: 3px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: #1c1e22; border: 1px solid #353a42; border-radius: 10px;
   }
   .switch .thumb {
-    position: absolute; top: 4px; left: 4px; width: calc(50% - 4px); height: calc(100% - 8px);
-    border-radius: 9px; pointer-events: none;
-    background: linear-gradient(180deg, #ffffff 0%, #e2e6ee 100%);
-    box-shadow: 0 6px 14px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.55), inset 0 1px 0 #fff;
-    transition: transform .3s cubic-bezier(.34,1.3,.5,1);
+    position: absolute; top: 3px; left: 3px; width: calc(50% - 3px); height: calc(100% - 6px);
+    border-radius: 7px; background: #eef0f4; pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    transition: transform .26s cubic-bezier(.4, 0, .2, 1);
   }
   .switch[data-mode="homer"] .thumb { transform: translateX(100%); }
-  .switch:active .thumb { filter: brightness(.94); }
   .switch .lab {
-    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
-    font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: #767d89;
-    transition: color .25s; pointer-events: none;
+    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; line-height: 1; color: #8b929d; transition: color .2s; pointer-events: none;
   }
-  .switch .lab::before {
-    content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .4;
-    transition: background .25s, box-shadow .25s, opacity .25s;
-  }
-  .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #14161a; }
-  .switch[data-mode="score"] .lab.l::before { background: #3b8dff; opacity: 1; box-shadow: 0 0 0 3px rgba(59,141,255,.2); }
-  .switch[data-mode="homer"] .lab.r::before { background: #ff9f2e; opacity: 1; box-shadow: 0 0 0 3px rgba(255,159,46,.24); }
+  .switch[data-mode="score"] .lab.l, .switch[data-mode="homer"] .lab.r { color: #121316; }
   .chartcard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 12px 12px; }
   .chartcard { transition: background .3s, border-color .3s; }
   .chartcard[data-mode="score"] { background: linear-gradient(180deg, #232b37 0%, #26292f 58%); border-color: #333d4b; }
-  .chartcard[data-mode="homer"] { background: linear-gradient(180deg, #2f2a24 0%, #26292f 58%); border-color: #4b4033; }
   .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 0 6px 10px; font-size: 14px; font-weight: 700; }
-  .legend .note { margin-left: auto; color: #c9a679; font-size: 13px; font-weight: 600; }
+  .legend .note { margin-left: auto; color: var(--muted); font-size: 13px; font-weight: 600; }
   #chart { position: relative; }
   .chooser {
     position: absolute; z-index: 4; min-width: 150px; padding: 8px;
     display: flex; flex-direction: column; gap: 6px;
     background: #1b1d21; border: 1px solid #484e59; border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.55);
   }
-  .chooser .ct { font-size: 12px; color: var(--muted); padding: 0 4px 2px; }
   .copt {
     display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px;
     border: 1px solid #3a3e46; background: #26292f; font-size: 14px; font-weight: 700; text-align: left; white-space: nowrap;
@@ -153,7 +142,14 @@
   .rec .subj { font-size: 18px; font-weight: 800; }
   .rec .badge { font-size: 12px; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
   .rec .scores { margin-top: 4px; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .rec .scores.none { color: var(--muted); font-weight: 600; }
+  .rec .scores .none { color: var(--muted); font-weight: 600; }
+  .pen {
+    width: 28px; height: 28px; margin-left: 8px; padding: 0; vertical-align: middle;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid #4a4f58; border-radius: 8px; color: var(--muted);
+  }
+  .pen:hover { border-color: var(--accent); color: var(--text); }
+  .pen svg { width: 15px; height: 15px; display: block; }
   .rec .meta { margin-top: 2px; font-size: 13px; color: var(--muted); }
   .rec .del {
     background: transparent; border: 1px solid #4a4f58; border-radius: 10px;
@@ -269,13 +265,13 @@
   .sheet .scorebox { margin-top: 30px; }
   .sheet label { display: block; font-size: 18px; font-weight: 700; margin-bottom: 10px; }
   .inputrow { position: relative; display: inline-block; }
-  #scoreInput {
+  #scoreInput, #lateInput {
     width: 150px; display: block; font: inherit; font-size: 40px; font-weight: 800; text-align: center;
     background: #111214; color: var(--text); border: 2px solid var(--line); border-radius: 16px; padding: 10px 8px;
     font-variant-numeric: tabular-nums;
   }
   .unit { position: absolute; left: calc(100% + 10px); bottom: 16px; font-size: 22px; font-weight: 700; color: var(--muted); }
-  #scoreErr { min-height: 22px; margin-top: 8px; color: #ff8f86; font-size: 14px; }
+  #scoreErr, #lateErr { min-height: 22px; margin-top: 8px; color: #ff8f86; font-size: 14px; }
   .sheet .ask { margin: 22px 0 14px; font-size: 22px; font-weight: 700; }
   .row { display: flex; gap: 12px; }
   .row button {
@@ -286,12 +282,14 @@
   #scoreSave { margin-top: 18px; }
 
   /* 확인 창 */
-  #modal {
+  #modal, #lateModal {
     position: fixed; inset: 0; z-index: 10; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10,11,13,.72);
   }
-  #modal.on { display: flex; }
+  #modal.on, #lateModal.on { display: flex; }
+  .dlg .scorebox { margin: 2px 0 4px; }
+  .dlg p.once { margin: 0 0 20px; font-size: 14px; font-weight: 500; color: var(--muted); }
   .dlg {
     width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line);
     border-radius: 20px; padding: 28px 24px 24px; text-align: center;
@@ -354,11 +352,11 @@
       <circle r="94" fill="var(--face)"/>
       <g id="ticks"></g>
       <g id="nums" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#17181a" text-anchor="middle" font-size="15"></g>
-      <g id="hour"><polygon points="-2.9,5 2.9,5 2,-22 0.95,-36 0,-45 -0.95,-36 -2,-22" fill="#17181a" stroke="#17181a" stroke-width="0.5" stroke-linejoin="round"/></g>
-      <g id="minute"><polygon points="-2.3,7 2.3,7 1.55,-34 0.75,-55 0,-67 -0.75,-55 -1.55,-34" fill="#17181a" stroke="#17181a" stroke-width="0.4" stroke-linejoin="round"/></g>
-      <g id="second"><polygon points="-0.95,13 0.95,13 0.6,-46 0.3,-66 0,-77 -0.3,-66 -0.6,-46" fill="#d8261c"/></g>
-      <circle r="4.6" fill="#17181a"/>
-      <circle r="2.2" fill="#d8261c"/>
+      <g id="hour"><polygon points="-2.1,4 2.1,4 1.5,-22 0.8,-36 0,-45 -0.8,-36 -1.5,-22" fill="#17181a" stroke="#17181a" stroke-width="0.4" stroke-linejoin="round"/></g>
+      <g id="minute"><polygon points="-1.7,6 1.7,6 1.15,-34 0.6,-55 0,-67 -0.6,-55 -1.15,-34" fill="#17181a" stroke="#17181a" stroke-width="0.3" stroke-linejoin="round"/></g>
+      <g id="second"><polygon points="-0.8,11 0.8,11 0.5,-46 0.25,-66 0,-77 -0.25,-66 -0.5,-46" fill="#d8261c"/></g>
+      <circle r="3.4" fill="#17181a"/>
+      <circle r="1.7" fill="#d8261c"/>
     </svg>
   </div>
 
@@ -415,6 +413,24 @@
     </div>
     <div class="pbody" id="pickerBody"></div>
     <div class="pfoot" id="pickerFoot"><button class="primary" id="pickerDone">완료</button></div>
+  </div>
+</div>
+
+<div id="lateModal" role="dialog" aria-modal="true" aria-labelledby="lateTitle">
+  <div class="dlg">
+    <p id="lateTitle"></p>
+    <div class="scorebox">
+      <div class="inputrow">
+        <input id="lateInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off">
+        <span class="unit">점</span>
+      </div>
+      <div id="lateErr" role="alert"></div>
+    </div>
+    <p class="once">한 번만 입력할 수 있어요.</p>
+    <div class="row">
+      <button id="lateCancel">취소</button>
+      <button id="lateSave" class="yes">저장</button>
+    </div>
   </div>
 </div>
 
@@ -542,15 +558,6 @@
     sec = Math.max(0, Math.floor(sec));
     return pad(Math.floor(sec / 60)) + ":" + pad(sec % 60);
   }
-  function recText(rec) {
-    var first = rec.score1 != null ? rec.score1 + "점" : "점수 미입력";
-    var none = rec.score1 == null && rec.score2 == null;
-    if (rec.usedExtra) {
-      first += ", " + (rec.score2 != null ? "호머식 " + rec.score2 + "점" : "호머식 미입력");
-    }
-    return { text: first, none: none && !rec.usedExtra };
-  }
-
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -573,6 +580,16 @@
       }
       b.appendChild(el("span", "range", SLOTS[slot].range));
     });
+  }
+
+  // 점수가 비어 있을 때만 보이는 작은 펜 버튼 (한 번 입력하면 사라짐)
+  var PEN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>';
+  function penBtn(rec, field, label) {
+    var b = el("button", "pen");
+    b.type = "button"; b.innerHTML = PEN_ICON;
+    b.setAttribute("aria-label", label); b.setAttribute("title", "점수 입력");
+    b.addEventListener("click", function () { openLate(rec.id, field, label); });
+    return b;
   }
 
   function renderToday() {
@@ -602,8 +619,15 @@
       head.appendChild(el("span", "subj", title));
       head.appendChild(el("span", "badge", SLOTS[recSlot(rec)].label));
       info.appendChild(head);
-      var rt = recText(rec);
-      info.appendChild(el("div", "scores" + (rt.none ? " none" : ""), rt.text));
+      var sc = el("div", "scores");
+      if (rec.score1 != null) sc.appendChild(el("span", "", rec.score1 + "점"));
+      else { sc.appendChild(el("span", "none", "점수 미입력")); sc.appendChild(penBtn(rec, "score1", title + " 점수 입력")); }
+      if (rec.usedExtra) {
+        sc.appendChild(document.createTextNode(", "));
+        if (rec.score2 != null) sc.appendChild(el("span", "", "호머식 " + rec.score2 + "점"));
+        else { sc.appendChild(el("span", "none", "호머식 미입력")); sc.appendChild(penBtn(rec, "score2", title + " 호머식 점수 입력")); }
+      }
+      info.appendChild(sc);
       if (rec.elapsed != null) info.appendChild(el("div", "meta", fmtDur(rec.elapsed) + " 걸림"));
       var del = el("button", "del", "삭제");
       del.addEventListener("click", function () {
@@ -619,7 +643,8 @@
   // ---------- 추이 그래프 (가로축: 회차, 과목별 꺾은선) ----------
   // 점수 추이: 세로축 점수 (위로 갈수록 높음) / 호머식 추이: 세로축 시간 (위로 갈수록 짧음)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
-  var selectedPoint = "", chooser = "", chartMode = "score";
+  var TOL = 1;                                   // 같은 회차에서 ±1점(호머식은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
+  var selectedPoint = "", chooser = null, chartMode = "score";
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
@@ -631,6 +656,7 @@
     function m(c) { return Math.round(c + (255 - c) * amt); }
     return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
   }
+  function clearSelection() { selectedPoint = ""; chooser = null; }
 
   function renderChart() {
     var box = $("chart"), legend = $("legend"), info = $("pointInfo");
@@ -640,6 +666,7 @@
     var all = loadAll(), nums = attemptNumbers(all);
     var pts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
     if (!pts.length) {
+      clearSelection();
       box.appendChild(el("p", "empty", homer
         ? "추가 시간을 쓴 기록이 생기면 여기에 시간 추이가 그려져요."
         : "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요."));
@@ -670,18 +697,20 @@
 
     var W = Math.max(280, Math.round(box.clientWidth || 600));
     var H = Math.round(Math.max(210, Math.min(300, W * 0.46)));
-    var L = 40, R = 14, T = 20, B = 30, PAD = 14;
+    // 점수 그래프는 숫자 눈금이 왼쪽, 호머식 그래프는 오른쪽
+    var L = homer ? 14 : 40, R = homer ? 46 : 14, T = 20, B = 30, PAD = 14;
     var plotW = W - L - R, plotH = H - T - B;
     var maxN = 1;
     pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
     function X(nn) { return maxN === 1 ? L + plotW / 2 : L + PAD + (nn - 1) * (plotW - 2 * PAD) / (maxN - 1); }
 
-    // 세로축 범위 (점수 그래프는 호머식 점수까지 포함해서 범위를 잡음)
+    // 세로축 범위
     var vals = [];
     pts.forEach(function (r) {
       vals.push(val(r));
       if (!homer && r.usedExtra && r.score2 != null) vals.push(r.score2);
     });
+    if (homer) vals.push(30);                    // 본 시험 시간(30분)이 항상 보이게
     var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), lo, hi, step;
     if (!homer) {
       hi = 50; step = 10;
@@ -693,23 +722,24 @@
       step = niceStep(hi - lo);
       lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
     }
-    // 점수는 위로 갈수록 높게, 시간은 위로 갈수록 짧게
     function Y(v) { return homer ? T + (v - lo) / (hi - lo) * plotH : T + (hi - v) / (hi - lo) * plotH; }
     function fmtVal(v) { return homer ? Math.round(v) + "분" : String(v); }
 
     var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": homer ? "과목별 호머식 시간 추이" : "과목별 점수 추이" });
     for (var t = lo; t <= hi; t += step) {
-      var gl = { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: homer ? "#52493c" : "#3a3e46", "stroke-width": 1 };
-      if (homer) gl["stroke-dasharray"] = "3 5";
+      var gl = { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: homer ? "#434852" : "#3a3e46", "stroke-width": 1 };
+      if (homer) gl["stroke-dasharray"] = "1 5"; gl["stroke-linecap"] = "round";
       svg.appendChild(svgEl("line", gl));
-      var yl = svgEl("text", { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
+      var yl = svgEl("text", homer
+        ? { x: W - R + 10, y: Y(t) + 4, "text-anchor": "start", "font-size": 12, fill: "#9aa0aa" }
+        : { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
       yl.textContent = homer ? t + "분" : t;
       svg.appendChild(yl);
     }
-    // 호머식 그래프: 본 시험 시간(30분) 기준선
-    if (homer && lo < 30 && hi > 30) {
-      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(30), y2: Y(30), stroke: "#ff9f2e", "stroke-width": 1.2, "stroke-opacity": 0.6 }));
-      var rl = svgEl("text", { x: W - R, y: Y(30) - 5, "text-anchor": "end", "font-size": 11, "font-weight": 700, fill: "#ffb454" });
+    // 호머식 그래프: 본 시험 시간(30분) 기준선. 각 점에서 이 선까지 이어지는 세로선이 추가로 쓴 시간
+    if (homer) {
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(30), y2: Y(30), stroke: "#aab1bc", "stroke-width": 1.2, "stroke-dasharray": "6 4", "stroke-opacity": 0.8 }));
+      var rl = svgEl("text", { x: L + 2, y: Y(30) - 6, "text-anchor": "start", "font-size": 11, "font-weight": 600, fill: "#aab1bc" });
       rl.textContent = "본 시험 30분";
       svg.appendChild(rl);
     }
@@ -722,35 +752,37 @@
       svg.appendChild(xl);
     }
 
-    // 같은 회차에서 값이 정확히 같은 점은 한 덩어리로 묶는다
-    var groups = {}, gOrder = [];
+    // 모든 점을 실제 위치에 하나씩 (겹쳐도 합치지 않음)
+    var plist = [];
     order.forEach(function (name) {
       series[name].forEach(function (q, k) {
-        var key = q.n + "|" + q.v.toFixed(3);
-        if (!groups[key]) { groups[key] = { key: key, n: q.n, x: X(q.n), y: Y(q.v), v: q.v, items: [], last: false }; gOrder.push(key); }
-        groups[key].items.push({ name: name, color: color[name], q: q });
-        if (k === series[name].length - 1) groups[key].last = true;
+        plist.push({ name: name, color: color[name], n: q.n, v: q.v, x: X(q.n), y: Y(q.v), rec: q.rec, last: k === series[name].length - 1 });
       });
     });
-    if (chooser && !groups[chooser]) chooser = "";
     var colTop = {};                       // 각 회차에서 화면 맨 위에 있는 점 (숫자를 위쪽에 쓰고, 나머지는 아래쪽에)
-    gOrder.forEach(function (k) { var g = groups[k]; if (colTop[g.n] == null || g.y < colTop[g.n]) colTop[g.n] = g.y; });
+    plist.forEach(function (pt) { if (colTop[pt.n] == null || pt.y < colTop[pt.n]) colTop[pt.n] = pt.y; });
+    var selRec = null;
+    pts.forEach(function (r) { if (r.id === selectedPoint) selRec = r; });
 
+    // 호머식 그래프: 기준선에서 각 점까지의 세로선
+    if (homer) {
+      plist.forEach(function (pt) {
+        if (Math.abs(pt.y - Y(30)) < 2) return;
+        svg.appendChild(svgEl("line", { x1: pt.x, x2: pt.x, y1: Y(30), y2: pt.y, stroke: pt.color, "stroke-width": 2, "stroke-opacity": 0.45, "stroke-linecap": "round" }));
+      });
+    }
     // 선 (과목별)
     order.forEach(function (name) {
       var list = series[name];
       if (list.length > 1) {
         svg.appendChild(svgEl("polyline", {
           points: list.map(function (q) { return X(q.n).toFixed(1) + "," + Y(q.v).toFixed(1); }).join(" "),
-          fill: "none", stroke: color[name], "stroke-width": homer ? 3 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
+          fill: "none", stroke: color[name], "stroke-width": homer ? 2 : 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"
         }));
       }
     });
 
-    var selRec = null;
-    pts.forEach(function (r) { if (r.id === selectedPoint) selRec = r; });
-
-    // 점수 그래프: 선택한 점 위에 호머식 점수를 연한 색 점으로
+    // 점수 그래프: 선택한 점 위에 호머식 점수를 연한 색 점으로 (다른 곳을 누르면 사라짐)
     var homerDotY = null;
     if (!homer && selRec && selRec.usedExtra && selRec.score2 != null) {
       var hx = X(nums[selRec.id]), hy = Y(selRec.score2), sy = Y(selRec.score1);
@@ -771,78 +803,81 @@
       svg.appendChild(ht);
     }
 
-    // 점: 점수 그래프는 동그라미, 호머식 그래프는 마름모
-    function marker(x, y, c) {
+    // 점: 점수 그래프는 꽉 찬 동그라미, 호머식 그래프는 속이 빈 동그라미
+    var showAll = pts.length <= 12, labeled = {};
+    plist.forEach(function (pt) {
+      var selected = pt.rec.id === selectedPoint;
+      if (selected) svg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: homer ? 10 : 9, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
       if (homer) {
-        return svgEl("polygon", { points: x + "," + (y - 6.6) + " " + (x + 6.6) + "," + y + " " + x + "," + (y + 6.6) + " " + (x - 6.6) + "," + y,
-          fill: c, stroke: "#26292f", "stroke-width": 2, "stroke-linejoin": "round" });
+        svg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 5.2, fill: selected ? pt.color : "#26292f", stroke: pt.color, "stroke-width": 2.4 }));
+      } else {
+        svg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 4.6, fill: pt.color, stroke: "#26292f", "stroke-width": 2 }));
       }
-      return svgEl("circle", { cx: x, cy: y, r: 4.6, fill: c, stroke: "#26292f", "stroke-width": 2 });
-    }
-    var showAll = pts.length <= 12;
-    gOrder.forEach(function (k) {
-      var g = groups[k], selected = g.items.some(function (it) { return it.q.rec.id === selectedPoint; });
-      for (var i = g.items.length - 1; i >= 1; i--) {      // 겹친 다른 과목은 바깥 고리로 표시
-        svg.appendChild(svgEl("circle", { cx: g.x, cy: g.y, r: 8 + (i - 1) * 3, fill: "none", stroke: g.items[i].color, "stroke-width": 2 }));
-      }
-      if (selected) svg.appendChild(svgEl("circle", { cx: g.x, cy: g.y, r: 9 + (g.items.length - 1) * 3 + (homer ? 2 : 0), fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
-      svg.appendChild(marker(g.x, g.y, g.items[0].color));
-      if (showAll || g.last || selected) {
-        var above = g.y === colTop[g.n] ? (g.y - 11 >= 10) : !(g.y + 20 <= H - 12);
-        if (selected && homerDotY != null && homerDotY < g.y) above = false;   // 호머식 점이 위에 있으면 숫자는 아래로
-        var tx = svgEl("text", {
-          x: g.x, y: above ? g.y - 12 : g.y + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: g.items[0].color,
-          stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
-        });
-        tx.textContent = fmtVal(g.v);
-        svg.appendChild(tx);
+      if (showAll || pt.last || selected) {
+        var seenY = labeled[pt.n] || (labeled[pt.n] = []);
+        var dup = seenY.some(function (yy) { return Math.abs(yy - pt.y) < 3; });   // 거의 같은 위치면 숫자는 한 번만
+        if (!dup || selected) {
+          var above = pt.y === colTop[pt.n] ? (pt.y - 12 >= 10) : !(pt.y + 20 <= H - 12);
+          if (selected && homerDotY != null && homerDotY < pt.y) above = false;   // 호머식 점이 위에 있으면 숫자는 아래로
+          var tx = svgEl("text", {
+            x: pt.x, y: above ? pt.y - 12 : pt.y + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: pt.color,
+            stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+          });
+          tx.textContent = fmtVal(pt.v);
+          svg.appendChild(tx);
+          seenY.push(pt.y);
+        }
       }
     });
-    // 누르기 쉽도록 보이지 않는 큰 원을 맨 위에
-    gOrder.forEach(function (k) {
-      var g = groups[k];
-      var c = svgEl("circle", { cx: g.x, cy: g.y, r: 16, fill: "transparent", "class": "hit" });
+    // 누르기 쉽도록 보이지 않는 원을 맨 위에
+    plist.forEach(function (pt) {
+      var c = svgEl("circle", { cx: pt.x, cy: pt.y, r: 14, fill: "transparent", "class": "hit" });
       c.addEventListener("click", function (e) {
         e.stopPropagation();
-        if (g.items.length > 1) {
-          chooser = chooser === g.key ? "" : g.key;          // 같은 값이면 어느 시험인지 고르는 작은 창
+        var near = plist.filter(function (q) { return q.n === pt.n && Math.abs(q.v - pt.v) <= TOL + 1e-9; });
+        if (near.length > 1) {                                   // ±1 이내로 겹친 점들 → 어느 시험인지 고르는 작은 창
+          chooser = (chooser && chooser.anchor === pt.rec.id) ? null : { anchor: pt.rec.id, ids: near.map(function (q) { return q.rec.id; }) };
         } else {
-          var id = g.items[0].q.rec.id;
-          selectedPoint = selectedPoint === id ? "" : id;
-          chooser = "";
+          selectedPoint = selectedPoint === pt.rec.id ? "" : pt.rec.id;
+          chooser = null;
         }
         renderChart();
       });
       svg.appendChild(c);
     });
     box.appendChild(svg);
-    box.onclick = function () { if (chooser) { chooser = ""; renderChart(); } };
 
-    // 같은 값의 시험 중에서 고르는 창 (점 옆에 표시)
+    // 겹친 점 중에서 고르는 창 (점 옆에 표시)
     if (chooser) {
-      var cg = groups[chooser];
-      var pop = el("div", "chooser");
-      pop.appendChild(el("div", "ct", homer ? "같은 시간의 시험" : "같은 점수의 시험"));
-      cg.items.forEach(function (it) {
-        var bt = el("button", "copt");
-        var dot = el("span", "cdot"); dot.style.background = it.color;
-        bt.appendChild(dot);
-        bt.appendChild(document.createTextNode(it.name + " " + nums[it.q.rec.id] + "회"));
-        bt.addEventListener("click", function (e) {
-          e.stopPropagation();
-          selectedPoint = it.q.rec.id; chooser = "";
-          renderChart();
+      var anchor = null;
+      plist.forEach(function (q) { if (q.rec.id === chooser.anchor) anchor = q; });
+      if (!anchor) { chooser = null; }
+      else {
+        var pop = el("div", "chooser");
+        chooser.ids.forEach(function (id) {
+          var q = null;
+          plist.forEach(function (z) { if (z.rec.id === id) q = z; });
+          if (!q) return;
+          var bt = el("button", "copt");
+          var dot = el("span", "cdot"); dot.style.background = q.color;
+          bt.appendChild(dot);
+          bt.appendChild(document.createTextNode(q.name + " " + q.n + "회"));
+          bt.addEventListener("click", function (e) {
+            e.stopPropagation();
+            selectedPoint = q.rec.id; chooser = null;
+            renderChart();
+          });
+          pop.appendChild(bt);
         });
-        pop.appendChild(bt);
-      });
-      pop.addEventListener("click", function (e) { e.stopPropagation(); });
-      box.appendChild(pop);
-      var pw = pop.offsetWidth, ph = pop.offsetHeight;
-      var px = cg.x + 16;
-      if (px + pw > W - 4) px = cg.x - 16 - pw;
-      px = Math.max(4, px);
-      var py = Math.min(Math.max(cg.y - ph / 2, 4), Math.max(4, H - ph - 4));
-      pop.style.left = px + "px"; pop.style.top = py + "px";
+        pop.addEventListener("click", function (e) { e.stopPropagation(); });
+        box.appendChild(pop);
+        var pw = pop.offsetWidth, ph = pop.offsetHeight;
+        var px = anchor.x + 16;
+        if (px + pw > W - 4) px = anchor.x - 16 - pw;
+        px = Math.max(4, px);
+        var py = Math.min(Math.max(anchor.y - ph / 2, 4), Math.max(4, H - ph - 4));
+        pop.style.left = px + "px"; pop.style.top = py + "px";
+      }
     }
 
     // 선택한 점의 내용
@@ -862,7 +897,7 @@
       var del = el("button", "del", "삭제");
       del.addEventListener("click", function () {
         ask(name + " 기록을 삭제하겠습니까?", "삭제", true, function () {
-          removeRec(selRec.id); selectedPoint = ""; chooser = ""; renderToday();
+          removeRec(selRec.id); clearSelection(); renderToday();
         });
       });
       info.appendChild(txt); info.appendChild(del);
@@ -871,13 +906,22 @@
     }
   }
 
+  // 점·상태창·삭제 확인 창이 아닌 곳을 누르면 선택(연한 호머식 점, 고르는 창)이 사라짐
+  document.addEventListener("click", function (e) {
+    if (!selectedPoint && !chooser) return;
+    var t = e.target;
+    if (t && t.closest && t.closest("#pointInfo, .chooser, circle.hit, #modal, #lateModal")) return;
+    clearSelection();
+    renderChart();
+  });
+
   // 점수 / 호머식 스위치: 누르면 상자가 반대쪽으로 움직이고, 같은 자리에서 그래프 종류만 바뀜
   $("chartSwitch").addEventListener("click", function () {
     chartMode = chartMode === "score" ? "homer" : "score";
     this.setAttribute("data-mode", chartMode);
     this.setAttribute("aria-checked", chartMode === "homer" ? "true" : "false");
     $("trendTitle").textContent = chartMode === "homer" ? "호머식 추이" : "점수 추이";
-    selectedPoint = ""; chooser = "";
+    clearSelection();
     renderChart();
   });
   var resizeTimer = 0;
@@ -910,6 +954,34 @@
     if (cb) cb();
   });
   $("modalNo").addEventListener("click", closeAsk);
+
+  // ---------- 점수 늦게 입력 (비어 있는 점수에 한 번만) ----------
+  var lateTarget = null, lateModal = $("lateModal"), lateInput = $("lateInput"), lateErr = $("lateErr");
+  function openLate(id, field, label) {
+    lateTarget = { id: id, field: field };
+    $("lateTitle").textContent = label;
+    lateInput.value = ""; lateErr.textContent = "";
+    lateModal.classList.add("on");
+    lateInput.focus();
+  }
+  function closeLate() { lateModal.classList.remove("on"); lateTarget = null; lateInput.blur(); }
+  function saveLate() {
+    if (!lateTarget) return;
+    var v = lateInput.value.trim();
+    if (!/^\d{1,2}$/.test(v) || Number(v) > 50) { lateErr.textContent = "0~50 사이의 정수로 입력해 주세요."; return; }
+    var all = loadAll(), rec = findRec(all, lateTarget.id);
+    if (rec && rec[lateTarget.field] == null) {          // 이미 값이 있으면 덮어쓰지 않음 (한 번만)
+      rec[lateTarget.field] = Number(v);
+      saveAll(all);
+    }
+    closeLate();
+    renderToday();
+  }
+  $("lateSave").addEventListener("click", saveLate);
+  $("lateCancel").addEventListener("click", closeLate);
+  lateInput.addEventListener("keydown", function (e) { if (e.key === "Enter") saveLate(); });
+  lateInput.addEventListener("input", function () { lateInput.value = lateInput.value.replace(/\D/g, ""); lateErr.textContent = ""; });
+  lateModal.addEventListener("click", function (e) { if (e.target === lateModal) closeLate(); });
 
   // ---------- 과목 선택 창 ----------
   // mode "single": 비어 있는 탐1/탐2를 눌렀을 때. 고르면 바로 닫힘
@@ -1236,6 +1308,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
     if (modal.classList.contains("on")) { closeAsk(); return; }
+    if (lateModal.classList.contains("on")) { closeLate(); return; }
     if (picker.classList.contains("on")) { closePicker(); return; }
     if (stage.classList.contains("on") && phase === "running") askAbandon();
   });
