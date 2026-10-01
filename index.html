@@ -326,6 +326,16 @@
     .slot, .switch .thumb, .switch .lab, .chartcard, .legend .item { transition: none; }
     .chartcard.swap #chart, .chartcard.swap .legend, .chartcard.swap .pointinfo { animation: none; }
   }
+  /* 누르는 동안(터치 포함)의 모습: 윤곽이 파래지는 등 눌렀다는 느낌 */
+  .slot.pressing { border-color: var(--accent); transform: scale(.98); }
+  .pill.pressing, .copt.pressing, .chip.pressing { border-color: var(--accent); }
+  .pen.pressing { border-color: var(--accent); color: var(--text); }
+  .rf.pressing { border-color: #8a919c; }
+  .legend .item.pressing:not(.on) { background: rgba(255,255,255,.08); }
+  .pointinfo .del.pressing, .rec .del.pressing, #recClear.pressing { border-color: var(--second); }
+  #abandon.pressing { background: rgba(216,38,28,.30); border-color: rgba(240,104,94,.85); }
+  #endBtn.pressing { filter: brightness(1.12); }
+
   /* 마우스처럼 hover가 되는 기기에서만 적용 (터치 후 hover 상태가 눌러붙어 반투명 박스가 남는 것을 방지) */
   @media (hover: hover) and (pointer: fine) {
     .pill:hover { border-color: var(--accent); }
@@ -1678,6 +1688,22 @@
     if (picker.classList.contains("on")) { closePicker(); return; }
     if (stage.classList.contains("on") && phase === "running") askAbandon();
   });
+
+  // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon";
+  document.addEventListener("pointerdown", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
+    if (!t || t.disabled) return;
+    var started = performance.now();
+    t.classList.add("pressing");
+    function release() {
+      document.removeEventListener("pointerup", release, true);
+      document.removeEventListener("pointercancel", release, true);
+      setTimeout(function () { t.classList.remove("pressing"); }, Math.max(0, 160 - (performance.now() - started)));
+    }
+    document.addEventListener("pointerup", release, true);
+    document.addEventListener("pointercancel", release, true);
+  }, true);
 
   setHands(12 * 3600);
   updateFsIcon();
