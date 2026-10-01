@@ -1616,6 +1616,7 @@
   var lastDone = loadDone();
   // 질문이 마무리된 기록 (상대가 거절했거나 이미 답했음): 그 사람이 다음 시험을 끝내기 전까지 점수 물어보기를 막음
   var RES_KEY = "examTimer.resolved.v1";
+  var DECLINE_X = "__decline__";                      // 거절은 "답장"의 특별한 글자로 보냄 → 서버 규칙을 새로 바꾸지 않아도 동작
   function loadResolved() {
     var r = {};
     try {
@@ -1792,9 +1793,10 @@
       if (mbox && typeof mbox === "object") Object.keys(mbox).forEach(function (from) {      // 나에게 온 점수 질문 / 답장
         var it = mbox[from];
         if (!it || typeof it !== "object" || (it.k !== "ask" && it.k !== "reply" && it.k !== "chat" && it.k !== "decline") || typeof it.t !== "number" || nowS - it.t > 1800) return;
-        if (dismissedMsg[from + ":" + it.k + ":" + it.t]) return;
-        inb.push({ from: from, k: it.k, s: typeof it.s === "string" ? it.s.slice(0, 30) : "", x: typeof it.x === "string" ? it.x.slice(0, 80) : "", t: it.t });
-        if (it.k === "reply" || it.k === "decline") { delete asked[from]; markResolved(from, it.t, it.k); }
+        var kind = (it.k === "reply" && it.x === DECLINE_X) ? "decline" : it.k;
+        if (dismissedMsg[from + ":" + kind + ":" + it.t]) return;
+        inb.push({ from: from, k: kind, s: typeof it.s === "string" ? it.s.slice(0, 30) : "", x: kind === "decline" ? "" : (typeof it.x === "string" ? it.x.slice(0, 80) : ""), t: it.t });
+        if (kind === "reply" || kind === "decline") { delete asked[from]; markResolved(from, it.t, kind); }
       });
       inbox = inb.filter(function (x) { return x.k !== "chat"; });
       invites = inb.filter(function (x) { return x.k === "chat"; });
@@ -1993,7 +1995,7 @@
     keepPageScroll(renderTogether);
     enqueue(function () { return dbFetch("/rooms/" + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
     enqueue(function () {
-      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "decline", s: String(it.s || "").slice(0, 30), t: now }) })
+      return dbFetch("/rooms/" + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: String(it.s || "").slice(0, 30), x: DECLINE_X, t: now }) })
         .catch(function (err) { if (err && err.message === "http 401") notice("서버 규칙을 업데이트하면 상대에게 거절했다고 알릴 수 있어요."); });
     });
   }
