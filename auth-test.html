@@ -52,6 +52,8 @@
     <button id="bAnon">이 기기에서만 쓰기 (익명)</button>
     <button id="bRefresh">토큰 새로 받기</button>
     <button id="bDb">서버 읽기 시험</button>
+    <button id="bRules">새 규칙 확인</button>
+    <button id="bPush">알림 서버 확인</button>
     <button id="bOut">로그아웃</button>
   </section>
 
@@ -60,7 +62,7 @@
     <pre id="log">(아직 아무것도 안 했어요)</pre>
   </section>
 </main>
-<script src="js/auth.js?v=20261001171848"></script>
+<script src="js/auth.js?v=20261001173914"></script>
 <script>
 (function () {
   var DB = "https://infinitesilmo-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -102,6 +104,30 @@
       else if (!ok) log("→ 로그인은 인정됐지만 이 경로의 서버 규칙이 막고 있어요. (아직 규칙을 바꾸기 전이면 정상일 수 있어요)");
       else log("→ 서버가 로그인 토큰을 받아들였어요.", "ok");
     }, fail);
+  };
+  $("bRules").onclick = function () {
+    if (!fbAuth) { log("먼저 로그인해 주세요.", "bad"); return; }
+    log("새 규칙 확인: v2 경로 읽기…");
+    authToken().then(function (t) {
+      return fetch(DB + "/v2/rooms/zzzzzzzz/meta.json?auth=" + encodeURIComponent(t)).then(function (r) { return r.text().then(function (b) { return { r: r, b: b }; }); });
+    }).then(function (x) {
+      log("서버 응답 " + x.r.status + " " + (x.b || "").slice(0, 80), x.r.ok ? "ok" : "bad");
+      if (x.r.ok) log("→ 새 규칙이 게시돼 있어요. (로그인한 사람은 v2 방 정보를 읽을 수 있음)", "ok");
+      else log("→ 새 규칙이 아직 게시되지 않았거나 문법 오류로 적용되지 않았어요.", "bad");
+    }, fail);
+  };
+  $("bPush").onclick = function () {
+    if (!fbAuth) { log("먼저 로그인해 주세요.", "bad"); return; }
+    log("알림 서버 확인 요청…");
+    authToken().then(function (t) {
+      return fetch("https://silmo-push.danny0119n.workers.dev/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: "zzzzzzzz", to: "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZ", text: "점검", token: t }) })
+        .then(function (r) { return r.text().then(function (b) { return { r: r, b: b }; }); });
+    }).then(function (x) {
+      log("알림 서버 응답 " + x.r.status + " " + (x.b || "").slice(0, 100), (x.r.status === 403) ? "ok" : "bad");
+      if (x.r.status === 403 && /not a member/.test(x.b)) log("→ 새 알림 서버가 적용돼 있어요. (방 멤버가 아니라서 거절된 것이 정상)", "ok");
+      else if (x.r.status === 400) log("→ 아직 옛 알림 서버예요. 배포가 끝나려면 1~2분 기다린 뒤 다시 눌러 보세요.", "bad");
+      else log("→ 예상 밖의 응답이에요. 이 결과를 그대로 알려 주세요.", "bad");
+    }, function (e) { log("알림 서버에 연결하지 못했어요: " + (e && e.message), "bad"); });
   };
   $("bOut").onclick = function () { authSignOut(); log("로그아웃했어요."); render(); };
   $("bCopy").onclick = function () {
