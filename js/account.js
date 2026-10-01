@@ -74,7 +74,7 @@
           if (m) { roomPending[r.code] = false; return; }
           return dbFetch("/rooms/" + r.code + "/meta/host", { cache: "no-store" }).then(function (oldHost) {
             if (typeof oldHost === "string" && oldHost && oldHost === getLegacyDeviceId()) {
-              return dbFetch(ROOMS_ROOT + r.code + "/meta", { method: "PUT", headers: JSONH, body: JSON.stringify({ host: me }) }).then(function () { roomPending[r.code] = false; });
+              return putMetaCreate(r.code, me, roomLabel(r)).then(function () { roomPending[r.code] = false; });
             }
             roomPending[r.code] = true;
           }, function () { roomPending[r.code] = true; });

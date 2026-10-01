@@ -107,8 +107,19 @@
     saveRooms();
     return r;
   }
+  // 방 이름은 방 친구들이 함께 쓰는 값(서버의 meta/title). 서버에 있는 이름을 이 기기의 방 이름(label)에 반영함
+  var titleBlocked = false, titleHold = {};          // titleBlocked: 서버 규칙이 아직 방 이름을 모를 때 true, titleHold: 방 이름을 올린(올리는 중인) 시각
+  function cleanTitle(v) { return String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, 14); }
+  // since: 그 서버 확인을 시작한 시각. 내가 이름을 올리던 중이거나 올린 뒤에 끝난 확인(그 이전 값을 가져왔을 수 있음)의 결과는 무시하고, 그 뒤의 확인부터 서버 값을 따름
+  function applyTitle(r, title, since) {
+    title = cleanTitle(title);
+    if (!r || !title || r.label === title) return false;
+    if (since !== undefined && titleHold[r.code] !== undefined && titleHold[r.code] >= since) return false;
+    r.label = title; saveRooms();
+    return true;
+  }
   function resetRoomState() {                        // 방을 바꿀 때 이전 방의 흔적을 전부 비움 (다른 방 친구·사진·대화가 섞이지 않게)
-    destroyAllChats(); closeProfile(); closePenMenu(); syncBubbles({});
+    suspendAllChats(); closeProfile(); closePenMenu(); syncBubbles({});          // 대화창은 닫지 않고 잠시 치워 둠(그 방으로 돌아오면 다시 뜸)
     others = []; hostId = ""; netErr = false; liveBlocked = false; photoBlocked = false; photoCache = {}; photoBusy = {};
     hostBlocked = false; metaBlocked = false; msgBlocked = false; chatBlocked = false;
     prevLive = {}; doneInfer = {}; inbox = []; invites = []; asked = {}; dismissedMsg = {}; chatClosedAt = {}; askMeta = {}; lastLis = {};
@@ -118,6 +129,7 @@
     if ((room && r && room.code === r.code) || (!room && !r)) return;
     resetRoomState();                                // 이전 방이 아직 설정된 상태에서 정리해야 채팅 저장 등이 이전 방 기준으로 끝남
     room = r || null;
+    pendingRestore = loadSavedChats();                // 이 방에서 열려 있던 대화를 다시 띄움
     persistRoom();
     saveChats();
   }

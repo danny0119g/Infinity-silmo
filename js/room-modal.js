@@ -17,12 +17,14 @@
     setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
     $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
     renderAccount();
+    $("labelNote").textContent = (USE_V2 && !titleBlocked) ? "방 친구들 모두에게 보여요" : "나에게만 보여요";
+    $("pushCheckLine").classList.toggle("hidden", !PUSH_URL);
     roomModal.classList.add("on");
   }
   function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
   function enterRoom(code, name, joining) {
     if (roomBusy) return;
-    var had = roomByCode(code), hadName = had ? had.name : "", prev = room;
+    var had = roomByCode(code), hadName = had ? had.name : "", prev = room, joinTitle = "", newLabel = had ? "" : defaultLabel();
     if (!had && rooms.length >= MAX_ROOMS) { setRoomMsg("방은 최대 " + MAX_ROOMS + "개까지 들어갈 수 있어요."); return; }
     roomBusy = true;
     setRoomMsg(joining ? "입장하는 중…" : "방을 만드는 중…", false);
@@ -32,8 +34,9 @@
         ? dbFetch(ROOMS_ROOT + code + "/meta", { cache: "no-store" }).then(function (m) {
             if (!m || typeof m !== "object" || typeof m.host !== "string") throw new Error("noroom");
             if (m.kicked && m.kicked[me] === true) throw new Error("kicked");
+            if (typeof m.title === "string") joinTitle = m.title;
           })
-        : dbFetch(ROOMS_ROOT + code + "/meta", { method: "PUT", headers: JSONH, body: JSON.stringify({ host: me }) });
+        : putMetaCreate(code, me, newLabel);
     } else {
       check = joining
         ? dbFetch(ROOMS_ROOT + code + "/members", { cache: "no-store" }).then(function (d) { if (!d || typeof d !== "object") throw new Error("noroom"); }).then(function () {
@@ -49,6 +52,7 @@
     }
     check.then(function () {
       var r = addRoom(code, name);
+      if (joinTitle) applyTitle(r, joinTitle);          // 입장하면 방 친구들이 쓰는 방 이름으로 보임
       activateRoom(r);
       try { localStorage.setItem("examTimer.shareNotice.v1", "1"); } catch (e) {}
       return enqueue(function () { return pushMe(true); });
@@ -169,11 +173,17 @@
   // 방 이름 (이 기기에서만 보임)
   $("labelSave").addEventListener("click", function () {
     if (!room) return;
-    var v = $("labelEdit").value.replace(/\s+/g, " ").trim().slice(0, 14);
-    if (v) room.label = v; else delete room.label;
+    var v = cleanTitle($("labelEdit").value);
+    if (!v) { setRoomMsg("방 이름을 입력해 주세요."); return; }
+    room.label = v;
     persistRoom(); renderRoomSwitch();
     $("labelEdit").value = roomLabel(room); $("roomTitle").textContent = roomLabel(room);
-    setRoomMsg("저장했어요.", false);
+    if (!USE_V2) { setRoomMsg("저장했어요.", false); return; }
+    var code = room.code;
+    enqueue(function () { return putTitle(code, v); }).then(function (ok) {      // 방 이름은 방 친구들 모두에게 보임
+      if (ok) { setRoomMsg("방 이름을 바꿨어요. 방 친구들에게도 보여요.", false); $("labelNote").textContent = "방 친구들 모두에게 보여요"; }
+      else { setRoomMsg("이 기기에만 저장했어요. (서버 규칙을 업데이트해야 친구들에게도 보여요)"); $("labelNote").textContent = "나에게만 보여요"; }
+    });
   });
   // ---------- 방 전환 메뉴 (방 이름을 누르면 펼쳐짐) ----------
   var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -183,7 +193,7 @@
     rooms.forEach(function (r) {
       var cur = !!room && room.code === r.code, b = el("button", "roomOpt" + (cur ? " cur" : ""));
       b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", cur ? "true" : "false");
-      var t = el("span", "roText"); t.appendChild(el("span", "roName", roomLabel(r))); t.appendChild(el("span", "roSub", "내 닉네임 " + r.name));
+      var t = el("span", "roText"), cn = chatCountFor(r.code); t.appendChild(el("span", "roName", roomLabel(r))); t.appendChild(el("span", "roSub", "내 닉네임 " + r.name + (cn ? " · 대화 중 " + cn : "")));
       b.appendChild(t);
       if (cur) { var ck = el("span", "roCheck"); ck.innerHTML = CHECK_SVG; b.appendChild(ck); }
       b.addEventListener("click", function (e) { e.stopPropagation(); closeRoomMenu(); switchRoom(r.code); });

@@ -563,6 +563,7 @@
     width: 100%; max-width: 440px; background: var(--panel); border: 1px solid var(--line);
     border-radius: 20px; padding: 28px 24px 24px; text-align: center;
   }
+  .dlg p.rpt { font-size: 15px; font-weight: 600; text-align: left; line-height: 1.7; letter-spacing: 0; max-height: 62vh; overflow-y: auto; }
   .dlg p { margin: 0 0 24px; font-size: 22px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; white-space: pre-line; }
   .dlg .row button.yes.danger { background: var(--second); border-color: var(--second); }
 

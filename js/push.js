@@ -63,4 +63,85 @@
     var na = text === "앱에서만"; btn.classList.toggle("na", na);
     var note = btn.parentNode && btn.parentNode.querySelector(".swNote"); if (note) note.textContent = na ? "앱에서만 가능" : "";
   }
+  // ---------- 알림 점검: 설정 창의 "알림 점검 > 실행" ----------
+  // 이 기기·서버·알림 서버가 각 단계에서 정상인지 차례로 보여 주고, 마지막에 알림 서버가 10초 뒤 시험 알림을 보냄 (그 사이 앱을 닫아 보면 됨)
+  var checkBusy = false;
+  function runPushCheck() {
+    if (checkBusy) return;
+    checkBusy = true;
+    var out = [], btn = $("pushCheck"), stopped = false;
+    btn.disabled = true; btn.textContent = "점검 중…";
+    function add(ok, t) { out.push((ok === null ? "· " : ok ? "✓ " : "✗ ") + t); }
+    function stop() { stopped = true; }
+    function finish(tail) {
+      checkBusy = false; btn.disabled = false; btn.textContent = "실행";
+      if (tail) { out.push(""); out.push(tail); }
+      notice(out.join("\n")); $("modalMsg").classList.add("rpt");
+    }
+    var mv = document.querySelector('meta[name="app-version"]'), mine = (mv && mv.content) || "?";
+    fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.text(); }).then(function (t) {      // 1) 앱 버전
+      var x = t.match(/<meta name="app-version" content="([^"]*)"/), latest = x && x[1];
+      if (!latest) add(null, "앱 버전 " + mine + " (서버 버전은 확인 못 함)");
+      else if (latest === mine) add(true, "최신 버전이에요 (" + mine + ")");
+      else add(false, "서버에 더 새 버전이 있어요. 앱을 완전히 닫았다가 다시 열어 주세요 (지금 " + mine + ")");
+    }, function () { add(null, "앱 버전 " + mine + " (서버 버전은 확인 못 함)"); })
+    .then(function () {                                                                                                                   // 2) 계정·방 목록
+      if (!USE_V2 || !fbAuth) return;
+      add(null, "로그인: " + (fbAuth.kind === "google" ? "구글 계정" : "이 기기에서만 쓰는 계정") + " (" + fbAuth.uid.slice(0, 6) + "…)");
+      return dbFetch(roomListPath(), { cache: "no-store" }).then(function (srv) {
+        srv = (srv && typeof srv === "object") ? srv : {};
+        var sc = Object.keys(srv), same = sc.length === rooms.length && rooms.every(function (r) { var s = srv[r.code]; return !!s && s.name === r.name && (s.label || "") === (r.label || ""); });
+        add(same, "방 목록: 이 기기 " + rooms.length + "개, 서버 " + sc.length + "개" + (same ? " (이름까지 같음)" : " (다름: 앱을 다시 열면 맞춰져요)"));
+      }, function () { add(false, "방 목록을 서버에서 읽지 못했어요"); });
+    })
+    .then(function () {                                                                                                                   // 3) 이 기기의 알림 준비
+      if (!pushSupported()) { add(false, "이 화면은 알림을 지원하지 않아요 (아이패드는 홈 화면에 추가한 앱에서만)"); stop(); return; }
+      add(true, "알림 기능을 쓸 수 있는 화면이에요");
+      if (Notification.permission !== "granted") { add(false, "알림이 허용돼 있지 않아요 (" + Notification.permission + "). 아이패드 설정 > 알림 > 무수한 실모"); stop(); return; }
+      add(true, "알림 허용됨");
+      return navigator.serviceWorker.getRegistration().then(function (reg) { return reg ? reg.pushManager.getSubscription() : null; }).then(function (sub) {
+        if (!sub) { add(false, "이 기기에 알림 구독이 없어요. 채팅 알림을 껐다가 다시 켜 주세요"); stop(); return; }
+        var host = ""; try { host = new URL(sub.endpoint).host; } catch (e) {}
+        add(true, "알림 구독 있음 (" + host + ")");
+        if (!pushSub) { add(false, "채팅 알림 스위치가 꺼져 있어요. 켜 주세요"); stop(); return; }
+        var key = pushKeyOf(sub);
+        add(key === pushSub, key === pushSub ? "저장된 알림 주소가 구독과 같아요" : "저장된 알림 주소가 구독과 달랐어요 (지금 고쳤어요)");
+        if (key !== pushSub) savePushSub(key);
+      }, function () { add(false, "알림 구독을 확인하지 못했어요"); stop(); });
+    })
+    .then(function () {                                                                                                                   // 4) 서버에 올라간 내 알림 주소
+      if (stopped) return;
+      if (!room) { add(false, "방이 없어서 더 점검할 수 없어요. 방에 들어간 뒤 다시 해 주세요"); stop(); return; }
+      if (!USE_V2) return;
+      var path = ROOMS_ROOT + room.code + "/push/" + getDeviceId();
+      return dbFetch(path, { cache: "no-store" }).then(function (v) {
+        if (v === pushSub) { add(true, "서버(이 방)에 내 알림 주소가 있어요"); return; }
+        add(false, v ? "서버의 알림 주소가 이 기기 것과 달랐어요 (다른 기기가 올린 것일 수 있어요). 지금 다시 올려요" : "서버에 내 알림 주소가 없었어요. 지금 다시 올려요");
+        lastPushBy = {}; lastPushAt = {}; lastSentBy = {};
+        return enqueue(function () { return pushMe(true); }).then(function () { return dbFetch(path, { cache: "no-store" }); }).then(function (v2) {
+          add(v2 === pushSub, v2 === pushSub ? "다시 올려서 고쳤어요" : "다시 올렸는데도 서버에 안 보여요 (서버 규칙 문제일 수 있어요)");
+          if (v2 !== pushSub) stop();
+        });
+      }, function (err) { add(false, "서버에서 알림 주소를 읽지 못했어요 (" + (err && err.message) + ")"); stop(); });
+    })
+    .then(function () {                                                                                                                   // 5) 알림 서버에 시험 알림 요청
+      if (stopped) return null;
+      if (!USE_V2) { add(null, "옛 구조에서는 알림 서버 시험을 건너뛰어요"); return null; }
+      return authToken().then(function (tok) {
+        return fetch(PUSH_URL + "/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: room.code, to: getDeviceId(), text: "알림 시험", token: tok, test: true, delay: 10 }) });
+      }).then(function (res) { return res.text().then(function (b) { var j = {}; try { j = JSON.parse(b); } catch (e) {} return { s: res.status, j: j }; }); })
+      .then(function (x) {
+        if (x.s === 200 && x.j && x.j.scheduled) { add(true, "알림 서버가 " + x.j.scheduled + "초 뒤 시험 알림을 보내기로 했어요 (" + (x.j.host || "?") + ")"); return "sent"; }
+        if (x.s === 200 && x.j && x.j.reason) add(false, "알림 서버가 서버에서 내 알림 주소를 못 찾았어요");
+        else if (x.s === 400) add(false, "알림 서버가 아직 옛 버전이에요 (새 버전 배포에 1~2분 걸려요)");
+        else if (x.s === 403) add(false, "알림 서버가 나를 이 방 멤버로 인정하지 않았어요");
+        else add(false, "알림 서버 응답이 이상해요 (" + x.s + ")");
+        return null;
+      }, function () { add(false, "알림 서버에 연결하지 못했어요"); return null; });
+    })
+    .then(function (sent) {
+      finish(sent ? "지금 홈 화면으로 나가서 10초쯤 기다려 보세요.\n'알림 시험' 알림이 오면 정상이에요. 안 오면 아이패드 설정 > 알림 > 무수한 실모와 집중 모드를 확인해 주세요." : "✗가 있는 줄부터 해결해 주세요.");
+    }, function () { finish("점검 중 오류가 났어요. 다시 해 주세요."); });
+  }
+  $("pushCheck").addEventListener("click", runPushCheck);
   // [/채팅 알림]

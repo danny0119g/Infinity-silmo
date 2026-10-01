@@ -4,26 +4,53 @@
   // 점수 물어보기 → 상대 답장 → 질문한 사람이 그 답장을 누르면, 서로의 카드 옆에 작은 채팅창이 열림 (앞의 두 마디 포함).
   // 둘 중 한 명이라도 실모를 시작하면 상대 창에 안내가 뜨고(입력창은 사라짐) 잠시 뒤 저절로 닫힘.
   var CHAT_ID = /^[A-Za-z0-9]{6,40}$/, CHAT_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
-  // 열려 있는 대화를 기기에 기억해 두었다가, 새로고침하면 상대가 아직 방에 있고 대화가 안 끝났을 때 다시 띄움
-  var CHATS_KEY = "examTimer.chats.v1", pulled = false;
-  function loadSavedChats() {
-    var r = {};
+  // 열려 있는 대화를 방별로 기기에 기억해 두었다가, 새로고침하거나 다른 방에 갔다 돌아오면(상대가 아직 방에 있고 대화가 안 끝났을 때) 다시 띄움
+  // 저장 형식: { rooms: { 방코드: { 상대ID: { o: 연 시각(ms) } } } }  (옛 형식 { code, peers }도 읽음)
+  var CHATS_KEY = "examTimer.chats.v1", pulled = false, CHAT_KEEP_MS = 6 * 3600 * 1000;
+  function readChatStore() {
+    var st = { rooms: {} };
     try {
       var o = JSON.parse(localStorage.getItem(CHATS_KEY));
-      if (o && room && o.code === room.code && o.peers && typeof o.peers === "object") Object.keys(o.peers).forEach(function (id) {
-        if (CHAT_ID.test(id) && o.peers[id] && typeof o.peers[id].o === "number") r[id] = o.peers[id].o;
-      });
+      if (o && o.rooms && typeof o.rooms === "object") Object.keys(o.rooms).forEach(function (code) { if (o.rooms[code] && typeof o.rooms[code] === "object") st.rooms[code] = o.rooms[code]; });
+      else if (o && typeof o.code === "string" && o.peers && typeof o.peers === "object") st.rooms[o.code] = o.peers;
     } catch (e) {}
+    return st;
+  }
+  function loadSavedChats() {
+    var r = {}, p = room ? readChatStore().rooms[room.code] : null;
+    if (p) Object.keys(p).forEach(function (id) { if (CHAT_ID.test(id) && p[id] && typeof p[id].o === "number") r[id] = p[id].o; });
     return r;
   }
   var pendingRestore = loadSavedChats();
   function saveChats() {
     try {
       if (!room) { localStorage.removeItem(CHATS_KEY); return; }
-      var peers = {};
+      var st = readChatStore(), peers = {}, now = Date.now();
+      Object.keys(pendingRestore).forEach(function (id) { peers[id] = { o: pendingRestore[id] }; });          // 아직 다시 띄우지 못한 대화도 계속 기억
       Object.keys(chats).forEach(function (id) { if (!chats[id].ended) peers[id] = { o: chats[id].opened }; });
-      localStorage.setItem(CHATS_KEY, JSON.stringify({ code: room.code, peers: peers }));
+      if (Object.keys(peers).length) st.rooms[room.code] = peers; else delete st.rooms[room.code];
+      Object.keys(st.rooms).forEach(function (code) {                          // 나간 방·오래된 대화는 정리
+        if (!roomByCode(code)) { delete st.rooms[code]; return; }
+        var p = st.rooms[code];
+        Object.keys(p).forEach(function (id) { if (!(p[id] && typeof p[id].o === "number" && now - p[id].o < CHAT_KEEP_MS)) delete p[id]; });
+        if (!Object.keys(p).length) delete st.rooms[code];
+      });
+      localStorage.setItem(CHATS_KEY, JSON.stringify(st));
     } catch (e) {}
+  }
+  function chatCountFor(code) {                      // 그 방에서 대화 중인 상대 수 (방 메뉴에 표시)
+    var n = 0;
+    if (room && room.code === code) {
+      Object.keys(chats).forEach(function (id) { if (!chats[id].ended) n++; });
+      Object.keys(pendingRestore).forEach(function (id) { if (!chats[id]) n++; });
+      return n;
+    }
+    var p = readChatStore().rooms[code];
+    return p ? Object.keys(p).length : 0;
+  }
+  function suspendAllChats() {                       // 방을 옮길 때: 대화창만 치우고 대화는 끝내지 않음 (상대에게 알리지 않고, 기억해 둠)
+    saveChats();
+    Object.keys(chats).forEach(function (p) { var c = chats[p]; clearTimeout(c.timer); if (c.el.parentNode) c.el.parentNode.removeChild(c.el); delete chats[p]; });
   }
   function pairKey(a, b) { return a < b ? a + "_" + b : b + "_" + a; }
   function chatNode(code, peer) { return ROOMS_ROOT + code + "/chats/" + pairKey(getDeviceId(), peer); }
@@ -347,7 +374,8 @@
         if (x.k === "sys") { if (x.f !== me) over = true; return; }
         msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
       });
-      if (over || !Object.keys(msgs).length) { saveChats(); return; }                    // 상대가 닫았거나 이미 정리된 대화는 다시 열지 않음
+      var newest = 0; Object.keys(msgs).forEach(function (k) { if (msgs[k].t > newest) newest = msgs[k].t; });
+      if (over || !Object.keys(msgs).length || Date.now() / 1000 - newest > 1800) { saveChats(); return; }      // 상대가 닫았거나 정리된 대화, 30분 넘게 말이 없던 대화는 다시 열지 않음
       var c = buildChat(peer, m.name, msgs, lastLis[peer]);
       c.sawServer = true; c.opened = opened;
       saveChats();

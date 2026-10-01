@@ -52,7 +52,7 @@
     <button id="bAnon">이 기기에서만 쓰기 (익명)</button>
     <button id="bRefresh">토큰 새로 받기</button>
     <button id="bDb">서버 읽기 시험</button>
-    <button id="bRules">새 규칙 확인</button>
+    <button id="bRules">새 규칙 확인 (방 이름 공유)</button>
     <button id="bPush">알림 서버 확인</button>
     <button id="bOut">로그아웃</button>
   </section>
@@ -62,7 +62,7 @@
     <pre id="log">(아직 아무것도 안 했어요)</pre>
   </section>
 </main>
-<script src="js/auth.js?v=20261001184305"></script>
+<script src="js/auth.js?v=20261001191532"></script>
 <script>
 (function () {
   var DB = "https://infinitesilmo-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -107,14 +107,28 @@
   };
   $("bRules").onclick = function () {
     if (!fbAuth) { log("먼저 로그인해 주세요.", "bad"); return; }
-    log("새 규칙 확인: v2 경로 읽기…");
+    var code = "chk" + Math.random().toString(36).slice(2, 10), base = DB + "/v2/rooms/" + code, uid = fbAuth.uid;
+    function call(tok, method, path, body) {
+      return fetch(base + path + ".json?auth=" + encodeURIComponent(tok), { method: method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) })
+        .then(function (r) { return r.text().then(function (b) { return { s: r.status, b: b }; }); });
+    }
+    log("새 규칙 확인: 임시 방(" + code + ")을 만들어 시험합니다…");
     authToken().then(function (t) {
-      return fetch(DB + "/v2/rooms/zzzzzzzz/meta.json?auth=" + encodeURIComponent(t)).then(function (r) { return r.text().then(function (b) { return { r: r, b: b }; }); });
-    }).then(function (x) {
-      log("서버 응답 " + x.r.status + " " + (x.b || "").slice(0, 80), x.r.ok ? "ok" : "bad");
-      if (x.r.ok) log("→ 새 규칙이 게시돼 있어요. (로그인한 사람은 v2 방 정보를 읽을 수 있음)", "ok");
-      else log("→ 새 규칙이 아직 게시되지 않았거나 문법 오류로 적용되지 않았어요.", "bad");
-    }, fail);
+      return call(t, "PUT", "/meta", { host: uid }).then(function (a) {
+        log("① 방 정보 만들기 → " + a.s, a.s === 200 ? "ok" : "bad");
+        if (a.s !== 200) { log("→ v2 규칙이 아직 게시되지 않았거나 문법 오류로 적용되지 않았어요.", "bad"); return; }
+        return call(t, "PUT", "/meta/title", "규칙확인").then(function (b) {
+          log("② 방 이름(title) 쓰기 → " + b.s, b.s === 200 ? "ok" : "bad");
+          return call(t, "PUT", "/members/" + uid, { name: "점검", day: "2000-01-01", share: false }).then(function (m) {
+            return call(t, "DELETE", "/members/" + uid).then(function () { return call(t, "DELETE", "/meta"); }).then(function (d) {
+              log("③ 임시 방 지우기 → " + d.s, d.s === 200 ? "ok" : "bad");
+              if (b.s === 200) log("→ 새 규칙이 게시돼 있어요. (방 이름 공유 가능)", "ok");
+              else log("→ 옛 규칙이에요. 새 규칙 전체를 다시 붙여넣어 게시해 주세요. (방 이름이 이 기기에만 저장돼요)", "bad");
+            });
+          });
+        });
+      });
+    }).then(null, fail);
   };
   $("bPush").onclick = function () {
     if (!fbAuth) { log("먼저 로그인해 주세요.", "bad"); return; }

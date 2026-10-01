@@ -107,6 +107,18 @@
     clearTimeout(syncTimer);
     syncTimer = setTimeout(function () { enqueue(function () { return pushMe(false); }).then(function () { keepPageScroll(renderTogether); }); syncOtherRooms(false); }, 700);
   }
+  function putTitle(code, title) {                   // 방 이름을 서버에 올림 (방 친구들 모두에게 보임). 서버 규칙이 아직 모르면 false
+    titleHold[code] = Infinity;                      // 올리는 중에 시작한(그래서 옛 이름을 가져올 수 있는) 서버 확인 결과는 무시하기 위한 표시
+    return dbFetch(ROOMS_ROOT + code + "/meta/title", { method: "PUT", headers: JSONH, body: JSON.stringify(title) })
+      .then(function () { titleHold[code] = Date.now(); return true; }, function (err) { delete titleHold[code]; if (err && err.message === "http 401") titleBlocked = true; return false; });
+  }
+  function putMetaCreate(code, host, title) {        // 새 방 정보 만들기(방 이름 포함). 서버 규칙이 아직 방 이름을 모르면 이름 없이 만듦
+    var body = { host: host }; if (title) body.title = cleanTitle(title);
+    return dbFetch(ROOMS_ROOT + code + "/meta", { method: "PUT", headers: JSONH, body: JSON.stringify(body) }).catch(function (err) {
+      if (title && err && err.message === "http 401") { titleBlocked = true; return dbFetch(ROOMS_ROOT + code + "/meta", { method: "PUT", headers: JSONH, body: JSON.stringify({ host: host }) }); }
+      throw err;
+    });
+  }
   // 방장 지정 (서버의 meta/host)
   function putHost(id) {
     if (!room) return Promise.resolve(false);
@@ -154,24 +166,30 @@
       if (room && r.code === room.code) return;
       enqueue(function () {
         if (!roomByCode(r.code)) return;
-        var now = Date.now(), chk = Promise.resolve(null);
+        var now = Date.now(), chk = Promise.resolve(null), t0 = now;
         if (force || !kickCheckAt[r.code] || now - kickCheckAt[r.code] > 60000) {
           kickCheckAt[r.code] = now;
           chk = USE_V2
-            ? dbFetch(ROOMS_ROOT + r.code + "/meta", { cache: "no-store" }).then(function (m) { return { exists: !!m, kicked: !!(m && m.kicked && m.kicked[getDeviceId()] === true) }; }, function () { return null; })
+            ? dbFetch(ROOMS_ROOT + r.code + "/meta", { cache: "no-store" }).then(function (m) { return { exists: !!m, kicked: !!(m && m.kicked && m.kicked[getDeviceId()] === true), title: (m && typeof m.title === "string") ? m.title : "", needTitle: !!(m && !m.title && m.host === getDeviceId()) }; }, function () { return null; })
             : dbFetch(ROOMS_ROOT + r.code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { return { exists: true, kicked: v === true }; }, function () { return null; });
         }
         return chk.then(function (info) {
           if (info && info.kicked) { var label = dropRoom(r.code); notice("\"" + label + "\" 방에서 내보내졌어요."); return; }
-          if (USE_V2 && info) roomPending[r.code] = !info.exists;
-          return pushMe(force, r);
+          var extra = null;
+          if (USE_V2 && info) {
+            roomPending[r.code] = !info.exists;
+            var rr = roomByCode(r.code);
+            if (rr && info.title) { if (applyTitle(rr, info.title, t0)) renderRoomSwitch(); }                                  // 다른 방 친구가 바꾼 방 이름 반영
+            else if (rr && info.needTitle && !titleBlocked) extra = putTitle(r.code, roomLabel(rr));                      // 이름이 아직 없는 내 방(방장)은 지금 이름을 모두에게 공개
+          }
+          return Promise.resolve(extra).then(function () { return pushMe(force, r); });
         });
       });
     });
   }
   function pullOthers() {
     if (!room) return Promise.resolve();
-    var code = room.code, me = getDeviceId();
+    var code = room.code, me = getDeviceId(), t0 = Date.now();
     var pm401 = false;
     var pm = dbFetch(ROOMS_ROOT + code + "/members", { cache: "no-store" });
     if (USE_V2) pm = pm.catch(function (err) { if (err && err.message === "http 401") { pm401 = true; return null; } throw err; });      // 새 구조: 멤버가 아니면(아직 옮겨지지 않은 방, 내보내진 방) 읽기가 막힘
@@ -239,6 +257,10 @@
       if (meta !== undefined) {
         hostId = (meta && typeof meta.host === "string") ? meta.host : "";
         if (meta && meta.kicked && meta.kicked[me] === true) { handleKicked(); return; }
+        if (USE_V2 && meta && typeof meta === "object") {   // 방 이름: 서버에 있으면 그것을 따르고, 아직 없으면 방장이 지금 이름을 공개
+          if (typeof meta.title === "string" && meta.title) { if (applyTitle(room, meta.title, t0)) renderRoomSwitch(); }
+          else if (!titleBlocked && hostId === me) enqueue(function () { return putTitle(code, roomLabel(room)); });
+        }
         if (!hostBlocked) {                           // 방장이 비었거나 방에 없으면, 남은 사람 중 한 명(아이디가 가장 앞선 사람)이 자동으로 이어받음
           var ids = [me];
           list.forEach(function (x) { ids.push(x.id); });

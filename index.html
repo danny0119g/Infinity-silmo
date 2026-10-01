@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261001184305">
+<meta name="app-version" content="20261001191532">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="무수한 실모">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
-<link rel="stylesheet" href="style.css?v=20261001184305">
+<link rel="stylesheet" href="style.css?v=20261001191532">
 </head>
 <body>
 
@@ -188,7 +188,7 @@
 
     <div id="roomInView" class="hidden">
       <section class="rsec">
-        <h3 class="rhead">방 이름 <small class="swNote">나에게만 보여요</small></h3>
+        <h3 class="rhead">방 이름 <small class="swNote" id="labelNote">나에게만 보여요</small></h3>
         <div class="rrow">
           <input id="labelEdit" class="tinput nick" type="text" maxlength="14" autocomplete="off" aria-label="방 이름">
           <button id="labelSave" class="rbtn">저장</button>
@@ -218,6 +218,7 @@
           <div class="rline hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="이 방에서 사진 사용"></button></div>
           <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="내 점수 공개"></button></div>
           <div class="rline hidden" id="pushLine"><span>채팅 알림 <small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
+          <div class="rline hidden" id="pushCheckLine"><span>알림 점검 <small class="swNote">10초 뒤 시험 알림이 와요</small></span><button id="pushCheck" class="rbtn" type="button">실행</button></div>
         </div>
       </section>
       <section class="rsec hidden" id="accountSec">
@@ -276,22 +277,22 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261001184305"></script>
-<script src="js/auth.js?v=20261001184305"></script>
-<script src="js/records.js?v=20261001184305"></script>
-<script src="js/chart.js?v=20261001184305"></script>
-<script src="js/room-base.js?v=20261001184305"></script>
-<script src="js/push.js?v=20261001184305"></script>
-<script src="js/room-sync.js?v=20261001184305"></script>
-<script src="js/profile.js?v=20261001184305"></script>
-<script src="js/scoreask.js?v=20261001184305"></script>
-<script src="js/chat.js?v=20261001184305"></script>
-<script src="js/photo.js?v=20261001184305"></script>
-<script src="js/room-modal.js?v=20261001184305"></script>
-<script src="js/account.js?v=20261001184305"></script>
-<script src="js/dialogs.js?v=20261001184305"></script>
-<script src="js/exam.js?v=20261001184305"></script>
-<script src="js/login.js?v=20261001184305"></script>
-<script src="js/refresh.js?v=20261001184305"></script>
+<script src="js/core.js?v=20261001191532"></script>
+<script src="js/auth.js?v=20261001191532"></script>
+<script src="js/records.js?v=20261001191532"></script>
+<script src="js/chart.js?v=20261001191532"></script>
+<script src="js/room-base.js?v=20261001191532"></script>
+<script src="js/push.js?v=20261001191532"></script>
+<script src="js/room-sync.js?v=20261001191532"></script>
+<script src="js/profile.js?v=20261001191532"></script>
+<script src="js/scoreask.js?v=20261001191532"></script>
+<script src="js/chat.js?v=20261001191532"></script>
+<script src="js/photo.js?v=20261001191532"></script>
+<script src="js/room-modal.js?v=20261001191532"></script>
+<script src="js/account.js?v=20261001191532"></script>
+<script src="js/dialogs.js?v=20261001191532"></script>
+<script src="js/exam.js?v=20261001191532"></script>
+<script src="js/login.js?v=20261001191532"></script>
+<script src="js/refresh.js?v=20261001191532"></script>
 </body>
 </html>

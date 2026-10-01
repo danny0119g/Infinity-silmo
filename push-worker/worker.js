@@ -39,23 +39,45 @@ function uidFromToken(tok) {                         // 로그인 토큰(JWT)의
   } catch (e) { return ""; }
 }
 function cleanText(t) { return String(t).replace(/\s+/g, " ").trim().slice(0, 60); }
-async function sendPush(sub, name, text, fromId, env) {
+function hostOf(sub) { try { return new URL(sub.endpoint).host; } catch (e) { return ""; } }
+async function pushOnce(sub, name, text, fromId, env) {      // 푸시 서비스(애플·구글 등)에 알림 1건을 보내고 응답을 돌려줌
   var req = await T({ data: { t: name.slice(0, 12), b: text, g: fromId }, options: { ttl: 600, urgency: "high" } }, sub, { subject: SUBJECT, publicKey: PUB, privateKey: env.VAPID_PRIVATE_KEY });
-  var res = await fetch(sub.endpoint, req);
-  return reply({ ok: res.ok, sent: res.ok, status: res.status });
+  return fetch(sub.endpoint, req);
 }
-async function notifyV2(n, env) {
+async function sendPush(sub, name, text, fromId, env) {
+  try {
+    var res = await pushOnce(sub, name, text, fromId, env);
+    console.log(JSON.stringify({ push: "sent", ok: res.ok, status: res.status, host: hostOf(sub) }));   // Cloudflare 대시보드 로그에서 확인 가능 (내용·사람 정보는 남기지 않음)
+    return reply({ ok: res.ok, sent: res.ok, status: res.status, host: hostOf(sub) });
+  } catch (e) {
+    console.log(JSON.stringify({ push: "error", message: String(e && e.message).slice(0, 100), host: hostOf(sub) }));
+    return reply({ ok: false, sent: false, error: "push failed", host: hostOf(sub) }, 502);
+  }
+}
+function later(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function notifyV2(n, env, ctx) {
   var token = n.token, from = uidFromToken(token);
-  if (!ROOM_RE.test(n.room || "") || !UID_RE.test(n.to || "") || typeof n.text !== "string" || typeof token !== "string" || token.length > 4000 || !UID_RE.test(from) || from === n.to) return reply({ ok: false, error: "bad request" }, 400);
-  var text = cleanText(n.text);
+  var selfTest = n.test === true && typeof from === "string" && from === n.to;      // 앱의 "알림 점검": 나에게 시험 알림을 보냄 (보는 중 건너뛰기 없음, 지연 가능)
+  if (!ROOM_RE.test(n.room || "") || !UID_RE.test(n.to || "") || typeof n.text !== "string" || typeof token !== "string" || token.length > 4000 || !UID_RE.test(from) || (from === n.to && !selfTest)) return reply({ ok: false, error: "bad request" }, 400);
+  var text = selfTest ? "알림 시험이에요. 이 알림이 보이면 정상이에요." : cleanText(n.text);
   if (!text) return reply({ ok: false, error: "empty" }, 400);
   var base = "/v2/rooms/" + n.room;
   var got = await Promise.all([dbGet(base + "/members/" + from, token), dbGet(base + "/members/" + n.to + "/on", token), dbGet(base + "/push/" + n.to, token)]);
   var me = got[0], on = got[1], push = got[2];
   if (!me.ok || !me.v || typeof me.v !== "object" || typeof me.v.name !== "string") return reply({ ok: false, error: "not a member" }, 403);
-  if (on.ok && recentSignal(on.v)) return reply({ ok: true, sent: false, skipped: "viewing" });
+  if (!selfTest && on.ok && recentSignal(on.v)) return reply({ ok: true, sent: false, skipped: "viewing" });
   var sub = subFromString(push.ok ? push.v : null);
-  if (!sub) return reply({ ok: true, sent: false });
+  if (!sub) return reply(selfTest ? { ok: true, sent: false, reason: "no subscription on server" } : { ok: true, sent: false });
+  if (selfTest) {
+    var delay = Math.min(15, Math.max(0, Math.floor(Number(n.delay) || 0))), host = hostOf(sub);
+    if (delay > 0 && ctx && ctx.waitUntil) {                                      // 바로 응답하고, 지정한 초 뒤에 보냄 (그 사이 앱을 닫아 볼 수 있게)
+      ctx.waitUntil(later(delay * 1000).then(function () { return pushOnce(sub, "알림 시험", text, from, env); }).then(
+        function (res) { console.log(JSON.stringify({ push: "test", ok: res.ok, status: res.status, host: host })); },
+        function (e) { console.log(JSON.stringify({ push: "test-error", message: String(e && e.message).slice(0, 100), host: host })); }));
+      return reply({ ok: true, scheduled: delay, host: host });
+    }
+    return sendPush(sub, "알림 시험", text, from, env);
+  }
   return sendPush(sub, me.v.name, text, from, env);
 }
 function legacyViewing(subjects) {                   // 옛 구조: 친구 칸 안의 "~온|<초>" 신호
@@ -82,7 +104,7 @@ async function notifyLegacy(n, env) {
   return sendPush(sub, me.name, text, n.from, env);
 }
 var worker = {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
     var url = new URL(request.url);
     if (request.method !== "POST" || url.pathname !== "/notify") return reply({ ok: false, error: "not found" }, 404);
@@ -90,7 +112,7 @@ var worker = {
     var n;
     try { n = await request.json(); } catch (e) { return reply({ ok: false, error: "bad json" }, 400); }
     if (!n || typeof n !== "object") return reply({ ok: false, error: "bad request" }, 400);
-    return typeof n.token === "string" ? notifyV2(n, env) : notifyLegacy(n, env);
+    return typeof n.token === "string" ? notifyV2(n, env, ctx) : notifyLegacy(n, env);
   }
 };
 export { worker as default };
