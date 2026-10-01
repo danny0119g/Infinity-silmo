@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firebase 규칙 복사</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 60px; background: #1b1d21; color: #f1f2f4; font-family: "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; line-height: 1.55; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 34px 0 6px; }
+  p { margin: 0 0 12px; color: #aab1bc; font-size: 15px; }
+  ol { color: #aab1bc; font-size: 15px; padding-left: 20px; margin: 0 0 14px; }
+  button { display: block; width: 100%; padding: 16px; margin: 0 0 12px; border: 0; border-radius: 14px; background: #3d8bfd; color: #fff; font: inherit; font-size: 18px; font-weight: 700; }
+  button.ghost { background: transparent; border: 1px solid #3a3e46; color: #f1f2f4; }
+  pre { margin: 0; padding: 14px; background: #111214; border: 1px solid #3a3e46; border-radius: 12px; font-size: 12.5px; white-space: pre-wrap; word-break: break-all; -webkit-user-select: all; user-select: all; }
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #26331f; color: #8fe3a3; font-size: 12px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Firebase 규칙 복사</h1>
+  <p>복사 버튼을 누른 뒤 Firebase 콘솔 → Realtime Database → <b>규칙</b> 탭에서 전부 지우고 붙여 넣고 <b>게시</b>를 누르세요.</p>
+  <ol>
+    <li>콘솔이 불편하면 Safari 주소창 왼쪽 <b>aA</b> → <b>데스크탑 웹 사이트 요청</b>을 켜 보세요.</li>
+    <li>규칙 편집창을 한 번 누르고 → 길게 눌러 <b>모두 선택</b> → <b>붙여넣기</b>.</li>
+  </ol>
+
+  <h2>간단 버전 <span class="tag">추천 · 한 번만 붙이면 끝</span></h2>
+  <p>앞으로 기능이 늘어도 규칙을 다시 바꿀 일이 없어요. 대신 글자 수·형식 검사는 하지 않아요. 방 코드를 아는 사람만 그 방에 읽고 쓸 수 있어요.</p>
+  <button id="b1">간단 버전 복사</button>
+  <pre id="t1"></pre>
+
+  <h2>엄격 버전 (검사 포함)</h2>
+  <p>저장되는 값의 형식과 길이를 검사해요. 새 기능이 생기면 이 규칙도 바꿔야 해요.</p>
+  <button id="b2" class="ghost">엄격 버전 복사</button>
+  <pre id="t2"></pre>
+</main>
+<script>
+var SIMPLE = `{
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": "$code.length >= 6 && $code.length <= 12",
+        ".write": "$code.length >= 6 && $code.length <= 12"
+      }
+    }
+  }
+}`;
+var STRICT = `{
+  "rules": {
+    "rooms": {
+      "$code": {
+        "members": {
+          ".read": true,
+          "$uid": {
+            ".write": "$code.length >= 6 && $code.length <= 12",
+            ".validate": "newData.hasChildren(['name','day','subjects'])",
+            "name": { ".validate": "newData.isString() && newData.val().length <= 12" },
+            "day": { ".validate": "newData.isString() && newData.val().length == 10" },
+            "subjects": { "$s": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 99" } },
+            "live": {
+              ".validate": "newData.hasChildren(['s','t','e'])",
+              "s": { ".validate": "newData.isString() && newData.val().length <= 30" },
+              "t": { ".validate": "newData.isNumber()" },
+              "e": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+        "photos": {
+          "$uid": {
+            ".read": true,
+            ".write": "$code.length >= 6 && $code.length <= 12",
+            ".validate": "newData.isString() && newData.val().length <= 12000"
+          }
+        },
+        "meta": {
+          ".read": true,
+          ".write": "$code.length >= 6 && $code.length <= 12",
+          "host": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "kicked": { "$uid": { ".validate": "newData.isBoolean()" } },
+          "$other": { ".validate": false }
+        },
+        "msgs": {
+          "$to": {
+            ".read": true,
+            ".write": "$code.length >= 6 && $code.length <= 12",
+            "$from": {
+              ".validate": "newData.hasChildren(['k','t'])",
+              "k": { ".validate": "newData.isString() && (newData.val() == 'ask' || newData.val() == 'reply' || newData.val() == 'chat' || newData.val() == 'decline')" },
+              "s": { ".validate": "newData.isString() && newData.val().length <= 30" },
+              "x": { ".validate": "newData.isString() && newData.val().length <= 80" },
+              "t": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+        "chats": {
+          "$pair": {
+            ".read": true,
+            ".write": "$code.length >= 6 && $code.length <= 12",
+            "$mid": {
+              ".validate": "newData.hasChildren(['f','k','t'])",
+              "f": { ".validate": "newData.isString() && newData.val().length <= 20" },
+              "k": { ".validate": "newData.isString() && (newData.val() == 'm' || newData.val() == 'ask' || newData.val() == 'reply' || newData.val() == 'sys')" },
+              "x": { ".validate": "newData.isString() && newData.val().length <= 80" },
+              "s": { ".validate": "newData.isString() && newData.val().length <= 30" },
+              "t": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+document.getElementById("t1").textContent = SIMPLE;
+document.getElementById("t2").textContent = STRICT;
+function wire(btnId, text) {
+  var b = document.getElementById(btnId), label = b.textContent;
+  function done(ok) { b.textContent = ok ? "복사했어요 ✓" : "복사 실패 — 아래 글을 길게 눌러 복사하세요"; setTimeout(function () { b.textContent = label; }, 2400); }
+  function fallback() {
+    var ta = document.createElement("textarea"), ok = false;
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { ta.setSelectionRange(0, text.length); ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    done(ok);
+  }
+  b.addEventListener("click", function () {
+    try { navigator.clipboard.writeText(text).then(function () { done(true); }, fallback); } catch (e) { fallback(); }
+  });
+}
+wire("b1", SIMPLE);
+wire("b2", STRICT);
+</script>
+</body>
+</html>
