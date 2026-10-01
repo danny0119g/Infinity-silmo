@@ -66,7 +66,6 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     text-align: center; transition: border-color .15s, transform .15s;
   }
-  .slot:active { transform: scale(.98); }
   .slot.empty { border-style: dashed; }
   .slot .tag { font-size: 15px; font-weight: 700; color: var(--muted); }
   .slot .main { font-size: clamp(28px, 5.4vw, 46px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; text-wrap: balance; }
@@ -327,7 +326,7 @@
     .chartcard.swap #chart, .chartcard.swap .legend, .chartcard.swap .pointinfo { animation: none; }
   }
   /* 누르는 동안(터치 포함)의 모습: 윤곽이 파래지는 등 눌렀다는 느낌 */
-  .slot.pressing { border-color: var(--accent); transform: scale(.98); }
+  .slot.pressing { border-color: var(--accent); }
   .pill.pressing, .copt.pressing, .chip.pressing { border-color: var(--accent); }
   .pen.pressing { border-color: var(--accent); color: var(--text); }
   .rf.pressing { border-color: #8a919c; }
