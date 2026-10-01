@@ -293,6 +293,9 @@
   .cm.me { align-self: flex-end; background: rgba(61,139,253,.30); border-bottom-right-radius: 4px; }
   .cm.them { align-self: flex-start; background: #2b2f36; border-bottom-left-radius: 4px; }
   .cm.fail { opacity: .55; }
+  .cmRow { align-self: flex-end; display: flex; align-items: flex-end; gap: 5px; max-width: 94%; }
+  .cmRow .cm { max-width: none; min-width: 0; }
+  .cmRead { flex: none; font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--accent); padding-bottom: 3px; font-variant-numeric: tabular-nums; }
   .cm.score { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; border: 1px solid transparent; }
   .cmScore { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .cmBadge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; white-space: nowrap; }
@@ -2349,6 +2352,7 @@
   function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
   function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
+  function isReadMark(m) { return !!m && m.k === "m" && !m.x && typeof m.s === "string" && m.s.indexOf("r|") === 0; }   // 읽음 표시: 글자 없는 메시지(규칙 변경 없이 기존 칸 사용)
   function msgText(m) { return m.k === "ask" ? "" : (m.x || ""); }
   function placeNear(node, anchor) {
     if (!anchor || !anchor.getBoundingClientRect || anchor.isConnected === false) return;       // 카드가 목록에서 사라졌으면 있던 자리에 그대로 둠
@@ -2382,6 +2386,11 @@
       if (!tx) return;
       var d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : ""));
       d.textContent = tx + (m.st === "fail" ? " (전송 안 됨)" : "");
+      if (m.f === me && m.k === "m" && !m.st && k.charAt(0) === "m" && k > (c.peerRead || "")) {     // 상대가 아직 안 읽음: 말풍선 옆에 1
+        var rw = el("div", "cmRow me");
+        rw.appendChild(el("span", "cmRead", "1")); rw.appendChild(d); box.appendChild(rw);
+        return;
+      }
       box.appendChild(d);
     });
     if (stick) box.scrollTop = box.scrollHeight;
@@ -2466,7 +2475,7 @@
     renderChatMsgs(c);
     enqueue(function () {
       return dbFetch(node + "/" + key, { method: "PUT", headers: JSONH, body: JSON.stringify(msg) })
-        .then(function () { if (c.msgs[key]) delete c.msgs[key].st; })
+        .then(function () { if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
         .catch(function (err) {
           if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
           if (err && err.message === "http 401") chatBlocked = true;
@@ -2485,6 +2494,10 @@
       var m = d[k];
       if (!validMsg(m) || (m.f !== me && m.f !== peer)) return;
       if (m.t > newest) newest = m.t;
+      if (isReadMark(m)) {                                                    // 상대가 어디까지 읽었는지
+        if (m.f === peer) { var rk = m.s.slice(2, 20); if (rk > (c.peerRead || "")) { c.peerRead = rk; changed = true; } }
+        return;
+      }
       if (m.k === "sys") { if (m.f !== me) sys = typeof m.x === "string" ? m.x : "bye"; return; }
       var old = c.msgs[k];
       if (!old || old.st) {
@@ -2494,6 +2507,13 @@
     });
     if (changed) renderChatMsgs(c);
     if (sys) { endChat(peer, chatNoticeText(c, sys)); return; }
+    var latest = "";                                                          // 내가 이 창을 보고 있으면 상대 메시지를 읽은 것으로 표시
+    Object.keys(d).forEach(function (k) { var m = d[k]; if (validMsg(m) && m.f === peer && m.k === "m" && m.x && k.charAt(0) === "m" && k > latest) latest = k; });
+    if (latest && latest > (c.readSent || "") && document.visibilityState === "visible" && home.style.display !== "none") {
+      c.readSent = latest;
+      var rn = chatNode(room.code, peer) + "/rd" + me, rv = { f: me, k: "m", x: "", s: "r|" + latest, t: Math.floor(Date.now() / 1000) };
+      enqueue(function () { return dbFetch(rn, { method: "PUT", headers: JSONH, body: JSON.stringify(rv) }).catch(function () { c.readSent = ""; }); });
+    }
     if (Date.now() / 1000 - Math.max(newest, c.opened / 1000) > 1800) endChat(peer, "대화가 끝났어요");      // 30분 동안 아무 말이 없으면 정리
   }
   function chatTick() {
