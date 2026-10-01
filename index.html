@@ -285,6 +285,11 @@
     position: fixed; width: 250px; pointer-events: auto; overflow: hidden;
     background: #1b1d21; border: 1px solid #3d6fb4; border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.55);
   }
+  .chatwin { padding-bottom: 20px; }
+  .chatwin.resizing { box-shadow: 0 0 0 2px var(--accent), 0 12px 30px rgba(0,0,0,.55); }
+  .chatGrip { position: absolute; left: 0; bottom: 0; width: 36px; height: 22px; touch-action: none; cursor: nesw-resize; }
+  .chatGrip::before { content: ""; position: absolute; left: 7px; bottom: 6px; width: 11px; height: 11px; border-left: 3px solid #7d8591; border-bottom: 3px solid #7d8591; border-bottom-left-radius: 5px; transition: border-color .15s; }
+  .chatwin.resizing .chatGrip::before { border-color: var(--accent); }
   .chatHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 12px; border-bottom: 1px solid var(--line); }
   .chatName { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chatX { flex: none; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 1; }
@@ -2355,6 +2360,7 @@
   function isReadMark(m) { return !!m && m.k === "m" && !m.x && typeof m.s === "string" && m.s.indexOf("r|") === 0; }   // 읽음 표시: 글자 없는 메시지(규칙 변경 없이 기존 칸 사용)
   function msgText(m) { return m.k === "ask" ? "" : (m.x || ""); }
   function placeNear(node, anchor) {
+    if (node.classList.contains("resizing")) return;                                           // 크기를 당기는 중에는 자리를 다시 계산하지 않음
     if (!anchor || !anchor.getBoundingClientRect || anchor.isConnected === false) return;       // 카드가 목록에서 사라졌으면 있던 자리에 그대로 둠
     var ae = document.activeElement;
     if (ae && ae.tagName === "INPUT" && node.contains(ae) && node.style.left) return;      // 입력 중에는 창을 건드리지 않음 (건드리면 아이패드 키보드가 튕겨 내려감)
@@ -2397,6 +2403,58 @@
     c.stick = false;
     placeNear(c.el, c.li);
   }
+  var CHATSIZE_KEY = "examTimer.chatsize.v1", CHAT_MINW = 250, CHAT_MINH = 96;
+  function chatBottomLimit() { var vh = window.innerHeight; return Math.min(vh - 8, vh * 0.46); }   // 입력칸이 키보드에 가려지지 않게 화면 위쪽 안에서만 커짐
+  function loadChatSize() {
+    try { var o = JSON.parse(localStorage.getItem(CHATSIZE_KEY)); if (o && typeof o.w === "number" && typeof o.h === "number") return { w: o.w, h: o.h }; } catch (e) {}
+    return null;
+  }
+  function clampChatSize(c, w, h) {                  // 창 폭/글 영역 높이를 화면 안으로 제한
+    var maxW = Math.max(CHAT_MINW, Math.min(560, window.innerWidth - 16));
+    var chrome = c.el.offsetHeight - c.msgsEl.offsetHeight;
+    var maxH = Math.max(CHAT_MINH, chatBottomLimit() - 8 - chrome);
+    return { w: Math.round(Math.min(maxW, Math.max(CHAT_MINW, w))), h: Math.round(Math.min(maxH, Math.max(CHAT_MINH, h))) };
+  }
+  function applyChatSize(c, w, h) {
+    var z = clampChatSize(c, w, h);
+    c.el.style.width = z.w + "px"; c.msgsEl.style.height = z.h + "px";
+    return z;
+  }
+  function attachGrip(c, grip) {
+    var drag = null;
+    grip.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });   // 입력 중이어도 키보드가 내려가지 않게
+    grip.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    grip.addEventListener("click", function (e) { e.stopPropagation(); });
+    grip.addEventListener("pointerdown", function (e) {
+      if (c.ended) return;
+      e.preventDefault(); e.stopPropagation();
+      var r = c.el.getBoundingClientRect();
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, w: c.el.offsetWidth, h: c.msgsEl.offsetHeight, right: r.right, top: r.top, stick: c.msgsEl.scrollHeight - c.msgsEl.scrollTop - c.msgsEl.clientHeight < 28 };
+      try { grip.setPointerCapture(e.pointerId); } catch (err) {}
+      c.el.classList.add("resizing");
+    });
+    grip.addEventListener("pointermove", function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      e.preventDefault();
+      var z = applyChatSize(c, drag.w - (e.clientX - drag.x), drag.h + (e.clientY - drag.y));   // 왼쪽 아래로 당기면 커짐 (오른쪽 위 모서리는 그대로)
+      var left = Math.max(8, drag.right - c.el.offsetWidth), top = Math.max(8, Math.min(drag.top, chatBottomLimit() - c.el.offsetHeight));
+      c.el.style.left = Math.round(left) + "px"; c.el.style.top = Math.round(top) + "px";
+      if (drag.stick) c.msgsEl.scrollTop = c.msgsEl.scrollHeight;
+    });
+    function end(e) {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      drag = null;
+      try { grip.releasePointerCapture(e.pointerId); } catch (err) {}
+      c.el.classList.remove("resizing");
+      try { localStorage.setItem(CHATSIZE_KEY, JSON.stringify({ w: c.el.offsetWidth, h: c.msgsEl.offsetHeight })); } catch (err) {}
+      placeNear(c.el, c.li);
+    }
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+  }
+  window.addEventListener("resize", function () {          // 화면 크기가 바뀌면(회전 등) 창이 화면 밖으로 안 나가게 다시 맞춤
+    Object.keys(chats).forEach(function (p) { var c = chats[p]; if (!c || !c.el.isConnected) return; applyChatSize(c, c.el.offsetWidth, c.msgsEl.offsetHeight); placeNear(c.el, c.li); });
+  });
   function buildChat(peer, name, msgs, li) {
     var win = el("div", "chatwin"), head = el("div", "chatHead"), nm = el("span", "chatName", name), x = el("button", "chatX", "✕");
     var mb = el("div", "chatMsgs"), notice = el("div", "chatNotice hidden"), row = el("div", "chatRow"), inp = el("input", "chatIn"), send = el("button", "chatSend", "보내기");
@@ -2405,7 +2463,8 @@
     send.type = "button";
     head.appendChild(nm); head.appendChild(x);
     row.appendChild(inp); row.appendChild(send);
-    win.appendChild(head); win.appendChild(mb); win.appendChild(notice); win.appendChild(row);
+    var grip = el("div", "chatGrip"); grip.setAttribute("aria-label", "채팅창 크기 조절");
+    win.appendChild(head); win.appendChild(mb); win.appendChild(notice); win.appendChild(row); win.appendChild(grip);
     var c = { peer: peer, el: win, nameEl: nm, msgsEl: mb, row: row, notice: notice, input: inp, msgs: msgs, li: li, ended: false, timer: 0, sawServer: false, busy: false, lastSend: 0, opened: Date.now(), stick: true };
     function go() {
       if (sendChat(peer, inp.value)) inp.value = "";
@@ -2422,6 +2481,8 @@
     chats[peer] = c;
     saveChats();
     $("chatLayer").appendChild(win);
+    attachGrip(c, grip);
+    var sz = loadChatSize(); if (sz) applyChatSize(c, sz.w, sz.h);
     renderChatMsgs(c);
     return c;
   }
