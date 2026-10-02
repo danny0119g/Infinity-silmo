@@ -40,7 +40,7 @@
   }
   $("roomAddToggle").addEventListener("click", function () {
     if (addOpen) { setAddOpen(false); return; }
-    setAddOpen(true); nickInput.focus(); setTimeout(function () { $("roomJoinView").scrollIntoView({ block: "nearest" }); }, 0);
+    setAddOpen(true); $("newTitleInput").focus(); setTimeout(function () { $("roomJoinView").scrollIntoView({ block: "nearest" }); }, 0);
   });
   function closeRoomModal() { closePenMenu(); roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
   function enterRoom(code, name, joining, title) {
