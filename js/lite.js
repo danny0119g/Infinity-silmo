@@ -2,7 +2,6 @@
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
   var liteOv = $("liteOverlay"), liteFr = $("liteFrame");
   function openLite() {
-    closePicker();
     liteFr.src = "lite.html?embed=1&t=" + Date.now();
     liteOv.classList.remove("hidden");
     try { var rq = liteOv.requestFullscreen || liteOv.webkitRequestFullscreen; if (rq) { var pr = rq.call(liteOv); if (pr && pr.catch) pr.catch(function () {}); } } catch (e) {}
