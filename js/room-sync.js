@@ -299,6 +299,7 @@
     if (typeof refreshRoomList === "function") refreshRoomList(false);
     if (typeof syncAccountPhoto === "function") syncAccountPhoto(false);
     if (typeof syncSubjects === "function") syncSubjects();
+    if (typeof syncRecords === "function") syncRecords(false);
     syncOtherRooms(false);
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }

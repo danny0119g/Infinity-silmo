@@ -8,6 +8,7 @@
   function saveAll(arr) {
     memAll = arr;
     try { localStorage.setItem(ALL_KEY, JSON.stringify(arr)); storeFailed = false; } catch (e) { storeFailed = true; }
+    if (typeof onRecordsChanged === "function") onRecordsChanged();             // 계정 기록 동기화
     scheduleSync();
   }
   // 저장된 값이 깨져 있어도 화면이 멈추지 않도록 한 줄씩 점검해서 쓸 수 있는 형태로 만듦

@@ -154,6 +154,61 @@
       if (mine > srvAt || (!srvAt && (loadSubjects()[1] || loadSubjects()[2]))) { if (!mine) saveSubjAt(Date.now()); return pushSubjects(); }
     }).then(function () { subjBusy = false; }, function () { subjBusy = false; });
   }
+  // ---- 오늘의 응시 기록 계정 동기화 (users/{uid}/rec = {day, at, list(JSON 글자)}) ----
+  var RECDIRTY_KEY = "examTimer.recDirty.v1", RECSYNC_KEY = "examTimer.recSynced.v1";
+  var recBlocked = false, recBusy = false, recAgain = false, recApplying = false, recTimer = 0, recCheckAt = 0;
+  function recGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function recSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function recSyncAt() { return Number(recGet(RECSYNC_KEY)) || 0; }
+  function onRecordsChanged() {
+    if (recApplying || !USE_V2 || !fbAuth) return;
+    recSet(RECDIRTY_KEY, "1");
+    clearTimeout(recTimer); recTimer = setTimeout(function () { syncRecords(true); }, 800);
+  }
+  function recStart(r) { var t = parseInt(String(r.id).slice(0, 8), 36); return isFinite(t) ? t : 0; }
+  function mergeRecs(local, remote) {              // 두 기기에서 따로 쌓인 기록을 합침 (같은 기록이면 값이 있는 칸을 채움, 시작 시각 순서)
+    var byId = {}, order = [];
+    remote.forEach(function (r) { if (!byId[r.id]) order.push(r.id); byId[r.id] = r; });
+    local.forEach(function (r) {
+      if (byId[r.id]) { var c = {}, k; for (k in byId[r.id]) c[k] = byId[r.id][k]; for (k in r) if (r[k] != null) c[k] = r[k]; byId[r.id] = c; }
+      else { byId[r.id] = r; order.push(r.id); }
+    });
+    return order.map(function (id, i) { return { r: byId[id], i: i }; }).sort(function (a, b) { return (recStart(a.r) - recStart(b.r)) || (a.i - b.i); }).map(function (x) { return x.r; });
+  }
+  function applyRecs(arr) {
+    recApplying = true;
+    try { saveAll(arr); } finally { recApplying = false; }
+    recSet(DAY_KEY, todayStr());
+    keepPageScroll(function () { renderSlots(); renderToday(); });
+  }
+  function syncRecords(force) {
+    if (!USE_V2 || !fbAuth || !accountReady || recBlocked) return Promise.resolve();
+    if (!force && Date.now() - recCheckAt < 15000) return Promise.resolve();
+    if (recBusy) { recAgain = true; return Promise.resolve(); }
+    if (typeof checkNewDay === "function") checkNewDay(false);                     // 날짜가 바뀌었으면 먼저 어제 기록을 비움
+    recBusy = true; recCheckAt = Date.now();
+    var base = "/v2/users/" + getDeviceId() + "/rec", day = todayStr();
+    return dbFetch(base, { cache: "no-store" }).then(function (o) {
+      var srv = (o && typeof o === "object" && o.day === day && typeof o.at === "number" && typeof o.list === "string") ? o : null;
+      var dirty = recGet(RECDIRTY_KEY) === "1" || recGet(RECSYNC_KEY) === null;      // 한 번도 맞춘 적 없으면 이 기기 기록도 살림
+      if (srv && srv.at > recSyncAt()) {
+        if (sessionPending()) return;                // 시험 중에는 기록을 바꾸지 않음 (끝난 뒤 다음 확인 때 반영)
+        var remote = null; try { remote = JSON.parse(srv.list); } catch (e) {}
+        if (!Array.isArray(remote)) return;
+        remote = sanitize(remote);
+        var local = loadAll(), next = dirty ? mergeRecs(local, remote) : remote;
+        if (JSON.stringify(next) !== JSON.stringify(local)) { applyRecs(next); scheduleSync(); }
+        recSet(RECSYNC_KEY, String(srv.at));
+        if (!dirty || JSON.stringify(next) === JSON.stringify(remote)) { recSet(RECDIRTY_KEY, "0"); return; }
+      } else if (!dirty && !(!srv && loadAll().length)) return;
+      var list = JSON.stringify(loadAll());
+      if (list.length > 30000) return;
+      var at = Math.max(Date.now(), recSyncAt() + 1);
+      return dbFetch(base, { method: "PUT", headers: JSONH, body: JSON.stringify({ day: day, at: at, list: list }) }).then(function () {
+        recSet(RECSYNC_KEY, String(at)); recSet(RECDIRTY_KEY, "0");
+      }, function (err) { if (err && err.message === "http 401") recBlocked = true; });      // 서버 규칙이 아직 모르면 이번 접속 동안은 다시 시도하지 않음
+    }).then(function () { recBusy = false; if (recAgain) { recAgain = false; syncRecords(true); } }, function () { recBusy = false; });
+  }
   var photoSyncBusy = false, photoSyncAt = 0;
   function syncAccountPhoto(force) {                 // 서버의 계정 사진과 비교해서, 서버 것이 더 새로우면 받고 이 기기 것이 더 새로우면(또는 서버에 없으면) 올림
     if (!USE_V2 || !fbAuth || !accountReady || photoSyncBusy || acctPhotoBlocked) return Promise.resolve();
@@ -204,7 +259,7 @@
         roomListBusy = false;
         if (!roomListReady) return;
         accountReady = true;
-        syncSubjects();
+        syncSubjects(); syncRecords(true);
         return syncAccountPhoto(true).then(function () {         // 사진을 먼저 맞춘 뒤 방에 올림(기기마다 다른 사진을 방에 덮어쓰지 않게)
           renderRoomSwitch(); keepPageScroll(renderTogether);
           if (room) afterSwitch(); else syncOtherRooms(true);
