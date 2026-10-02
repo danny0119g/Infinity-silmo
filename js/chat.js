@@ -96,7 +96,8 @@
       var d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : "") + (im ? " img" : ""));
       if (im) {
         var pic = el("img", "cmPic"); pic.src = im; pic.alt = "사진"; pic.addEventListener("load", function () { if (c.stick) box.scrollTop = box.scrollHeight; });
-        pic.addEventListener("click", function () { openImgView(im); });
+        pic.addEventListener("mousedown", function (e) { e.preventDefault(); });          // 눌러도 입력창의 포커스(키보드)를 뺏지 않게
+        pic.addEventListener("click", function (e) { e.stopPropagation(); openImgView(im); });
         d.appendChild(pic);
         if (m.st === "fail") d.appendChild(el("div", "cmFail", "(전송 안 됨)"));
       } else d.textContent = tx + (m.st === "fail" ? " (전송 안 됨)" : "");
@@ -299,6 +300,7 @@
   function openImgView(src) {
     if (!imgView) {
       imgView = el("div", "imgView hidden"); var im = el("img"); imgView.appendChild(im);
+      imgView.addEventListener("mousedown", function (e) { e.preventDefault(); });
       imgView.addEventListener("click", function () { imgView.classList.add("hidden"); im.removeAttribute("src"); });
       document.body.appendChild(imgView);
     }
