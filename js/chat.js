@@ -355,6 +355,7 @@
     if (mineSys) { endChat(peer, "다른 기기에서 대화를 닫았어요"); return; }
     var latest = "";                                                          // 내가 이 창을 보고 있으면 상대 메시지를 읽은 것으로 표시
     Object.keys(d).forEach(function (k) { var m = d[k]; if (validMsg(m) && m.f === peer && m.k === "m" && (m.x || okImg(m.i)) && k.charAt(0) === "m" && k > latest) latest = k; });
+    Object.keys(c.msgs).forEach(function (k) { var m = c.msgs[k]; if (m && m.f === peer && m.k === "m" && (m.x || m.i) && !m.st && k.charAt(0) === "m" && k > latest) latest = k; });
     if (latest && latest > (c.readSent || "") && document.visibilityState === "visible" && home.style.display !== "none") {
       c.readSent = latest;
       var rn = chatNode(room.code, peer) + "/rd" + me, rv = { f: me, k: "m", x: "", s: "r|" + latest, t: Math.floor(Date.now() / 1000) };
@@ -370,7 +371,7 @@
       if (!c || c.ended || c.busy) return;
       c.busy = true;
       var last = ""; if (c.hasImg && c.sawServer) Object.keys(c.msgs).forEach(function (k) { if (k.charAt(0) === "m" && !c.msgs[k].st && k > last) last = k; });
-      var fo = { cache: "no-store" }; if (last) fo.query = "orderBy=" + encodeURIComponent('"$key"') + "&startAt=" + encodeURIComponent('"' + last + '"');
+      var fo = { cache: "no-store" }; if (last) { var lms = parseInt(last.slice(1, 10), 36); if (isFinite(lms)) { var from = mkey(Math.max(0, lms - 120000)).slice(0, 10); fo.query = "orderBy=" + encodeURIComponent('"$key"') + "&startAt=" + encodeURIComponent('"' + from + '"'); } }
       dbFetch(chatNode(code, peer), fo)
         .then(function (d) { c.busy = false; if (chats[peer] === c) mergeChat(peer, d); })
         .catch(function (err) { c.busy = false; if (err && err.message === "http 401") { if (!USE_V2) chatBlocked = true; if (chats[peer] === c) endChat(peer, "서버 규칙 업데이트가 필요해요"); } });
