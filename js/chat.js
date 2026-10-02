@@ -254,7 +254,7 @@
     var me = getDeviceId();
     if (!d || typeof d !== "object") { if (c.sawServer) endChat(peer, "대화가 끝났어요"); return; }
     c.sawServer = true;
-    var changed = false, newest = 0, sys = "";
+    var changed = false, newest = 0, sys = "", mineSys = false;
     Object.keys(d).forEach(function (k) {
       var m = d[k];
       if (!validMsg(m) || (m.f !== me && m.f !== peer)) return;
@@ -263,7 +263,11 @@
         if (m.f === peer) { var rk = m.s.slice(2, 20); if (rk > (c.peerRead || "")) { c.peerRead = rk; changed = true; } }
         return;
       }
-      if (m.k === "sys") { if (m.f !== me) sys = typeof m.x === "string" ? m.x : "bye"; return; }
+      if (m.k === "sys") {
+        if (m.f !== me) sys = typeof m.x === "string" ? m.x : "bye";
+        else if (m.t >= Math.floor(c.opened / 1000) - 1) mineSys = true;        // 같은 계정의 다른 기기에서 이 대화를 닫음 (이 창을 연 뒤에 올라온 신호만)
+        return;
+      }
       var old = c.msgs[k];
       if (!old || old.st) {
         c.msgs[k] = { f: m.f, k: m.k, x: typeof m.x === "string" ? m.x.slice(0, 80) : "", s: typeof m.s === "string" ? m.s.slice(0, 30) : "", t: m.t };
@@ -272,6 +276,7 @@
     });
     if (changed) renderChatMsgs(c);
     if (sys) { endChat(peer, chatNoticeText(c, sys)); return; }
+    if (mineSys) { endChat(peer, "다른 기기에서 대화를 닫았어요"); return; }
     var latest = "";                                                          // 내가 이 창을 보고 있으면 상대 메시지를 읽은 것으로 표시
     Object.keys(d).forEach(function (k) { var m = d[k]; if (validMsg(m) && m.f === peer && m.k === "m" && m.x && k.charAt(0) === "m" && k > latest) latest = k; });
     if (latest && latest > (c.readSent || "") && document.visibilityState === "visible" && home.style.display !== "none") {
@@ -357,6 +362,27 @@
     });
     invites.slice().forEach(function (iv) { handleInvite(iv, lis, byId); });
     Object.keys(pendingRestore).forEach(function (peer) { restoreChat(peer, pendingRestore, lis, byId); });
+    discoverChats(list);
+  }
+  // 서버에 있는 대화를 읽어서 이 기기에 창으로 띄움 (이미 끝난 대화·30분 넘게 말이 없던 대화는 안 띄움)
+  function openServerChat(peer, m, opened, fromRestore) {
+    var code = room.code, me = getDeviceId();
+    return dbFetch(chatNode(code, peer), { cache: "no-store" }).then(function (d) {
+      if (chats[peer] || !room || room.code !== code || !lastLis[peer]) return;
+      var msgs = {}, newest = 0, sysT = 0;
+      if (d && typeof d === "object") Object.keys(d).forEach(function (k) {
+        var x = d[k];
+        if (!validMsg(x) || (x.f !== me && x.f !== peer)) return;
+        if (x.k === "sys") { if (x.t > sysT) sysT = x.t; return; }                         // 누가 닫았든(상대든 내 다른 기기든) 닫는 신호
+        msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
+        if (x.t > newest) newest = x.t;
+      });
+      var over = sysT > 0 && sysT >= newest;                                               // 닫는 신호가 가장 마지막 일이면 끝난 대화 (그 뒤에 새 대화가 시작됐다면 아님)
+      if (over || !Object.keys(msgs).length || Date.now() / 1000 - newest > 1800) { if (fromRestore) saveChats(); return; }
+      var c = buildChat(peer, m.name, msgs, lastLis[peer]);
+      c.sawServer = true; if (opened) c.opened = opened;
+      saveChats();
+    }).catch(function () {});
   }
   function restoreChat(peer, pending, lis, byId) {
     var m = byId[peer], li = lis[peer], opened = pending[peer];
@@ -364,22 +390,29 @@
     if (!m || !li) { if (pulled) { delete pending[peer]; saveChats(); } return; }       // 아직 목록을 못 받았으면 기다리고, 받았는데 없으면(상대가 나감) 포기
     delete pending[peer];
     if (!room || chatBlocked || isLive(m)) { saveChats(); return; }                       // 상대가 지금 시험 중이면 대화는 끝난 것
-    var code = room.code, me = getDeviceId();
-    dbFetch(chatNode(code, peer), { cache: "no-store" }).then(function (d) {
-      if (chats[peer] || !room || room.code !== code || !lastLis[peer]) return;
-      var msgs = {}, over = false;
-      if (d && typeof d === "object") Object.keys(d).forEach(function (k) {
-        var x = d[k];
-        if (!validMsg(x) || (x.f !== me && x.f !== peer)) return;
-        if (x.k === "sys") { if (x.f !== me) over = true; return; }
-        msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
-      });
-      var newest = 0; Object.keys(msgs).forEach(function (k) { if (msgs[k].t > newest) newest = msgs[k].t; });
-      if (over || !Object.keys(msgs).length || Date.now() / 1000 - newest > 1800) { saveChats(); return; }      // 상대가 닫았거나 정리된 대화, 30분 넘게 말이 없던 대화는 다시 열지 않음
-      var c = buildChat(peer, m.name, msgs, lastLis[peer]);
-      c.sawServer = true; c.opened = opened;
-      saveChats();
-    }).catch(function () {});
+    openServerChat(peer, m, opened, true);
+  }
+  // 같은 계정의 다른 기기에서 시작했거나 이미 진행 중인 대화를 이 기기에도 띄움 (10초에 한 번, 방 친구마다 마지막 메시지 1개만 확인)
+  var discoverAt = 0, discoverBusy = {};
+  function discoverChats(list) {
+    if (!USE_V2 || !room || chatBlocked || document.visibilityState !== "visible" || home.style.display === "none") return;
+    var nowMs = Date.now();
+    if (nowMs - discoverAt < 10000) return;
+    var lv = liveInfo(); if (lv && lv.e !== 2) return;                                      // 내가 시험 중이면 대화창을 띄우지 않음
+    discoverAt = nowMs;
+    var code = room.code, nowS = nowMs / 1000;
+    list.forEach(function (m) {
+      var peer = m.id;
+      if (m.me || !CHAT_ID.test(peer) || chats[peer] || pendingRestore[peer] || discoverBusy[peer] || !lastLis[peer] || isLive(m)) return;
+      discoverBusy[peer] = true;
+      dbFetch(chatNode(code, peer), { cache: "no-store", query: "orderBy=%22%24key%22&limitToLast=1" }).then(function (d) {
+        discoverBusy[peer] = false;
+        if (!d || typeof d !== "object" || chats[peer] || !room || room.code !== code) return;
+        var x = d[Object.keys(d)[0]];
+        if (!validMsg(x) || x.k === "sys" || nowS - x.t > 1800 || x.t <= (chatClosedAt[peer] || 0)) return;      // 닫힌·오래된 대화이거나 이 기기에서 방금 닫은 대화는 제외
+        openServerChat(peer, m, Date.now(), false);
+      }, function () { discoverBusy[peer] = false; });
+    });
   }
 
   function closePhotoZoom() { var o = $("photoZoom"); if (o && o.parentNode) o.parentNode.removeChild(o); }

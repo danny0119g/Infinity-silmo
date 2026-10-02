@@ -36,12 +36,28 @@
       .then(function (reg) { return reg.pushManager.getSubscription(); })
       .then(function (sub) { if (!sub) savePushSub(""); else { var k = pushKeyOf(sub); if (k !== pushSub) savePushSub(k); } }).catch(function () {});
   }
+  // 내가 보낸 채팅의 알림 결과를 기억해 둠 (알림 점검에서 "상대에게 알림이 갔는지/왜 안 갔는지" 보여 줌)
+  var PUSHLOG_KEY = "examTimer.pushLog.v1";
+  function loadPushLog() { try { var a = JSON.parse(localStorage.getItem(PUSHLOG_KEY)); return Array.isArray(a) ? a.slice(-5) : []; } catch (e) { return []; } }
+  function logPushResult(name, status, j) {
+    var ok = false, t;
+    if (!status) t = "알림 서버에 연결하지 못했어요";
+    else if (status !== 200) t = status === 502 ? "알림 서버가 푸시 서비스에 보내지 못했어요 (502)" : "알림 서버가 거절했어요 (" + status + ")";
+    else if (j && j.skipped === "viewing") t = "상대가 그때 앱을 보고 있어서 보내지 않았어요";
+    else if (j && j.sent === true) { ok = true; t = "푸시 서비스가 받았어요 (" + (j.status || "") + ")"; }
+    else if (!j || typeof j !== "object" || (j.sent === undefined && j.skipped === undefined)) t = "알림 서버 응답이 이상해요 (" + status + ")";
+    else if (j && j.sent === false && typeof j.status === "number") t = "푸시 서비스가 거절했어요 (" + j.status + ")";
+    else t = "상대의 알림 주소가 서버에 없어요 (상대가 알림을 안 켰거나 지워졌어요)";
+    try { var a = loadPushLog(); a.push({ t: Date.now(), n: name, ok: ok, r: t }); localStorage.setItem(PUSHLOG_KEY, JSON.stringify(a.slice(-5))); } catch (e) {}
+  }
   function notifyPush(peer, text) {                  // 상대에게 채팅 알림 요청 (실패해도 대화에는 영향 없음)
     if (!PUSH_URL || !room) return;
     var rc = room.code;
     if (USE_V2) {                                    // 새 구조: 내 로그인 토큰을 같이 보내면 알림 서버가 그 토큰으로 서버 규칙을 거쳐 확인함
+      var nm = "상대"; others.forEach(function (o) { if (o.id === peer) nm = o.name; });
       authToken().then(function (tok) {
-        fetch(PUSH_URL + "/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: rc, to: peer, text: text, token: tok }), keepalive: true }).catch(function () {});
+        fetch(PUSH_URL + "/notify", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ room: rc, to: peer, text: text, token: tok }), keepalive: true })
+          .then(function (res) { return res.json().catch(function () { return null; }).then(function (j) { logPushResult(nm, res.status, j); }); }, function () { logPushResult(nm, 0, null); });
       }, function () {});
       return;
     }
@@ -87,12 +103,20 @@
     }, function () { add(null, "앱 버전 " + mine + " (서버 버전은 확인 못 함)"); })
     .then(function () {                                                                                                                   // 2) 계정·방 목록
       if (!USE_V2 || !fbAuth) return;
-      add(null, "로그인: " + (fbAuth.kind === "google" ? "구글 계정" : "이 기기에서만 쓰는 계정") + " (" + fbAuth.uid.slice(0, 6) + "…)");
+      add(true, "로그인: " + (fbAuth.kind === "google" ? "구글 계정" : "이 기기에서만 쓰는 계정") + " (" + fbAuth.uid.slice(0, 6) + "…)");
       return dbFetch(roomListPath(), { cache: "no-store" }).then(function (srv) {
         srv = (srv && typeof srv === "object") ? srv : {};
         var sc = Object.keys(srv), same = sc.length === rooms.length && rooms.every(function (r) { var s = srv[r.code]; return !!s && s.name === r.name && (s.label || "") === (r.label || ""); });
         add(same, "방 목록: 이 기기 " + rooms.length + "개, 서버 " + sc.length + "개" + (same ? " (이름까지 같음)" : " (다름: 앱을 다시 열면 맞춰져요)"));
       }, function () { add(false, "방 목록을 서버에서 읽지 못했어요"); });
+    })
+    .then(function () {                                                                                                                   // 2-2) 이 기기에서 보낸 채팅의 알림 결과
+      var lg = loadPushLog();
+      if (!lg.length) { add(null, "이 기기에서 보낸 채팅의 알림 결과: 아직 없음 (채팅을 보낸 뒤 점검하면 상대에게 알림이 갔는지 보여요)"); return; }
+      lg.slice(-3).forEach(function (e) {
+        var m = Math.max(0, Math.round((Date.now() - e.t) / 60000));
+        add(e.ok, (m < 1 ? "방금" : m + "분 전") + " " + e.n + "에게 보낸 채팅: " + e.r);
+      });
     })
     .then(function () {                                                                                                                   // 3) 이 기기의 알림 준비
       if (!pushSupported()) { add(false, "이 화면은 알림을 지원하지 않아요 (아이패드는 홈 화면에 추가한 앱에서만)"); stop(); return; }

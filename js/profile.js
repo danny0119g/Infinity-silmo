@@ -97,9 +97,15 @@
   function loadPhoto() { var p = ""; try { p = localStorage.getItem(PHOTO_KEY) || ""; } catch (e) {} if (!p) p = memPhoto; return validPhoto(p) ? p : ""; }
   var photo = loadPhoto();
   function savePhoto(p) { memPhoto = p; photo = p; try { localStorage.setItem(PHOTO_KEY, p); } catch (e) {} }
+  // 사진은 계정에 저장됨(서버 users/{계정}/photo, photoAt). photoAt = 이 기기가 아는 사진의 바뀐 시각(ms): 서버 값이 더 새로우면 서버 사진을 받고, 이 기기 것이 더 새로우면 올림
+  var PHOTOAT_KEY = "examTimer.photoAt.v1";
+  function loadPhotoAt() { try { return Number(localStorage.getItem(PHOTOAT_KEY)) || 0; } catch (e) { return 0; } }
+  var photoAt = loadPhotoAt();
+  function savePhotoAt(t) { photoAt = t; try { localStorage.setItem(PHOTOAT_KEY, String(t)); } catch (e) {} }
   function applyPhoto(data) {
     if (room) setPhotoUse(room.code, true);           // 새로 고른 사진은 이 방에서 바로 사용
-    savePhoto(data); photoSentBy = {}; photoBlocked = false;
+    savePhoto(data); savePhotoAt(Date.now()); photoSentBy = {}; photoBlocked = false;
+    pushAccountPhoto();                               // 내 다른 기기에서도 같은 사진이 되도록 계정에 저장
     keepPageScroll(renderTogether);
     enqueue(function () { return pushPhoto(true); }).then(function () { keepPageScroll(renderTogether); });
     rooms.forEach(function (r) { if (!room || r.code !== room.code) enqueue(function () { return pushPhoto(true, r); }); });      // 다른 방에도 (사진을 쓰기로 한 방만)
@@ -108,6 +114,7 @@
     closePenMenu();
     photo = ""; memPhoto = ""; photoSentBy = {};
     try { localStorage.removeItem(PHOTO_KEY); } catch (e) {}
+    savePhotoAt(Date.now()); pushAccountPhoto();       // 지웠다는 사실도 계정에 저장(다른 기기에서도 지워지게)
     rooms.forEach(function (r) { enqueue(function () { return dbFetch(ROOMS_ROOT + r.code + "/photos/" + getDeviceId(), { method: "DELETE" }).catch(function () {}); }); });
     keepPageScroll(renderTogether);
   }

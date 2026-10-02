@@ -39,7 +39,8 @@
     function go(tok) {
       var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null, to = 0;
       if (ctl) { opts.signal = ctl.signal; to = setTimeout(function () { ctl.abort(); }, 10000); }
-      return fetch(DB_URL + path + ".json" + (tok ? "?auth=" + encodeURIComponent(tok) : ""), opts).then(function (res) {
+      var qs = []; if (tok) qs.push("auth=" + encodeURIComponent(tok)); if (opts.query) qs.push(opts.query);          // opts.query: 서버 조회 조건(예: 마지막 1개만)
+      return fetch(DB_URL + path + ".json" + (qs.length ? "?" + qs.join("&") : ""), opts).then(function (res) {
         clearTimeout(to);
         if (!res.ok) throw new Error("http " + res.status);
         return res.json();
@@ -49,6 +50,14 @@
     if (!fbAuth) return Promise.reject(new Error("NO_AUTH"));
     return authToken().then(go);                     // 새 구조: 모든 요청에 내 로그인 토큰(1시간짜리, 자동 갱신)을 붙임
   }
+  function clearPresence() {                         // 앱이 화면에서 사라지면 "보는 중" 신호(members/내ID/on)를 바로 0으로: 안 그러면 떠난 뒤 10초 동안은 상대 채팅 알림이 건너뛰어짐
+    if (!USE_V2 || !fbAuth || !room || !fbAuth.token || fbAuth.exp - Date.now() < 10000) return;
+    try { fetch(DB_URL + ROOMS_ROOT + room.code + "/members/" + getDeviceId() + "/on.json?auth=" + encodeURIComponent(fbAuth.token), { method: "PUT", headers: JSONH, body: "0", keepalive: true }).catch(function () {}); } catch (e) {}
+    delete lastSentBy[room.code];
+    var r = room; enqueue(function () { return pushMe(true, r); });      // 이미 날아가던 업데이트가 뒤늦게 옛 신호를 덮어쓰지 않도록, 신호 없는 상태를 순서대로 한 번 더 올림(앱이 아직 살아 있을 때)
+  }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") clearPresence(); });
+  window.addEventListener("pagehide", clearPresence);
   function enqueue(fn) { netChain = netChain.then(fn, fn); return netChain; }      // 요청을 한 줄로 세워서 순서가 뒤바뀌지 않게
   var lastPushBy = {}, roomPending = {}, accountReady = !USE_V2;      // accountReady: 새 구조에서 방 목록·옛 방 이전 확인이 끝났는지
   var lastPushAt = {}, PUSH_REASSERT_MS = 300000;
@@ -82,7 +91,7 @@
   var PHOTOUSE_KEY = "examTimer.photoUse.v1";
   function loadPhotoUse() { try { var o = JSON.parse(localStorage.getItem(PHOTOUSE_KEY)); if (o && typeof o === "object") return o; } catch (e) {} return {}; }
   var photoUse = loadPhotoUse();
-  function setPhotoUse(code, v) { photoUse[code] = v; try { localStorage.setItem(PHOTOUSE_KEY, JSON.stringify(photoUse)); } catch (e) {} }
+  function setPhotoUse(code, v) { photoUse[code] = v; try { localStorage.setItem(PHOTOUSE_KEY, JSON.stringify(photoUse)); } catch (e) {} if (USE_V2 && typeof v === "boolean") scheduleRoomListPush(); }      // 방별 사진 사용 여부도 계정에 저장
   function photoUsable(code) { code = code || (room && room.code); if (!code) return true; var v = photoUse[code]; return v !== false && v !== "ask"; }
   function askPhotoUse() {                           // 방에 들어올 때마다: 이 방에서 지금 사진을 쓸지 물어봄
     if (!room || !photo || photoUse[room.code] !== "ask" || $("modal").classList.contains("on")) return;
@@ -288,6 +297,7 @@
     } catch (e) {}
     askPhotoUse();
     if (typeof refreshRoomList === "function") refreshRoomList(false);
+    if (typeof syncAccountPhoto === "function") syncAccountPhoto(false);
     syncOtherRooms(false);
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }

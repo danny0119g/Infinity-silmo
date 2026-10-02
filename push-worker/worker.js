@@ -67,7 +67,7 @@ async function notifyV2(n, env, ctx) {
   if (!me.ok || !me.v || typeof me.v !== "object" || typeof me.v.name !== "string") return reply({ ok: false, error: "not a member" }, 403);
   if (!selfTest && on.ok && recentSignal(on.v)) return reply({ ok: true, sent: false, skipped: "viewing" });
   var sub = subFromString(push.ok ? push.v : null);
-  if (!sub) return reply(selfTest ? { ok: true, sent: false, reason: "no subscription on server" } : { ok: true, sent: false });
+  if (!sub) return reply(selfTest ? { ok: true, sent: false, reason: "no subscription on server" } : { ok: true, sent: false, reason: "no push address" });
   if (selfTest) {
     var delay = Math.min(15, Math.max(0, Math.floor(Number(n.delay) || 0))), host = hostOf(sub);
     if (delay > 0 && ctx && ctx.waitUntil) {                                      // 바로 응답하고, 지정한 초 뒤에 보냄 (그 사이 앱을 닫아 볼 수 있게)
