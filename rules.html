@@ -209,18 +209,29 @@ var FULL_STRICT = `{
           "subjAt": {
             ".validate": "newData.isNumber()"
           },
-          "rec": {
-            "day": {
-              ".validate": "newData.isString() && newData.val().length <= 10"
-            },
-            "at": {
-              ".validate": "newData.isNumber()"
-            },
-            "list": {
-              ".validate": "newData.isString() && newData.val().length <= 30000"
-            },
-            "$other": {
-              ".validate": false
+          "recs": {
+            "$date": {
+              ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.hasChildren(['at', 'list'])",
+              "v": {
+                ".validate": "newData.isNumber()"
+              },
+              "at": {
+                ".validate": "newData.isNumber()"
+              },
+              "list": {
+                ".validate": "newData.isString() && newData.val().length <= 30000"
+              },
+              "gone": {
+                ".validate": "newData.isString() && newData.val().length <= 4000"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "recIdx": {
+            "$date": {
+              ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.isNumber()"
             }
           },
           "theme": {
@@ -452,18 +463,29 @@ var FULL_SIMPLE = `{
           "subjAt": {
             ".validate": "newData.isNumber()"
           },
-          "rec": {
-            "day": {
-              ".validate": "newData.isString() && newData.val().length <= 10"
-            },
-            "at": {
-              ".validate": "newData.isNumber()"
-            },
-            "list": {
-              ".validate": "newData.isString() && newData.val().length <= 30000"
-            },
-            "$other": {
-              ".validate": false
+          "recs": {
+            "$date": {
+              ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.hasChildren(['at', 'list'])",
+              "v": {
+                ".validate": "newData.isNumber()"
+              },
+              "at": {
+                ".validate": "newData.isNumber()"
+              },
+              "list": {
+                ".validate": "newData.isString() && newData.val().length <= 30000"
+              },
+              "gone": {
+                ".validate": "newData.isString() && newData.val().length <= 4000"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "recIdx": {
+            "$date": {
+              ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.isNumber()"
             }
           },
           "theme": {
@@ -687,18 +709,29 @@ var V2_ONLY = `"v2": {
           "subjAt": {
             ".validate": "newData.isNumber()"
           },
-          "rec": {
-            "day": {
-              ".validate": "newData.isString() && newData.val().length <= 10"
-            },
-            "at": {
-              ".validate": "newData.isNumber()"
-            },
-            "list": {
-              ".validate": "newData.isString() && newData.val().length <= 30000"
-            },
-            "$other": {
-              ".validate": false
+          "recs": {
+            "$date": {
+              ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.hasChildren(['at', 'list'])",
+              "v": {
+                ".validate": "newData.isNumber()"
+              },
+              "at": {
+                ".validate": "newData.isNumber()"
+              },
+              "list": {
+                ".validate": "newData.isString() && newData.val().length <= 30000"
+              },
+              "gone": {
+                ".validate": "newData.isString() && newData.val().length <= 4000"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "recIdx": {
+            "$date": {
+              ".validate": "$date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.isNumber()"
             }
           },
           "theme": {

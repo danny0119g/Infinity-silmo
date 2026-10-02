@@ -1,16 +1,45 @@
 // [records.js] 오늘의 기록 저장/불러오기, 하루가 지나면 초기화, 기록 상자 그리기
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
   // ---------- 오늘의 기록 (응시한 순서대로 보관, 하루가 지나면 초기화) ----------
-  var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2", memAll = null;
+  var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2";            // 옛 저장 칸(날짜 구분 없던 시절): 처음 한 번 날짜별 칸으로 옮김
+  var DAYREC_PREFIX = "examTimer.rec.v4.", DAYS_KEY = "examTimer.recDays.v1", DAY_CUTOFF_H = 0;     // DAY_CUTOFF_H: 하루가 시작되는 시각(0 = 자정). 새벽 시험을 전날로 치고 싶으면 이 값만 바꾸면 됨
+  var memDays = {}, storeFailed = false;           // 저장소에 쓰기가 실패했으면(용량 초과 등) 이번 방문 동안은 메모리 값을 우선
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-  var storeFailed = false;                       // 저장소에 쓰기가 실패했으면(용량 초과 등) 이번 방문 동안은 메모리 값을 우선
-  function saveAll(arr) {
-    memAll = arr;
-    try { localStorage.setItem(ALL_KEY, JSON.stringify(arr)); storeFailed = false; } catch (e) { storeFailed = true; }
-    if (typeof onRecordsChanged === "function") onRecordsChanged();             // 계정 기록 동기화
+  // ---- 날짜 도우미: 모든 "오늘/날짜" 계산은 여기 한 곳에서만 ----
+  function dayStrOf(ms) { var d = new Date(ms - DAY_CUTOFF_H * 3600000); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function todayStr() { return dayStrOf(Date.now()); }
+  function validDay(d) { return typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d); }
+  function idTime(id) { var t = parseInt(String(id).slice(0, 8), 36); return (isFinite(t) && t > 1e12) ? t : 0; }      // 기록 ID의 앞부분 = 시험을 시작한 시각
+  function dayOfId(id) { var t = idTime(id); return t ? dayStrOf(t) : todayStr(); }                                  // 기록이 속한 날짜 = 시작한 날 (자정을 넘겨 끝나도 시작한 날)
+  // ---- 날짜별 기록 저장: 칸 하나 = 하루 ({v, list, gone}). gone = 지운 기록 ID(기기끼리 합칠 때 되살아나지 않게) ----
+  function readDayRaw(d) {
+    var o = null; try { o = JSON.parse(localStorage.getItem(DAYREC_PREFIX + d)); } catch (e) {}
+    return (o && Array.isArray(o.list)) ? { list: o.list, gone: Array.isArray(o.gone) ? o.gone.filter(function (x) { return typeof x === "string"; }) : [] } : null;
+  }
+  function localDays() { var a = []; try { a = JSON.parse(localStorage.getItem(DAYS_KEY)); } catch (e) {} return Array.isArray(a) ? a.filter(validDay) : []; }
+  function addDayIdx(d) { var a = localDays(); if (a.indexOf(d) < 0) { a.push(d); a.sort(); try { localStorage.setItem(DAYS_KEY, JSON.stringify(a)); } catch (e) {} } }
+  function removeLocalDay(d) { delete memDays[d]; try { localStorage.removeItem(DAYREC_PREFIX + d); localStorage.setItem(DAYS_KEY, JSON.stringify(localDays().filter(function (x) { return x !== d; }))); } catch (e) {} }
+  function dayGone(d) { var o = memDays[d] || readDayRaw(d); return o ? o.gone : []; }
+  function saveDay(d, arr, gone, silent) {         // silent: 서버에서 받은 값을 반영할 때 (다시 서버로 올리지 않음)
+    var g = (gone || dayGone(d)).slice(-100);
+    memDays[d] = { list: arr, gone: g };
+    try { localStorage.setItem(DAYREC_PREFIX + d, JSON.stringify({ v: 1, list: arr, gone: g })); addDayIdx(d); storeFailed = false; } catch (e) { storeFailed = true; }
+    if (!silent && typeof onRecordsChanged === "function") onRecordsChanged(d);
     scheduleSync();
   }
+  function migrateOldRecords() {                   // 날짜 구분 없이 하나로 저장하던 옛 기록을, 그 기록이 속한 날짜 칸으로 옮김
+    var arr = null, old = null, stamp = null;
+    try { arr = JSON.parse(localStorage.getItem(ALL_KEY)); } catch (e) {}
+    try { old = JSON.parse(localStorage.getItem(OLD_KEY)); } catch (e) {}
+    try { stamp = localStorage.getItem("examTimer.day.v1"); } catch (e) {}
+    if (!Array.isArray(arr) && !(old && Array.isArray(old.records))) return;
+    var list = Array.isArray(arr) ? arr : old.records, d = validDay(stamp) ? stamp : todayStr();
+    var cur = loadDay(d);
+    saveDay(d, mergeById(cur, sanitize(list)));
+    try { localStorage.removeItem(ALL_KEY); localStorage.removeItem(OLD_KEY); } catch (e) {}
+  }
+  function mergeById(a, b) { var seen = {}, out = []; a.concat(b).forEach(function (r) { if (!seen[r.id]) { seen[r.id] = 1; out.push(r); } }); return out; }
   // 저장된 값이 깨져 있어도 화면이 멈추지 않도록 한 줄씩 점검해서 쓸 수 있는 형태로 만듦
   function cleanScore(v) { return (typeof v === "number" && isFinite(v) && v >= 0 && v <= 50 && Math.floor(v) === v) ? v : null; }
   function cleanSecs(v) { return (typeof v === "number" && isFinite(v) && v >= 0) ? v : null; }
@@ -32,25 +61,31 @@
     });
     return out;
   }
-  function loadAll() {
-    if (storeFailed && memAll) return memAll;
-    var arr = null;
-    try { arr = JSON.parse(localStorage.getItem(ALL_KEY)); } catch (e) {}
-    if (Array.isArray(arr)) return sanitize(arr);
-    if (memAll) return memAll;
-    // 이전 버전에서 쓰던 기록이 있으면 그대로 이어받기
-    var old = null;
-    try { old = JSON.parse(localStorage.getItem(OLD_KEY)); } catch (e) {}
-    arr = sanitize((old && Array.isArray(old.records)) ? old.records : []);
-    saveAll(arr);
-    return arr;
+  function loadDay(d) {
+    if (storeFailed && memDays[d]) return memDays[d].list;
+    var o = readDayRaw(d);
+    if (o) { var l = sanitize(o.list); memDays[d] = { list: l, gone: o.gone }; return l; }
+    return memDays[d] ? memDays[d].list : [];
+  }
+  var migrated = false;
+  function loadAll() {                             // 오늘의 기록 (화면·친구 공유·그래프는 모두 오늘 것을 기준으로 함)
+    if (!migrated) { migrated = true; migrateOldRecords(); }
+    return loadDay(todayStr());
+  }
+  function saveAll(arr) {                          // 오늘의 기록 저장 (목록에서 빠진 기록은 "지운 기록"으로 남김)
+    var d = todayStr(), prev = loadDay(d), keep = {}, gone = dayGone(d).slice();
+    arr.forEach(function (r) { keep[r.id] = 1; });
+    prev.forEach(function (r) { if (!keep[r.id] && gone.indexOf(r.id) < 0) gone.push(r.id); });
+    saveDay(d, arr, gone);
   }
   function findRec(arr, id) {
     for (var j = 0; j < arr.length; j++) if (arr[j].id === id) return arr[j];
     return null;
   }
-  function removeRec(id) {
-    saveAll(loadAll().filter(function (x) { return x.id !== id; }));
+  function removeRec(id) {                         // 기록이 속한 날짜 칸에서 지움 (자정을 넘긴 시험도 그 시험의 날짜에서)
+    var d = dayOfId(id), gone = dayGone(d).slice();
+    if (gone.indexOf(id) < 0) gone.push(id);
+    saveDay(d, loadDay(d).filter(function (x) { return x.id !== id; }), gone);
   }
   // 과목별로 응시한 순서대로 회차를 매긴다 (첫 번째 = 1회, 두 번째 = 2회 …)
   function attemptNumbers(all) {
@@ -62,18 +97,15 @@
     });
     return nums;
   }
-  // ---------- 하루가 지나면 초기화 ----------
-  // 기록은 "오늘 것"만 남긴다. 날짜가 바뀐 걸 알아채면 기록과 진행 중 정보를 지우고 페이지를 새로 불러온다. (선택한 과목은 유지)
+  // ---------- 날짜가 바뀌면 화면만 새로 ----------
+  // 기록은 날짜별 칸에 그대로 남고, 새 날에는 빈 오늘이 시작된다. (선택한 과목은 유지)
   var DAY_KEY = "examTimer.day.v1";
-  function todayStr() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
-  function dayRollover(keepId) {                   // 날짜가 바뀌어 지웠으면 true. keepId: 방금 끝난 시험은 남김(자정을 넘겨 끝난 경우)
+  function dayRollover() {                         // 날짜가 바뀐 걸 처음 알아챘으면 true
     var t = todayStr(), stamp = null;
     try { stamp = localStorage.getItem(DAY_KEY); } catch (e) { return false; }
     if (stamp === t) return false;
-    if (stamp == null) { try { localStorage.setItem(DAY_KEY, t); } catch (e) {} return false; }   // 이전 버전에서 넘어온 기록은 오늘 것으로 봄
-    var keep = keepId ? loadAll().filter(function (r) { return r.id === keepId; }) : [];
-    saveAll(keep);
-    try { localStorage.removeItem(OLD_KEY); localStorage.setItem(DAY_KEY, t); } catch (e) {}
+    try { localStorage.setItem(DAY_KEY, t); } catch (e) {}
+    if (stamp == null) return false;
     clearSession();
     return true;
   }

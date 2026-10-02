@@ -154,59 +154,91 @@
       if (mine > srvAt || (!srvAt && (loadSubjects()[1] || loadSubjects()[2]))) { if (!mine) saveSubjAt(Date.now()); return pushSubjects(); }
     }).then(function () { subjBusy = false; }, function () { subjBusy = false; });
   }
-  // ---- 오늘의 응시 기록 계정 동기화 (users/{uid}/rec = {day, at, list(JSON 글자)}) ----
-  var RECDIRTY_KEY = "examTimer.recDirty.v1", RECSYNC_KEY = "examTimer.recSynced.v1";
-  var recBlocked = false, recBusy = false, recAgain = false, recApplying = false, recTimer = 0, recCheckAt = 0;
+  // ---- 응시 기록 계정 동기화: 날짜별로 users/{uid}/recs/{날짜} = {v, at, list(JSON 글자), gone(지운 ID 목록)}, 날짜 목록 users/{uid}/recIdx/{날짜} = at ----
+  // 평소(15초)에는 오늘 것만 확인하고, 1분마다 날짜 목록(recIdx)을 받아 새로 생긴·바뀐 날짜만 가져옴 (기록이 몇 달 쌓여도 요청 수가 늘지 않음)
+  var RECDIRTY_KEY = "examTimer.recDirty.v2", RECSYNC_KEY = "examTimer.recSynced.v2", REC_RETAIN_DAYS = 400, REC_MAX_PER_CYCLE = 12, REC_MAX_LIST = 30000;
+  var recBlocked = false, recBusy = false, recAgain = false, recTimer = 0, recCheckAt = 0, recIdxAt = 0;
   function recGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function recSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-  function recSyncAt() { return Number(recGet(RECSYNC_KEY)) || 0; }
-  function onRecordsChanged() {
-    if (recApplying || !USE_V2 || !fbAuth) return;
-    recSet(RECDIRTY_KEY, "1");
+  function recMap(k) { try { var o = JSON.parse(localStorage.getItem(k)); return (o && typeof o === "object") ? o : {}; } catch (e) { return {}; } }
+  function recMapSet(k, d, v) { var o = recMap(k); if (v == null) delete o[d]; else o[d] = v; recSet(k, JSON.stringify(o)); }
+  function recSyncedAt(d) { return Number(recMap(RECSYNC_KEY)[d]) || 0; }
+  function recIsDirty(d) { return recMap(RECDIRTY_KEY)[d] === 1; }
+  function onRecordsChanged(d) {
+    if (!USE_V2 || !fbAuth || !validDay(d)) return;
+    recMapSet(RECDIRTY_KEY, d, 1);
     clearTimeout(recTimer); recTimer = setTimeout(function () { syncRecords(true); }, 800);
   }
-  function recStart(r) { var t = parseInt(String(r.id).slice(0, 8), 36); return isFinite(t) ? t : 0; }
-  function mergeRecs(local, remote) {              // 두 기기에서 따로 쌓인 기록을 합침 (같은 기록이면 값이 있는 칸을 채움, 시작 시각 순서)
-    var byId = {}, order = [];
+  function unionIds(a, b) { var seen = {}, out = []; a.concat(b).forEach(function (x) { if (!seen[x]) { seen[x] = 1; out.push(x); } }); return out.slice(-100); }
+  function mergeRecs(local, remote, gone) {        // 두 기기에서 따로 쌓인 기록을 합침 (같은 기록이면 값이 있는 칸을 채움, 시작 시각 순서, 지운 기록은 뺌)
+    var byId = {}, order = [], dead = {};
+    gone.forEach(function (id) { dead[id] = 1; });
     remote.forEach(function (r) { if (!byId[r.id]) order.push(r.id); byId[r.id] = r; });
     local.forEach(function (r) {
       if (byId[r.id]) { var c = {}, k; for (k in byId[r.id]) c[k] = byId[r.id][k]; for (k in r) if (r[k] != null) c[k] = r[k]; byId[r.id] = c; }
       else { byId[r.id] = r; order.push(r.id); }
     });
-    return order.map(function (id, i) { return { r: byId[id], i: i }; }).sort(function (a, b) { return (recStart(a.r) - recStart(b.r)) || (a.i - b.i); }).map(function (x) { return x.r; });
+    return order.filter(function (id) { return !dead[id]; }).map(function (id, i) { return { r: byId[id], i: i }; })
+      .sort(function (a, b) { return (idTime(a.r.id) - idTime(b.r.id)) || (a.i - b.i); }).map(function (x) { return x.r; });
   }
-  function applyRecs(arr) {
-    recApplying = true;
-    try { saveAll(arr); } finally { recApplying = false; }
-    recSet(DAY_KEY, todayStr());
-    keepPageScroll(function () { renderSlots(); renderToday(); });
+  function sameIds(a, b) { return a.length === b.length && a.every(function (x) { return b.indexOf(x) >= 0; }); }
+  function syncDay(d, srvAt) {                     // 하루치 기록을 서버와 맞춤 (srvAt: 서버 날짜 목록에 적힌 시각, 없으면 0)
+    var base = "/v2/users/" + getDeviceId(), isToday = d === todayStr();
+    var dirty = recIsDirty(d) || recMap(RECSYNC_KEY)[d] === undefined;                    // 한 번도 맞춘 적 없으면 이 기기 기록도 살림
+    var need = srvAt > recSyncedAt(d);
+    var p = need ? dbFetch(base + "/recs/" + d, { cache: "no-store" }) : Promise.resolve(null);
+    return p.then(function (o) {
+      var srv = (o && typeof o === "object" && typeof o.at === "number" && typeof o.list === "string") ? o : null;
+      if (srv && srv.at > recSyncedAt(d)) {
+        if (isToday && sessionPending()) return;   // 시험 중에는 오늘 기록을 바꾸지 않음 (끝난 뒤 다음 확인 때 반영)
+        var remote = null; try { remote = JSON.parse(srv.list); } catch (e) {}
+        if (!Array.isArray(remote)) return;
+        remote = sanitize(remote);
+        var rg = []; try { var g = JSON.parse(srv.gone || "[]"); if (Array.isArray(g)) rg = g.filter(function (x) { return typeof x === "string"; }); } catch (e) {}
+        var local = loadDay(d), lg = dayGone(d), allGone = unionIds(lg, rg);
+        var next = dirty ? mergeRecs(local, remote, allGone) : remote, gnext = dirty ? allGone : rg;
+        if (JSON.stringify(next) !== JSON.stringify(local) || !sameIds(gnext, lg)) {
+          saveDay(d, next, gnext, true);
+          if (isToday) { recSet(DAY_KEY, todayStr()); keepPageScroll(function () { renderSlots(); renderToday(); }); }
+        }
+        recMapSet(RECSYNC_KEY, d, srv.at);
+        if (!dirty || (JSON.stringify(next) === JSON.stringify(remote) && sameIds(gnext, rg))) { recMapSet(RECDIRTY_KEY, d, null); return; }
+      } else if (!dirty && !(!srv && need && loadDay(d).length)) return;
+      var list = JSON.stringify(loadDay(d)), gone = dayGone(d);
+      if (list.length > REC_MAX_LIST) return;
+      if (list === "[]" && !gone.length && !srv) { recMapSet(RECSYNC_KEY, d, 0); recMapSet(RECDIRTY_KEY, d, null); return; }      // 빈 날은 올리지 않음
+      var at = Math.max(Date.now(), recSyncedAt(d) + 1, (srv ? srv.at : srvAt) + 1), body = {};
+      body["recs/" + d] = { v: 1, at: at, list: list, gone: JSON.stringify(gone) };
+      body["recIdx/" + d] = at;                    // 기록과 날짜 목록을 한 번에(둘 다 성공하거나 둘 다 실패)
+      return dbFetch(base, { method: "PATCH", headers: JSONH, body: JSON.stringify(body) }).then(function () {
+        recMapSet(RECSYNC_KEY, d, at); recMapSet(RECDIRTY_KEY, d, null);
+      }, function (err) { if (err && err.message === "http 401") recBlocked = true; });      // 서버 규칙이 아직 모르면 이번 접속 동안은 다시 시도하지 않음
+    });
+  }
+  function pruneOldDays() {                        // 오래된 날짜는 이 기기에서만 지움 (서버에는 남음). 아직 못 올린 날은 지우지 않음
+    var limit = dayStrOf(Date.now() - REC_RETAIN_DAYS * 86400000);
+    localDays().forEach(function (d) { if (d < limit && !recIsDirty(d) && recMap(RECSYNC_KEY)[d] !== undefined) { removeLocalDay(d); recMapSet(RECSYNC_KEY, d, null); } });
   }
   function syncRecords(force) {
     if (!USE_V2 || !fbAuth || !accountReady || recBlocked) return Promise.resolve();
     if (!force && Date.now() - recCheckAt < 15000) return Promise.resolve();
     if (recBusy) { recAgain = true; return Promise.resolve(); }
-    if (typeof checkNewDay === "function") checkNewDay(false);                     // 날짜가 바뀌었으면 먼저 어제 기록을 비움
+    if (typeof checkNewDay === "function") checkNewDay(false);                     // 날짜가 바뀌었으면 화면부터 새 날로
     recBusy = true; recCheckAt = Date.now();
-    var base = "/v2/users/" + getDeviceId() + "/rec", day = todayStr();
-    return dbFetch(base, { cache: "no-store" }).then(function (o) {
-      var srv = (o && typeof o === "object" && o.day === day && typeof o.at === "number" && typeof o.list === "string") ? o : null;
-      var dirty = recGet(RECDIRTY_KEY) === "1" || recGet(RECSYNC_KEY) === null;      // 한 번도 맞춘 적 없으면 이 기기 기록도 살림
-      if (srv && srv.at > recSyncAt()) {
-        if (sessionPending()) return;                // 시험 중에는 기록을 바꾸지 않음 (끝난 뒤 다음 확인 때 반영)
-        var remote = null; try { remote = JSON.parse(srv.list); } catch (e) {}
-        if (!Array.isArray(remote)) return;
-        remote = sanitize(remote);
-        var local = loadAll(), next = dirty ? mergeRecs(local, remote) : remote;
-        if (JSON.stringify(next) !== JSON.stringify(local)) { applyRecs(next); scheduleSync(); }
-        recSet(RECSYNC_KEY, String(srv.at));
-        if (!dirty || JSON.stringify(next) === JSON.stringify(remote)) { recSet(RECDIRTY_KEY, "0"); return; }
-      } else if (!dirty && !(!srv && loadAll().length)) return;
-      var list = JSON.stringify(loadAll());
-      if (list.length > 30000) return;
-      var at = Math.max(Date.now(), recSyncAt() + 1);
-      return dbFetch(base, { method: "PUT", headers: JSONH, body: JSON.stringify({ day: day, at: at, list: list }) }).then(function () {
-        recSet(RECSYNC_KEY, String(at)); recSet(RECDIRTY_KEY, "0");
-      }, function (err) { if (err && err.message === "http 401") recBlocked = true; });      // 서버 규칙이 아직 모르면 이번 접속 동안은 다시 시도하지 않음
+    var base = "/v2/users/" + getDeviceId(), today = todayStr(), full = force || Date.now() - recIdxAt >= 60000;
+    var pidx = full ? dbFetch(base + "/recIdx", { cache: "no-store" }).then(function (o) { return (o && typeof o === "object") ? o : {}; })
+                    : dbFetch(base + "/recIdx/" + today, { cache: "no-store" }).then(function (v) { var o = {}; if (typeof v === "number") o[today] = v; return o; });
+    return pidx.then(function (idx) {
+      var todo = [today];
+      Object.keys(recMap(RECDIRTY_KEY)).forEach(function (d) { if (validDay(d) && todo.indexOf(d) < 0) todo.push(d); });
+      if (full) {
+        recIdxAt = Date.now();
+        Object.keys(idx).sort().reverse().forEach(function (d) { if (validDay(d) && typeof idx[d] === "number" && idx[d] > recSyncedAt(d) && todo.indexOf(d) < 0) todo.push(d); });
+        localDays().forEach(function (d) { if (idx[d] == null && recMap(RECSYNC_KEY)[d] === undefined && todo.indexOf(d) < 0) todo.push(d); });
+        pruneOldDays();
+      }
+      todo = todo.slice(0, REC_MAX_PER_CYCLE);
+      return todo.reduce(function (chain, d) { return chain.then(function () { return syncDay(d, typeof idx[d] === "number" ? idx[d] : 0); }); }, Promise.resolve());
     }).then(function () { recBusy = false; if (recAgain) { recAgain = false; syncRecords(true); } }, function () { recBusy = false; });
   }
   // ---- 다크 모드 계정 동기화 (users/{uid}/theme, themeAt) ----

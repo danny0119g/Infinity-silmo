@@ -21,28 +21,20 @@
   var remainEl = $("remain"), warnEl = $("warn5");
   var scoreInput = $("scoreInput"), scoreErr = $("scoreErr");
 
-  // ---------- 시계 눈금과 숫자 ----------
-  var ticks = $("ticks"), nums = $("nums"), NS = "http://www.w3.org/2000/svg";
+  // ---------- 시계 눈금 (숫자 없음) ----------
+  var ticks = $("ticks"), NS = "http://www.w3.org/2000/svg";
+  var CLOCK_INK = "#111318", CLOCK_SOFT = "#b9bec8", CLOCK_ACCENT = "#ff5a1f";
   for (var i = 0; i < 60; i++) {
-    var major = i % 5 === 0;
-    var r = document.createElementNS(NS, "rect");
-    r.setAttribute("x", major ? -1.25 : -0.4);
-    r.setAttribute("y", major ? -87.5 : -87.5);
-    r.setAttribute("width", major ? 2.5 : 0.8);
-    r.setAttribute("height", major ? 8 : 3);
-    r.setAttribute("rx", major ? 0.6 : 0.3);
-    r.setAttribute("fill", "#17181a");
-    if (!major) r.setAttribute("fill-opacity", "0.55");
+    var quarter = i % 15 === 0, hour = i % 5 === 0, r = document.createElementNS(NS, "rect");
+    var w = quarter ? 3.6 : (hour ? 2.4 : 0.9), h = quarter ? 12 : (hour ? 8 : 3.2);
+    r.setAttribute("x", -w / 2);
+    r.setAttribute("y", -88 + (quarter ? -1 : 0));
+    r.setAttribute("width", w);
+    r.setAttribute("height", h);
+    r.setAttribute("rx", Math.min(w / 2, 0.8));
+    r.setAttribute("fill", i === 0 ? CLOCK_ACCENT : (hour ? CLOCK_INK : CLOCK_SOFT));
     r.setAttribute("transform", "rotate(" + (i * 6) + ")");
     ticks.appendChild(r);
-  }
-  for (var n = 1; n <= 12; n++) {
-    var t = document.createElementNS(NS, "text");
-    var a = n * 30 * Math.PI / 180;
-    t.setAttribute("x", (Math.sin(a) * 68).toFixed(2));
-    t.setAttribute("y", (-Math.cos(a) * 68 + 5.2).toFixed(2));
-    t.textContent = n;
-    nums.appendChild(t);
   }
 
   // ---------- 화면 색 (다크 모드 / 밝은 모드) ----------

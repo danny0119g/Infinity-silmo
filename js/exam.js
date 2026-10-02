@@ -74,13 +74,13 @@
   }
 
   function saveRec(fields) {
-    var all = loadAll(), rec = findRec(all, recId);
+    var d = dayOfId(recId), all = loadDay(d), rec = findRec(all, recId);        // 시험을 시작한 날의 칸에 저장 (자정을 넘겨 끝나도 같은 날 기록)
     if (!rec) {                                  // 어떤 이유로 기록이 없으면 새로 만든다
       rec = { id: recId, slot: current.slot, subject: current.subject };
       all.push(rec);
     }
     for (var k in fields) rec[k] = fields[k];
-    saveAll(all);
+    saveDay(d, all);
   }
 
   // ---------- 전체 화면 ----------
@@ -127,7 +127,7 @@
     if (!s || s.v !== 1 || !SLOTS[s.slot] || typeof s.subject !== "string" || typeof s.recId !== "string") { if (s) clearSession(); return false; }
     var now = Date.now(), ref = s.wall || s.savedAt || 0;
     if (!(now - ref < SESSION_MAX) || now < ref - 60000) { clearSession(); return false; }          // 너무 오래됐거나 시각이 이상하면 버림
-    if (!findRec(loadAll(), s.recId)) { clearSession(); return false; }                              // 기록이 이미 지워졌으면 이어갈 게 없음
+    if (!findRec(loadDay(dayOfId(s.recId)), s.recId)) { clearSession(); return false; }                              // 기록이 이미 지워졌으면 이어갈 게 없음
     var acc = Number(s.accum); if (!isFinite(acc) || acc < 0) acc = 0;
     var elapsed = acc + (s.wall ? Math.max(0, (now - s.wall) / 1000) : 0);
     current = { slot: s.slot, label: SLOTS[s.slot].label, subject: s.subject, startH: SLOTS[s.slot].startH, startM: SLOTS[s.slot].startM };
@@ -378,7 +378,7 @@
   });
 
   // 눌렀다는 느낌: 터치 화면에는 hover가 없으니, 누르는 동안(빠른 탭이어도 잠깐은) 윤곽이 파래지는 등으로 표시
-  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .rbtn, .sw, .leaveLink, .loginAnon, #accountOut, .roomSwitch, .roomOpt, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
+  var PRESS_SEL = ".slot, .pill, .chip, .copt, .rf, .legend .item, .pen, .del, #recClear, #endBtn, #abandon, .primary, .rbtn, .sw, .leaveLink, .rowbtn, .loginAnon, #accountOut, .roomSwitch, .roomOpt, .mem, .avPen, .pmItem, .pAct, .pAsk, .bubSend, .chatSend, .pSpy";
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(PRESS_SEL) : null;
     if (!t || t.disabled) return;
