@@ -7,7 +7,7 @@
     try { if (localStorage.getItem("examTimer.session.v1")) return true; } catch (e) {}
     if (document.body && document.body.classList.contains("loginOpen")) return true;          // 로그인 도중(구글 창에 다녀오는 중)에는 새로고침하지 않음
     var rm = document.getElementById("roomModal"); if (rm && rm.classList.contains("on")) return true;      // 설정 창(구글 계정 연결)이 열려 있을 때도
-    var lo = document.getElementById("liteOverlay"); if (lo && !lo.classList.contains("hidden")) return true;      // 국어·수학 시계가 떠 있는 동안에도
+    var lo = document.getElementById("liteOverlay"); if (lo && !lo.classList.contains("off")) return true;      // 국어·수학 시계가 떠 있는 동안에도
     return false;
   }
   function check(){

@@ -882,6 +882,6 @@
   .noHint { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
   .nostack { display: flex; flex-direction: column; gap: 8px; }
   .nostack .nobtn { width: 46px; height: 32px; font-size: 24px; font-weight: 600; line-height: 1; border-radius: 10px; }
-  #liteOverlay { position: fixed; inset: 0; z-index: 60; background: var(--bg); opacity: 1; transition: opacity .28s ease; }
-  #liteOverlay.loading { opacity: 0; pointer-events: none; }
+  #liteOverlay { position: fixed; inset: 0; z-index: 60; background: var(--bg); opacity: 1; visibility: visible; transition: opacity .22s ease; }
+  #liteOverlay.off { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .22s ease, visibility 0s .22s; }
   #liteOverlay iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
