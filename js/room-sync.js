@@ -149,6 +149,11 @@
     if (wasActive) { activateRoom(rooms[0] || null); afterSwitch(); } else { saveRooms(); renderRoomSwitch(); }
     return label;
   }
+  function handleDeleted() {                         // 방장이 방을 삭제했을 때 (지금 보던 방)
+    if (!room) return;
+    var label = dropRoom(room.code);
+    notice("\"" + label + "\" 방이 방장에 의해 삭제됐어요.");
+  }
   function handleKicked() {                          // 방장이 나를 내보냈을 때 (지금 보던 방)
     if (!room) return;
     var label = dropRoom(room.code);
@@ -180,10 +185,11 @@
         if (force || !kickCheckAt[r.code] || now - kickCheckAt[r.code] > 60000) {
           kickCheckAt[r.code] = now;
           chk = USE_V2
-            ? dbFetch(ROOMS_ROOT + r.code + "/meta", { cache: "no-store" }).then(function (m) { return { exists: !!m, kicked: !!(m && m.kicked && m.kicked[getDeviceId()] === true), title: (m && typeof m.title === "string") ? m.title : "", needTitle: !!(m && !m.title && m.host === getDeviceId()) }; }, function () { return null; })
+            ? dbFetch(ROOMS_ROOT + r.code + "/meta", { cache: "no-store" }).then(function (m) { return { exists: !!m, kicked: !!(m && m.kicked && m.kicked[getDeviceId()] === true), deleted: !!(m && m.deleted === true), title: (m && typeof m.title === "string") ? m.title : "", needTitle: !!(m && !m.title && m.host === getDeviceId()) }; }, function () { return null; })
             : dbFetch(ROOMS_ROOT + r.code + "/meta/kicked/" + getDeviceId(), { cache: "no-store" }).then(function (v) { return { exists: true, kicked: v === true }; }, function () { return null; });
         }
         return chk.then(function (info) {
+          if (info && info.deleted) { var dl = dropRoom(r.code); notice("\"" + dl + "\" 방이 방장에 의해 삭제됐어요."); return; }
           if (info && info.kicked) { var label = dropRoom(r.code); notice("\"" + label + "\" 방에서 내보내졌어요."); return; }
           var extra = null;
           if (USE_V2 && info) {
@@ -212,6 +218,7 @@
       if (!room || room.code !== code) return;
       if (USE_V2) {                                   // 새 구조: 방 정보(meta)가 아직 없으면 옛 방이 옮겨지길 기다리는 중
         if (meta === null) { roomPending[code] = true; others = []; hostId = ""; netErr = false; return; }
+        if (meta && meta.deleted === true) { handleDeleted(); return; }
         roomPending[code] = false;
         if (pm401 && meta && !(meta.kicked && meta.kicked[me] === true)) { netErr = true; return; }
       }

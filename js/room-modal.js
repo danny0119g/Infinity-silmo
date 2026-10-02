@@ -33,7 +33,7 @@
       refreshRoomPhoto();
       setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
       $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), chatPushOn(), pushLabel());
-      applyLabelPerm();
+      applyLabelPerm(); $("roomDeleteSec").classList.toggle("hidden", !(USE_V2 && isHost()));
     }
     roomModal.classList.add("on");
     renderAccount();                                 // 창이 보이는 상태에서 계정 칸(구글 연결 버튼 포함)을 그림
@@ -54,6 +54,7 @@
       check = joining
         ? dbFetch(ROOMS_ROOT + code + "/meta", { cache: "no-store" }).then(function (m) {
             if (!m || typeof m !== "object" || typeof m.host !== "string") throw new Error("noroom");
+            if (m.deleted === true) throw new Error("noroom");
             if (m.kicked && m.kicked[me] === true) throw new Error("kicked");
             if (typeof m.title === "string") joinTitle = m.title;
           })
@@ -213,6 +214,19 @@
       }
       dropRoom(code);                                // 내 기록 지우기 + 남은 방이 있으면 그 방으로 이동
       closeRoomModal();
+    });
+  });
+  $("roomDelete").addEventListener("click", function () {
+    if (!room || !isHost()) return;
+    ask("방을 삭제하겠습니까?\n모든 사람이 이 방에서 나가게 되고, 되돌릴 수 없어요.", "삭제", true, function () {
+      if (!room || !isHost()) return;
+      var code = room.code;
+      enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/meta/deleted", { method: "PUT", headers: JSONH, body: "true" }).then(function () { return true; }, function () { return false; }); }).then(function (ok) {
+        if (!ok) { notice("방을 삭제하지 못했어요.\n서버 규칙을 새로 붙여넣었는지 확인해 주세요."); return; }
+        closeAllChats("gone");
+        dropRoom(code);
+        closeRoomModal();
+      });
     });
   });
   // 방 이름 (이 기기에서만 보임)

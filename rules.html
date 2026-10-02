@@ -288,6 +288,10 @@ var FULL_STRICT = `{
                 ".validate": "newData.isBoolean()"
               }
             },
+            "deleted": {
+              ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
+              ".validate": "newData.isBoolean()"
+            },
             "title": {
               ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 14"
@@ -299,7 +303,7 @@ var FULL_STRICT = `{
           "members": {
             ".read": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
             "$uid": {
-              ".write": "auth != null && ( ($uid === auth.uid && root.child('v2/rooms/'+$code+'/meta').exists() && !root.child('v2/rooms/'+$code+'/meta/kicked/'+auth.uid).exists()) || (!newData.exists() && ($uid === auth.uid || root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid)) )",
+              ".write": "auth != null && ( ($uid === auth.uid && root.child('v2/rooms/'+$code+'/meta').exists() && !root.child('v2/rooms/'+$code+'/meta/kicked/'+auth.uid).exists() && !root.child('v2/rooms/'+$code+'/meta/deleted').exists()) || (!newData.exists() && ($uid === auth.uid || root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid)) )",
               ".validate": "newData.hasChildren(['name','day','share'])",
               "name": {
                 ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 12"
@@ -569,6 +573,10 @@ var FULL_SIMPLE = `{
                 ".validate": "newData.isBoolean()"
               }
             },
+            "deleted": {
+              ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
+              ".validate": "newData.isBoolean()"
+            },
             "title": {
               ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 14"
@@ -580,7 +588,7 @@ var FULL_SIMPLE = `{
           "members": {
             ".read": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
             "$uid": {
-              ".write": "auth != null && ( ($uid === auth.uid && root.child('v2/rooms/'+$code+'/meta').exists() && !root.child('v2/rooms/'+$code+'/meta/kicked/'+auth.uid).exists()) || (!newData.exists() && ($uid === auth.uid || root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid)) )",
+              ".write": "auth != null && ( ($uid === auth.uid && root.child('v2/rooms/'+$code+'/meta').exists() && !root.child('v2/rooms/'+$code+'/meta/kicked/'+auth.uid).exists() && !root.child('v2/rooms/'+$code+'/meta/deleted').exists()) || (!newData.exists() && ($uid === auth.uid || root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid)) )",
               ".validate": "newData.hasChildren(['name','day','share'])",
               "name": {
                 ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 12"
@@ -842,6 +850,10 @@ var V2_ONLY = `"v2": {
                 ".validate": "newData.isBoolean()"
               }
             },
+            "deleted": {
+              ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
+              ".validate": "newData.isBoolean()"
+            },
             "title": {
               ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 14"
@@ -853,7 +865,7 @@ var V2_ONLY = `"v2": {
           "members": {
             ".read": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
             "$uid": {
-              ".write": "auth != null && ( ($uid === auth.uid && root.child('v2/rooms/'+$code+'/meta').exists() && !root.child('v2/rooms/'+$code+'/meta/kicked/'+auth.uid).exists()) || (!newData.exists() && ($uid === auth.uid || root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid)) )",
+              ".write": "auth != null && ( ($uid === auth.uid && root.child('v2/rooms/'+$code+'/meta').exists() && !root.child('v2/rooms/'+$code+'/meta/kicked/'+auth.uid).exists() && !root.child('v2/rooms/'+$code+'/meta/deleted').exists()) || (!newData.exists() && ($uid === auth.uid || root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid)) )",
               ".validate": "newData.hasChildren(['name','day','share'])",
               "name": {
                 ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 12"
