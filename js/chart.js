@@ -435,7 +435,7 @@
 
     // 선택한 점의 내용
     if (selRec) {
-      var name = recSubject(selRec) + " " + nums[selRec.id] + "회";
+      var name = recSubject(selRec) + " " + recNoText(selRec, nums) + "회";
       var txt = el("span", "");
       if (!homer) {
         txt.appendChild(el("strong", "", name + " " + selRec.score1 + "점"));

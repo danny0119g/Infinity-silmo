@@ -58,6 +58,7 @@
       c.score1 = cleanScore(r.score1); c.score2 = cleanScore(r.score2);
       c.elapsed = cleanSecs(r.elapsed); c.elapsed1 = cleanSecs(r.elapsed1);
       c.usedExtra = !!r.usedExtra;
+      if (typeof r.no === "number" && isFinite(r.no) && r.no >= 1 && r.no <= 999 && Math.floor(r.no) === r.no) c.no = r.no; else delete c.no;
       if (typeof r.src === "string") c.src = r.src.trim().slice(0, 10); else delete c.src;
       out.push(c);
     });
@@ -107,6 +108,7 @@
     saveDay(d, loadDay(d).filter(function (x) { return x.id !== id; }), gone);
   }
   // 과목별로 응시한 순서대로 회차를 매긴다 (첫 번째 = 1회, 두 번째 = 2회 …)
+  function recNoText(rec, nums) { return rec.no != null ? rec.no : nums[rec.id]; }      // 직접 정한 회차가 있으면 그것, 없으면 그날 순서
   function attemptNumbers(all) {
     var count = {}, nums = {};
     all.forEach(function (r) {
@@ -259,7 +261,7 @@
     $("recordsEmpty").style.display = all.length ? "none" : ""; $("recordsEmpty").textContent = viewDayStr() === todayStr() ? "아직 응시한 실모가 없어요." : "이 날은 응시한 기록이 없어요.";
     var shown = all.filter(inFocus);
     shown.slice().reverse().forEach(function (rec) {
-      var title = recSubject(rec) + " " + nums[rec.id] + "회";
+      var title = recSubject(rec) + " " + recNoText(rec, nums) + "회";
       var li = el("li", "rec");
       var info = el("div", "info");
       var head = el("div", "head");

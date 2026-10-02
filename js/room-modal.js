@@ -24,7 +24,7 @@
     $("roomInView").classList.toggle("hidden", !has);
     $("roomLeaveSec").classList.toggle("hidden", !has);
     $("profileGroup").classList.toggle("hidden", !has);
-    renderThemeSeg();
+    renderThemeSeg(); if (typeof refreshNoToggle === "function") refreshNoToggle();
     if (!has) $("pushLine").classList.add("hidden");
     renderAskSeg();
     if (has) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }

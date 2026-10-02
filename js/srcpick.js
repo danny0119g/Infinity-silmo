@@ -84,6 +84,44 @@
     }
     render();
   }
+  // ---------- 회차 ----------
+  var NOMODE_KEY = "examTimer.noMode.v1";
+  function noMode() { try { return localStorage.getItem(NOMODE_KEY) === "cum" ? "cum" : "day"; } catch (e) { return "day"; } }
+  function setNoMode(m) { try { localStorage.setItem(NOMODE_KEY, m); } catch (e) {} }
+  // 같은 업체+과목의 다음 회차. day: 오늘 본 것만 세서 1회부터 / cum: 지금까지 쌓인 가장 큰 회차 + 1 (처음이면 1)
+  function suggestNo(src, subject, excludeId) {
+    var cum = noMode() === "cum", days = cum ? localDays().slice() : [todayStr()], max = 0, cnt = 0;
+    days.forEach(function (d) {
+      loadDay(d).forEach(function (r) {
+        if (r.id === excludeId || (r.src || "") !== (src || "") || recSubject(r) !== subject) return;
+        cnt++; if (typeof r.no === "number" && r.no > max) max = r.no;
+      });
+    });
+    return Math.min(999, (cum ? max : Math.max(max, cnt)) + 1);
+  }
+  // [− 4 회 +] 칸. get(): 숫자 또는 null, set(v): 바꾸기. 돌려주는 refresh()는 바깥에서 값이 바뀐 뒤 화면을 갱신
+  function buildNoBox(box, get, set) {
+    box.textContent = "";
+    var wrap = el("div", "nobox"), mi = el("button", "nobtn", "−"), pl = el("button", "nobtn", "+"), inp = el("input", "noinp"), u = el("span", "nou", "회");
+    mi.type = "button"; pl.type = "button"; mi.setAttribute("aria-label", "회차 줄이기"); pl.setAttribute("aria-label", "회차 늘리기");
+    inp.type = "text"; inp.maxLength = 3; inp.setAttribute("inputmode", "numeric"); inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "회차"); inp.placeholder = "-";
+    function show() { var v = get(); inp.value = v == null ? "" : String(v); }
+    mi.addEventListener("click", function () { set(Math.max(1, (get() || 1) - 1)); show(); });
+    pl.addEventListener("click", function () { set(Math.min(999, (get() || 0) + 1)); show(); });
+    inp.addEventListener("input", function () { inp.value = inp.value.replace(/\D/g, ""); var n = Number(inp.value); set(inp.value && n >= 1 ? Math.min(999, n) : null); });
+    inp.addEventListener("focus", function () { if (typeof exitFullscreen === "function") exitFullscreen(); });
+    wrap.appendChild(mi); wrap.appendChild(inp); wrap.appendChild(u); wrap.appendChild(pl); box.appendChild(wrap);
+    show();
+    return { refresh: show };
+  }
+  function refreshNoToggle() {
+    var on = noMode() === "cum";
+    setSw($("noCumToggle"), on, on ? "켜짐" : "꺼짐");
+    $("noHint").textContent = on ? "켜짐: 지난 회차에 이어서 셈" : "꺼짐: 매일 1회부터 셈";
+  }
+  $("noCumToggle").addEventListener("click", function () { setNoMode(noMode() === "cum" ? "day" : "cum"); refreshNoToggle(); });
+  refreshNoToggle();
+
   // 그래프 점 모양 초안: 서바 ●, 전국서바 ■, 강k ▲, 강k+ ◆, 기타 ⬢, 업체 없음 ●
   var SRC_SHAPE_CH = ["●", "■", "▲", "◆", "⬢"];
   function srcShapeIdx(src) { if (!src) return 0; var i = SRC_DEFAULTS.indexOf(src); return i < 0 ? 4 : i; }
@@ -97,16 +135,22 @@
     a.cx = cx; a.cy = cy; a.r = r; return svgEl("circle", a);
   }
   // 기록 목록에서 업체 고치기
-  var srcEditId = "", srcEditVal = "";
+  var srcEditId = "", srcEditVal = "", srcEditNo = null, srcEditSubj = "", noEditBox = null;
   function openSrcEdit(rec) {
     srcEditId = rec.id; srcEditVal = (typeof rec.src === "string") ? rec.src : "";
-    buildSrcPicker($("srcEditPick"), function () { return srcEditVal; }, function (v) { srcEditVal = v; });
+    srcEditNo = (typeof rec.no === "number") ? rec.no : null; srcEditSubj = recSubject(rec);
+    noEditBox = buildNoBox($("noEditPick"), function () { return srcEditNo; }, function (v) { srcEditNo = v; });
+    buildSrcPicker($("srcEditPick"), function () { return srcEditVal; }, function (v) { srcEditVal = v; if (v) { srcEditNo = suggestNo(v, srcEditSubj, srcEditId); noEditBox.refresh(); } });
     $("srcModal").classList.add("on");
   }
   function closeSrcEdit() { $("srcModal").classList.remove("on"); srcEditId = ""; }
   $("srcEditSave").addEventListener("click", function () {
     var all = loadView(), rec = findRec(all, srcEditId);
-    if (rec && (rec.src || "") !== srcEditVal) { rec.src = srcEditVal; saveAll(all, viewDayStr()); }
+    if (rec) {
+      rec.src = srcEditVal; if (!rec.src) delete rec.src;
+      if (srcEditNo != null) rec.no = srcEditNo; else delete rec.no;
+      saveAll(all, viewDayStr());
+    }
     closeSrcEdit(); renderToday();
   });
   $("srcEditCancel").addEventListener("click", closeSrcEdit);

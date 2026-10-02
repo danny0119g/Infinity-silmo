@@ -73,8 +73,8 @@
     if (typeof pushExamState === "function") pushExamState();      // 같은 계정의 다른 기기에도 알림
   }
 
-  var pendingSrc = "";
-  function withSrc(o) { if (pendingSrc) o.src = pendingSrc; return o; }
+  var pendingSrc = "", pendingNo = null, noBox = null;
+  function withSrc(o) { if (pendingSrc) o.src = pendingSrc; if (pendingNo) o.no = pendingNo; return o; }
   function saveRec(fields) {
     var d = dayOfId(recId), all = loadDay(d), rec = findRec(all, recId);        // 시험을 시작한 날의 칸에 저장 (자정을 넘겨 끝나도 같은 날 기록)
     if (!rec) {                                  // 어떤 이유로 기록이 없으면 새로 만든다
@@ -246,7 +246,11 @@
     scoreInput.classList.remove("bad");
     $("extraBlock").classList.toggle("hidden", step !== 1);
     $("srcSec").classList.toggle("hidden", step !== 1);
-    if (step === 1) { pendingSrc = lastUsedSrc() || srcFirst(); buildSrcPicker($("srcPick"), function () { return pendingSrc; }, function (v) { pendingSrc = v; }); }
+    if (step === 1) {
+      pendingSrc = lastUsedSrc() || srcFirst(); pendingNo = suggestNo(pendingSrc, current.subject, recId);
+      noBox = buildNoBox($("noPick"), function () { return pendingNo; }, function (v) { pendingNo = v; });
+      buildSrcPicker($("srcPick"), function () { return pendingSrc; }, function (v) { pendingSrc = v; pendingNo = suggestNo(v, current.subject, recId); noBox.refresh(); });
+    }
     $("scoreSave").classList.toggle("hidden", step !== 2);
     done.classList.add("on");
     done.scrollTop = 0;

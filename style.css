@@ -863,3 +863,11 @@
   .legend .item .glyph { font-size: 12px; color: var(--muted); margin-right: 5px; }
   #srcEditPick .srcdd, #latePick .srcdd { width: 100%; }
   #latePick { margin: 0 0 14px; }
+  .srcline { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px; }
+  .srcline #srcPick { width: 170px; }
+  .nobox { display: flex; align-items: center; gap: 4px; min-height: 46px; }
+  .nobtn { width: 36px; height: 46px; padding: 0; font-size: 22px; font-weight: 700; color: var(--text); background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; }
+  .noinp { width: 54px; height: 46px; padding: 0 4px; text-align: center; font: inherit; font-size: 20px; font-weight: 800; color: var(--text); background: var(--input); border: 1px solid var(--line2); border-radius: 12px; font-variant-numeric: tabular-nums; }
+  .nou { font-size: 16px; font-weight: 700; color: var(--muted); margin-right: 2px; }
+  .noedit { display: flex; justify-content: center; margin-top: 12px; }
+  .noHint { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
