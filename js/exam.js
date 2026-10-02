@@ -246,7 +246,7 @@
     scoreInput.classList.remove("bad");
     $("extraBlock").classList.toggle("hidden", step !== 1);
     $("srcSec").classList.toggle("hidden", step !== 1);
-    if (step === 1) { pendingSrc = lastUsedSrc() || SRC_DEFAULTS[0]; buildSrcPicker($("srcPick"), function () { return pendingSrc; }, function (v) { pendingSrc = v; }); }
+    if (step === 1) { pendingSrc = lastUsedSrc() || srcFirst(); buildSrcPicker($("srcPick"), function () { return pendingSrc; }, function (v) { pendingSrc = v; }); }
     $("scoreSave").classList.toggle("hidden", step !== 2);
     done.classList.add("on");
     done.scrollTop = 0;

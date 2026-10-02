@@ -5,13 +5,22 @@
   function loadSrcCustom() {
     try { var a = JSON.parse(localStorage.getItem(SRC_KEY) || "[]"); return Array.isArray(a) ? a.map(cleanSrc).filter(function (s, i, ar) { return s && SRC_DEFAULTS.indexOf(s) < 0 && ar.indexOf(s) === i; }).slice(0, SRC_MAX_CUSTOM) : []; } catch (e) { return []; }
   }
+  var SRC_HIDE_KEY = "examTimer.srcHidden.v1";       // 지운 기본 업체
+  function loadSrcHidden() { try { var a = JSON.parse(localStorage.getItem(SRC_HIDE_KEY) || "[]"); return Array.isArray(a) ? a.filter(function (x) { return SRC_DEFAULTS.indexOf(x) >= 0; }) : []; } catch (e) { return []; } }
+  function saveSrcHidden(a) { try { localStorage.setItem(SRC_HIDE_KEY, JSON.stringify(a)); } catch (e) {} }
+  function srcOptions() { var h = loadSrcHidden(); return SRC_DEFAULTS.filter(function (n) { return h.indexOf(n) < 0; }).concat(loadSrcCustom()); }
+  function srcFirst() { var o = srcOptions(); return o.length ? o[0] : ""; }
+  function removeSrcOption(n) {
+    if (SRC_DEFAULTS.indexOf(n) >= 0) { var h = loadSrcHidden(); if (h.indexOf(n) < 0) h.push(n); saveSrcHidden(h); }
+    else saveSrcCustom(loadSrcCustom().filter(function (x) { return x !== n; }));
+  }
   function saveSrcCustom(a) { try { localStorage.setItem(SRC_KEY, JSON.stringify(a)); } catch (e) {} }
   // 방금 친 시험의 업체 (없으면 "")
   function lastUsedSrc() {
     var days = localDays().slice().sort().reverse();
     for (var i = 0; i < days.length; i++) {
       var arr = loadDay(days[i]);
-      for (var j = arr.length - 1; j >= 0; j--) if (arr[j].src) return arr[j].src;
+      for (var j = arr.length - 1; j >= 0; j--) if (arr[j].src && srcOptions().indexOf(arr[j].src) >= 0) return arr[j].src;
     }
     return "";
   }
@@ -24,7 +33,7 @@
     var listOpen = false, otherOpen = false;
     function render() {
       box.textContent = "";
-      var cur = get(), customs = loadSrcCustom(), wrap = el("div", "srcdd");
+      var cur = get(), wrap = el("div", "srcdd");
       var sel = el("button", "srcsel" + (listOpen ? " open" : ""));
       sel.type = "button"; sel.setAttribute("aria-haspopup", "listbox"); sel.setAttribute("aria-expanded", listOpen ? "true" : "false");
       sel.appendChild(el("span", "v" + (cur ? "" : " none"), cur || placeholder || "업체 선택"));
@@ -39,12 +48,11 @@
           b.addEventListener("click", function () { set(name); listOpen = false; otherOpen = false; render(); });
           return b;
         }
-        SRC_DEFAULTS.forEach(function (n) { list.appendChild(opt(n)); });
-        customs.forEach(function (n) {               // 저장해 둔 기타 업체 (오른쪽 휴지통으로 지움)
+        srcOptions().forEach(function (n) {          // 기본·기타 모두 오른쪽 휴지통으로 지움
           var row = el("div", "srcrow"), tr = el("button", "srctrash");
           tr.type = "button"; tr.innerHTML = TRASH_ICON; tr.setAttribute("aria-label", n + " 삭제"); tr.setAttribute("title", "목록에서 삭제");
           tr.addEventListener("click", function () {
-            saveSrcCustom(loadSrcCustom().filter(function (x) { return x !== n; }));
+            removeSrcOption(n);
             if (get() === n) set("");
             render();
           });
@@ -61,7 +69,8 @@
           function commit() {
             var v = cleanSrc(inp.value); if (!v) return;
             var ls = loadSrcCustom();
-            if (SRC_DEFAULTS.indexOf(v) < 0 && ls.indexOf(v) < 0) { ls.push(v); if (ls.length > SRC_MAX_CUSTOM) ls.shift(); saveSrcCustom(ls); }
+            if (SRC_DEFAULTS.indexOf(v) >= 0) saveSrcHidden(loadSrcHidden().filter(function (x) { return x !== v; }));      // 지웠던 기본 업체를 다시 쓰면 되살림
+            else if (ls.indexOf(v) < 0) { ls.push(v); if (ls.length > SRC_MAX_CUSTOM) ls.shift(); saveSrcCustom(ls); }
             listOpen = false; otherOpen = false; set(v); render();
           }
           add.addEventListener("click", commit);
