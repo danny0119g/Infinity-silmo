@@ -7,7 +7,8 @@
   var TOL = 1;                                   // 같은 회차에서 ±1점(시간은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
   var SCORE_CARD_BG_UNUSED = "";                 // 점수 그래프 카드 색 (가림막 그라데이션이 이 색으로 사라짐)
   // 점수 그래프는 29점 아래가 가려짐
-  var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "", scoreExpanded = false;
+  var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "", focusSrc = "", scoreExpanded = false;
+  function inFocus(r) { return (!focusSubject || recSubject(r) === focusSubject) && (!focusSrc || r.src === focusSrc); }
   function svgEl(tag, attrs) {
     var n = document.createElementNS(NS, tag);
     for (var k in attrs) n.setAttribute(k, attrs[k]);
@@ -84,7 +85,7 @@
     names.forEach(function (name) {
       if (!hasPts[name] && name !== focusSubject) return;
       var on = name === focusSubject;
-      var item = el("button", "item" + (on ? " on" : ""));
+      var item = el("button", "item subj" + (on ? " on" : ""));
       item.type = "button";
       item.setAttribute("aria-pressed", on ? "true" : "false");
       item.setAttribute("title", on ? "전체 과목 보기" : name + "만 보기");
@@ -98,19 +99,26 @@
       });
       legend.appendChild(item);
     });
-    var shapeSeen = {}, shapeNames = [];            // 점 모양 안내: 그래프에 있는 업체만
+    var shapeSeen = {}, shapeNames = [];            // 점 모양 안내: 그래프에 있는 업체만 (누르면 그 업체만 보기)
     allPts.forEach(function (r) { var k = r.src || ""; if (k && !shapeSeen[k]) { shapeSeen[k] = 1; shapeNames.push(k); } });
-    if (shapeNames.length) {
-      var sl = el("div", "srcLegend");
-      shapeNames.forEach(function (k) { sl.appendChild(el("span", "", SRC_SHAPE_CH[srcShapeIdx(k)] + " " + k)); });
-      legend.appendChild(sl);
-    }
+    if (focusSrc && shapeNames.indexOf(focusSrc) < 0 && !all.some(function (r) { return r.src === focusSrc; })) focusSrc = "";
+    shapeNames.forEach(function (k, i) {
+      var on = k === focusSrc, it = el("button", "item src" + (on ? " on" : "") + (i === 0 ? " first" : ""));
+      it.type = "button"; it.setAttribute("aria-pressed", on ? "true" : "false"); it.setAttribute("title", on ? "전체 업체 보기" : k + "만 보기");
+      it.appendChild(el("span", "glyph", SRC_SHAPE_CH[srcShapeIdx(k)])); it.appendChild(document.createTextNode(k));
+      it.addEventListener("click", function () {
+        focusSrc = on ? "" : k; clearSelection();
+        keepPageScroll(function () { renderRecords(true); renderChart(); });
+        $("records").scrollTop = 0;
+      });
+      legend.appendChild(it);
+    });
 
-    var pts = focusSubject ? allPts.filter(function (r) { return recSubject(r) === focusSubject; }) : allPts;
+    var pts = allPts.filter(inFocus);
     if (!pts.length) {
       clearSelection();
-      box.appendChild(el("p", "empty", focusSubject
-        ? focusSubject + "의 " + (homer ? "시간" : "점수") + " 기록이 아직 없어요."
+      box.appendChild(el("p", "empty", (focusSubject || focusSrc)
+        ? [focusSubject, focusSrc].filter(Boolean).join(" · ") + "의 " + (homer ? "시간" : "점수") + " 기록이 아직 없어요."
         : (homer ? "추가 시간을 쓴 기록이 생기면 여기에 시간 추이가 그려져요." : "점수를 입력한 기록이 생기면 여기에 과목별 추이가 그려져요.")));
       return;
     }

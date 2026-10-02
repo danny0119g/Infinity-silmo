@@ -78,7 +78,7 @@
   function viewDayStr() { var t = todayStr(); return (validDay(viewDay) && viewDay < t) ? viewDay : t; }
   function loadView() { return loadDay(viewDayStr()); }          // 홈 화면(기록 목록·그래프·숫자)이 읽는 기록
   function setViewDay(d) {
-    viewDay = d || ""; clearSelection(); focusSubject = ""; scoreExpanded = false; if (typeof setStats === "function") setStats(false, true);
+    viewDay = d || ""; clearSelection(); focusSubject = ""; focusSrc = ""; scoreExpanded = false; if (typeof setStats === "function") setStats(false, true);
     if (typeof renderHistory === "function") renderHistory();
     renderToday();
   }
@@ -137,7 +137,7 @@
     var ok = false;
     try { ok = localStorage.getItem(DAY_KEY) === todayStr(); } catch (e) {}
     if (ok) { location.reload(); return; }          // 하드 리셋
-    clearSelection(); focusSubject = ""; scoreExpanded = false; renderSlots(); renderToday();
+    clearSelection(); focusSubject = ""; focusSrc = ""; scoreExpanded = false; renderSlots(); renderToday();
   }
 
   // 예전 버전의 기록(생1/지1)도 그대로 읽을 수 있게
@@ -230,14 +230,18 @@
     var rf = $("recFilter");
     rf.textContent = "";
     $("recTop").classList.toggle("hidden", !all.length);
-    function filterChip(label, value, c) {
-      var on = focusSubject === value;
+    var srcs = [];
+    all.forEach(function (r) { if (r.src && srcs.indexOf(r.src) < 0) srcs.push(r.src); });
+    if (focusSrc && srcs.indexOf(focusSrc) < 0) focusSrc = "";
+    function filterChip(label, value, c, isSrc) {
+      var on = isSrc ? focusSrc === value : (value === "" ? (!focusSubject && !focusSrc) : focusSubject === value);
       var bt = el("button", "rf" + (on ? " on" : ""));
       bt.type = "button"; bt.setAttribute("aria-pressed", on ? "true" : "false");
       if (c) { var d = el("span", "cdot"); d.style.background = c; bt.appendChild(d); }
       bt.appendChild(document.createTextNode(label));
       bt.addEventListener("click", function () {
-        focusSubject = (value && focusSubject === value) ? "" : value;   // 그래프도 같은 과목으로
+        if (isSrc) focusSrc = (focusSrc === value) ? "" : value;
+        else { focusSubject = (value && focusSubject === value) ? "" : value; if (!value) focusSrc = ""; }   // 그래프도 같은 과목으로
         clearSelection();
         keepPageScroll(function () { renderRecords(true); renderChart(); });
         $("records").scrollTop = 0;
@@ -253,15 +257,15 @@
     var ul = $("records"), keepTop = ul.scrollTop;
     ul.textContent = "";
     $("recordsEmpty").style.display = all.length ? "none" : ""; $("recordsEmpty").textContent = viewDayStr() === todayStr() ? "아직 응시한 실모가 없어요." : "이 날은 응시한 기록이 없어요.";
-    var shown = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
+    var shown = all.filter(inFocus);
     shown.slice().reverse().forEach(function (rec) {
       var title = recSubject(rec) + " " + nums[rec.id] + "회";
       var li = el("li", "rec");
       var info = el("div", "info");
       var head = el("div", "head");
       head.appendChild(el("span", "subj", title));
-      head.appendChild(el("span", "badge", SLOTS[recSlot(rec)].label));
       var sb = el("button", "srctag" + (rec.src ? "" : " none"), rec.src || "업체 선택");
+      if (rec.src) sb.style.borderColor = srcColor(rec.src);
       sb.type = "button"; sb.setAttribute("aria-label", title + " 업체 " + (rec.src ? "수정" : "선택"));
       sb.addEventListener("click", function () { openSrcEdit(rec); });
       head.appendChild(sb);

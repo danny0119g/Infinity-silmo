@@ -160,7 +160,7 @@
     font-size: 14px; font-weight: 700; line-height: 1; transition: opacity .2s, background-color .2s, border-color .2s;
   }
   .legend .item.on { background: var(--hover); border-color: rgba(255,255,255,.24); }
-  .legend.has-focus .item:not(.on) { opacity: .42; }
+  .legend.has-focus .item.subj:not(.on) { opacity: .42; }
   #chart .strip, #chart .foldbtn { cursor: pointer; }
   .legend .sw { width: 18px; height: 4px; border-radius: 2px; }
   #chart svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -833,11 +833,17 @@
   .bmSw.on { background: var(--accent); }
   .bmSw.on::after { transform: translateX(14px); }
 
-  /* 업체 고르기 */
-  .srcsec { margin: 4px 0 14px; text-align: left; }
-  .srclab { font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
-  .srcbox { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
-  .srcgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  /* 업체 고르기 (드롭다운) */
+  .srcsec { margin: 0 0 30px; text-align: center; }
+  .srcdd { width: min(100%, 230px); margin: 0 auto; text-align: left; }
+  .srcsel { width: 100%; min-height: 46px; padding: 8px 12px 8px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; font-weight: 700; color: var(--text); background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; }
+  .srcsel.open { border-color: var(--accent); }
+  .srcsel .v { flex: 1; text-align: center; padding-left: 24px; }
+  .srcsel .v.none { color: var(--muted); font-weight: 600; }
+  .srcsel .arr { width: 24px; height: 24px; display: inline-flex; color: var(--muted); }
+  .srcsel .arr svg { width: 22px; height: 22px; display: block; transition: transform .15s; }
+  .srcsel.open .arr svg { transform: rotate(180deg); }
+  .srclist { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
   .srcrow { display: flex; align-items: center; gap: 6px; }
   .srcrow .srcopt { flex: 1; }
   .srcopt { min-height: 40px; padding: 6px 12px; font-size: 16px; font-weight: 700; background: transparent; color: var(--text); border: 1px solid var(--line2); border-radius: 10px; }
@@ -853,3 +859,7 @@
   .srcLegend .item { font-size: 13px; }
   #srcModal { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; padding: 24px; background: var(--overlay); }
   #srcModal.on { display: flex; }
+  .legend .item.src.first { margin-left: 10px; }
+  .legend .item .glyph { font-size: 12px; color: var(--muted); margin-right: 5px; }
+  #srcEditPick .srcdd, #latePick .srcdd { width: 100%; }
+  #latePick { margin: 0 0 14px; }

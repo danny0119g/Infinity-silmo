@@ -6,48 +6,70 @@
     try { var a = JSON.parse(localStorage.getItem(SRC_KEY) || "[]"); return Array.isArray(a) ? a.map(cleanSrc).filter(function (s, i, ar) { return s && SRC_DEFAULTS.indexOf(s) < 0 && ar.indexOf(s) === i; }).slice(0, SRC_MAX_CUSTOM) : []; } catch (e) { return []; }
   }
   function saveSrcCustom(a) { try { localStorage.setItem(SRC_KEY, JSON.stringify(a)); } catch (e) {} }
-  // box 안에 고르기 상자를 그림. get(): 지금 고른 값, set(v): 고른 값 바꾸기 ("" = 선택 안 함)
-  function buildSrcPicker(box, get, set) {
-    var otherOpen = false;
+  // 방금 친 시험의 업체 (없으면 "")
+  function lastUsedSrc() {
+    var days = localDays().slice().sort().reverse();
+    for (var i = 0; i < days.length; i++) {
+      var arr = loadDay(days[i]);
+      for (var j = arr.length - 1; j >= 0; j--) if (arr[j].src) return arr[j].src;
+    }
+    return "";
+  }
+  // 업체 이름 테두리 색: 파란색을 바탕으로 조금씩만 변주
+  var SRC_HUES = { "서바": [217, 90, 62], "전국서바": [197, 80, 56], "강k": [236, 85, 70], "강k+": [258, 80, 72] };
+  function srcColor(name) { var h = SRC_HUES[name] || [210, 40, 62]; return "hsl(" + h[0] + "," + h[1] + "%," + h[2] + "%)"; }
+  var CHEV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+  // box 안에 드롭다운을 그림. get(): 지금 고른 값, set(v): 바꾸기, placeholder: 값이 없을 때 글자
+  function buildSrcPicker(box, get, set, placeholder) {
+    var listOpen = false, otherOpen = false;
     function render() {
       box.textContent = "";
-      var cur = get(), customs = loadSrcCustom(), wrap = el("div", "srcbox"), grid = el("div", "srcgrid");
-      function opt(name, cls) {
-        var on = cur === name, b = el("button", "srcopt" + (on ? " on" : "") + (cls ? " " + cls : ""), name);
-        b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
-        b.addEventListener("click", function () { set(on ? "" : name); render(); });
-        return b;
-      }
-      SRC_DEFAULTS.forEach(function (n) { grid.appendChild(opt(n)); });
-      wrap.appendChild(grid);
-      customs.forEach(function (n) {                 // 저장해 둔 기타 업체 (오른쪽 휴지통으로 지움)
-        var row = el("div", "srcrow"), tr = el("button", "srctrash");
-        tr.type = "button"; tr.innerHTML = TRASH_ICON; tr.setAttribute("aria-label", n + " 삭제"); tr.setAttribute("title", "목록에서 삭제");
-        tr.addEventListener("click", function () {
-          saveSrcCustom(loadSrcCustom().filter(function (x) { return x !== n; }));
-          if (get() === n) set("");
-          render();
-        });
-        row.appendChild(opt(n)); row.appendChild(tr); wrap.appendChild(row);
-      });
-      var ob = el("button", "srcopt other" + (otherOpen ? " on" : ""), "기타");
-      ob.type = "button"; ob.setAttribute("aria-expanded", otherOpen ? "true" : "false");
-      ob.addEventListener("click", function () { otherOpen = !otherOpen; render(); if (otherOpen) { var i = box.querySelector("input"); if (i) i.focus(); } });
-      wrap.appendChild(ob);
-      if (otherOpen) {
-        var row2 = el("div", "srcadd"), inp = el("input", "tinput"), add = el("button", "srcaddbtn", "추가");
-        inp.type = "text"; inp.maxLength = 10; inp.placeholder = "업체 이름"; inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "기타 업체 이름");
-        add.type = "button";
-        function commit() {
-          var v = cleanSrc(inp.value); if (!v) return;
-          var list = loadSrcCustom();
-          if (SRC_DEFAULTS.indexOf(v) < 0 && list.indexOf(v) < 0) { list.push(v); if (list.length > SRC_MAX_CUSTOM) list.shift(); saveSrcCustom(list); }
-          otherOpen = false; set(v); render();
+      var cur = get(), customs = loadSrcCustom(), wrap = el("div", "srcdd");
+      var sel = el("button", "srcsel" + (listOpen ? " open" : ""));
+      sel.type = "button"; sel.setAttribute("aria-haspopup", "listbox"); sel.setAttribute("aria-expanded", listOpen ? "true" : "false");
+      sel.appendChild(el("span", "v" + (cur ? "" : " none"), cur || placeholder || "업체 선택"));
+      var ar = el("span", "arr"); ar.innerHTML = CHEV_ICON; sel.appendChild(ar);
+      sel.addEventListener("click", function () { listOpen = !listOpen; if (!listOpen) otherOpen = false; render(); });
+      wrap.appendChild(sel);
+      if (listOpen) {
+        var list = el("div", "srclist");
+        function opt(name) {
+          var on = cur === name, b = el("button", "srcopt" + (on ? " on" : ""), name);
+          b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+          b.addEventListener("click", function () { set(name); listOpen = false; otherOpen = false; render(); });
+          return b;
         }
-        add.addEventListener("click", commit);
-        inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); commit(); } });
-        inp.addEventListener("focus", function () { if (typeof exitFullscreen === "function") exitFullscreen(); });
-        row2.appendChild(inp); row2.appendChild(add); wrap.appendChild(row2);
+        SRC_DEFAULTS.forEach(function (n) { list.appendChild(opt(n)); });
+        customs.forEach(function (n) {               // 저장해 둔 기타 업체 (오른쪽 휴지통으로 지움)
+          var row = el("div", "srcrow"), tr = el("button", "srctrash");
+          tr.type = "button"; tr.innerHTML = TRASH_ICON; tr.setAttribute("aria-label", n + " 삭제"); tr.setAttribute("title", "목록에서 삭제");
+          tr.addEventListener("click", function () {
+            saveSrcCustom(loadSrcCustom().filter(function (x) { return x !== n; }));
+            if (get() === n) set("");
+            render();
+          });
+          row.appendChild(opt(n)); row.appendChild(tr); list.appendChild(row);
+        });
+        var ob = el("button", "srcopt other" + (otherOpen ? " on" : ""), "기타");
+        ob.type = "button"; ob.setAttribute("aria-expanded", otherOpen ? "true" : "false");
+        ob.addEventListener("click", function () { otherOpen = !otherOpen; render(); if (otherOpen) { var i = box.querySelector("input"); if (i) i.focus(); } });
+        list.appendChild(ob);
+        if (otherOpen) {
+          var row2 = el("div", "srcadd"), inp = el("input", "tinput"), add = el("button", "srcaddbtn", "추가");
+          inp.type = "text"; inp.maxLength = 10; inp.placeholder = "업체 이름"; inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "기타 업체 이름");
+          add.type = "button";
+          function commit() {
+            var v = cleanSrc(inp.value); if (!v) return;
+            var ls = loadSrcCustom();
+            if (SRC_DEFAULTS.indexOf(v) < 0 && ls.indexOf(v) < 0) { ls.push(v); if (ls.length > SRC_MAX_CUSTOM) ls.shift(); saveSrcCustom(ls); }
+            listOpen = false; otherOpen = false; set(v); render();
+          }
+          add.addEventListener("click", commit);
+          inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); commit(); } });
+          inp.addEventListener("focus", function () { if (typeof exitFullscreen === "function") exitFullscreen(); });
+          row2.appendChild(inp); row2.appendChild(add); list.appendChild(row2);
+        }
+        wrap.appendChild(list);
       }
       box.appendChild(wrap);
     }

@@ -16,7 +16,7 @@
     chartMode = "score"; $("chartSwitch").setAttribute("data-pos", "score"); $("chartSwitch").setAttribute("aria-checked", "false");
     $("trendTitle").textContent = trendTitleText("score");
     if (typeof renderHistory === "function") renderHistory();
-    if (!quiet) { clearSelection(); focusSubject = ""; renderToday(); }
+    if (!quiet) { clearSelection(); focusSubject = ""; focusSrc = ""; renderToday(); }
   }
   function dayDiff(a, b) { return Math.round((dayDate(b) - dayDate(a)) / 86400000); }
   function r1(v) { return Math.round(v * 10) / 10; }
@@ -48,21 +48,19 @@
     var names = []; flat.forEach(function (q) { if (names.indexOf(q.subject) < 0) names.push(q.subject); });
     function srcChips() {
       if (!srcNames.length) return;
-      var row = el("div", "srcLegend");
-      [""].concat(srcNames).forEach(function (n) {
-        var on = statSrc === n, b = el("button", "item" + (on ? " on" : ""), n || "전체 업체");
+      [""].concat(srcNames).forEach(function (n, i) {
+        var on = statSrc === n, b = el("button", "item src" + (on ? " on" : "") + (i === 0 ? " first" : ""), n || "전체");
         b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
         b.addEventListener("click", function () { statSrc = n; statSel = ""; renderChart(); });
-        row.appendChild(b);
+        legend.appendChild(b);
       });
-      legend.appendChild(row);
     }
     if (!data.length) { srcChips(); box.appendChild(el("p", "empty", "응시 기록이 쌓이면 여기에 날짜별 통계가 그려져요.")); return; }
     if (statFocus && names.indexOf(statFocus) < 0) statFocus = "";
     // 범례 (누르면 그 과목만)
     legend.classList.toggle("has-focus", !!statFocus);
     names.forEach(function (name) {
-      var on = name === statFocus, item = el("button", "item" + (on ? " on" : ""));
+      var on = name === statFocus, item = el("button", "item subj" + (on ? " on" : ""));
       item.type = "button"; item.setAttribute("aria-pressed", on ? "true" : "false");
       var sw = el("span", "sw"); sw.style.background = color[name];
       item.appendChild(sw); item.appendChild(document.createTextNode(name));

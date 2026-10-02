@@ -29,9 +29,9 @@
   // 응시 기록 전체 삭제: 한 과목만 보고 있으면 그 과목 기록만, 전체를 보고 있으면 모든 기록
   $("recClear").addEventListener("click", function () {
     var all = loadView();
-    var target = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
+    var target = all.filter(inFocus);
     if (!target.length) return;
-    var label = focusSubject ? focusSubject + " 기록 " + target.length + "개를 모두 삭제하겠습니까?" : "응시 기록 " + target.length + "개를 모두 삭제하겠습니까?";
+    var label = (focusSubject || focusSrc) ? [focusSubject, focusSrc].filter(Boolean).join(" · ") + " 기록 " + target.length + "개를 모두 삭제하겠습니까?" : "응시 기록 " + target.length + "개를 모두 삭제하겠습니까?";
     ask(label + "\n되돌릴 수 없습니다.", "모두 삭제", true, function () {
       var gone = {};
       target.forEach(function (r) { gone[r.id] = true; });
