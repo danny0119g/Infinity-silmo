@@ -70,7 +70,7 @@
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
     var homer = chartMode === "homer";
     $("chartCard").setAttribute("data-mode", chartMode);
-    var all = loadAll(), nums = attemptNumbers(all), color = colorMap(all);
+    var all = loadView(), nums = attemptNumbers(all), color = colorMap(all);
     var allPts = all.filter(function (r) { return homer ? (r.usedExtra && r.elapsed != null) : r.score1 != null; });
     function val(r) { return homer ? r.elapsed / 60 : r.score1; }
 

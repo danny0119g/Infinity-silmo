@@ -7,22 +7,26 @@
     if (text && roomMsg.scrollIntoView) roomMsg.scrollIntoView({ block: "nearest" });       // 아래쪽에 있는 안내가 화면 밖이면 보이게
   }
   // 설정 창: 방이 있으면 방 설정(이름·초대 코드·프로필·기타) + 방 만들기·입장 + 계정(+방 나가기), 방이 없으면 방 만들기·입장(펼침) + 계정
-  function setAddOpen(on) {                          // 방 만들기·입장 칸을 펼치거나 접음
+  var addOpen = false;
+  function setAddOpen(on) {                          // 방 만들기·입장 칸을 펼치거나 접음. 펼치면 버튼이 "닫기"로 바뀜
+    addOpen = on;
+    var has = !!room, full = rooms.length >= MAX_ROOMS, t = $("roomAddToggle");
     $("roomJoinView").classList.toggle("hidden", !on);
-    $("roomAddToggle").classList.toggle("hidden", on);
+    t.classList.toggle("hidden", !has && on);        // 방이 없으면 항상 펼쳐 둠(닫을 필요 없음)
+    t.textContent = on ? "닫기" : (full ? "방은 최대 " + MAX_ROOMS + "개예요" : "+ 새 방 만들기 · 입장");
+    t.disabled = full && !on;
   }
   function openRoom(mode) {                          // mode "add": 방 만들기·입장 칸을 펼친 채로 열기
     var has = !!room, full = rooms.length >= MAX_ROOMS;
     closeRoomMenu();
     setRoomMsg("");
-    codeInput.value = ""; nickInput.value = "";
+    codeInput.value = ""; nickInput.value = ""; $("newTitleInput").value = "";
     $("roomInView").classList.toggle("hidden", !has);
     $("roomLeaveSec").classList.toggle("hidden", !has);
     $("profileGroup").classList.toggle("hidden", !has);
     renderThemeSeg();
     if (!has) $("pushLine").classList.add("hidden");
     if (has) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }
-    $("roomAddToggle").disabled = full; $("roomAddToggle").textContent = full ? "방은 최대 " + MAX_ROOMS + "개예요" : "+ 새 방 만들기 · 입장";
     setAddOpen(!full && (mode === "add" || !has));      // 방이 없으면 항상 펼쳐 둠
     if (has) {
       refreshRoomPhoto();
@@ -33,11 +37,14 @@
     roomModal.classList.add("on");
     renderAccount();                                 // 창이 보이는 상태에서 계정 칸(구글 연결 버튼 포함)을 그림
   }
-  $("roomAddToggle").addEventListener("click", function () { setAddOpen(true); nickInput.focus(); setTimeout(function () { $("roomJoinView").scrollIntoView({ block: "nearest" }); }, 0); });
+  $("roomAddToggle").addEventListener("click", function () {
+    if (addOpen) { setAddOpen(false); return; }
+    setAddOpen(true); nickInput.focus(); setTimeout(function () { $("roomJoinView").scrollIntoView({ block: "nearest" }); }, 0);
+  });
   function closeRoomModal() { closePenMenu(); roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
-  function enterRoom(code, name, joining) {
+  function enterRoom(code, name, joining, title) {
     if (roomBusy) return;
-    var had = roomByCode(code), hadName = had ? had.name : "", prev = room, joinTitle = "", newLabel = had ? "" : defaultLabel();
+    var had = roomByCode(code), hadName = had ? had.name : "", prev = room, joinTitle = "", newTitle = (!joining && !had) ? cleanTitle(title) : "", newLabel = had ? "" : (newTitle || defaultLabel());
     if (!had && rooms.length >= MAX_ROOMS) { setRoomMsg("방은 최대 " + MAX_ROOMS + "개까지 들어갈 수 있어요."); return; }
     roomBusy = true;
     setRoomMsg(joining ? "입장하는 중…" : "방을 만드는 중…", false);
@@ -65,6 +72,7 @@
     }
     check.then(function () {
       var r = addRoom(code, name);
+      if (newTitle) { r.label = newTitle; saveRooms(); }
       if (joinTitle) applyTitle(r, joinTitle);          // 입장하면 방 친구들이 쓰는 방 이름으로 보임
       activateRoom(r);
       try { localStorage.setItem("examTimer.shareNotice.v1", "1"); } catch (e) {}
@@ -95,7 +103,7 @@
   $("roomCreate").addEventListener("click", function () {
     var name = cleanName(nickInput.value);
     if (!name) { setRoomMsg("닉네임을 입력해 주세요."); nickInput.focus(); return; }
-    enterRoom(rnd(8, CODE_CHARS), name, false);
+    enterRoom(rnd(8, CODE_CHARS), name, false, $("newTitleInput").value);
   });
   function joinNow() {
     var name = cleanName(nickInput.value), code = codeInput.value.trim();
@@ -107,20 +115,14 @@
   codeInput.addEventListener("keydown", function (e) { if (e.key === "Enter") joinNow(); });
   codeInput.addEventListener("input", function () { codeInput.value = codeInput.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12); setRoomMsg(""); });
   nickInput.addEventListener("input", function () { setRoomMsg(""); });
-  function renderThemeSeg() {
-    var p = themePref();
-    Array.prototype.forEach.call($("themeSeg").children, function (b) { var on = b.getAttribute("data-t") === p; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
-  }
-  function themeRedraw() {                           // 화면 색이 바뀐 뒤: 그래프·목록을 새 색으로 다시 그림, 구글 로그인 버튼도 새 색으로
+  var THEME_ORDER = ["system", "light", "dark"];
+  var syncThemeSw = makeSlideSwitch($("themeSeg"), 3, function () { return THEME_ORDER.indexOf(themePref()); }, function (i) { setTheme(THEME_ORDER[i]); themeRedraw(true); });
+  function renderThemeSeg() { syncThemeSw(); }
+  function themeRedraw(fromSwitch) {                 // 화면 색이 바뀐 뒤: 그래프·목록을 새 색으로 다시 그림, 구글 로그인 버튼도 새 색으로
     renderThemeSeg();
     keepPageScroll(function () { renderToday(); renderTogether(); });
     if (typeof renderAccount === "function") { accountLinkDrawn = false; renderAccount(); }
   }
-  $("themeSeg").addEventListener("click", function (e) {
-    var b = e.target.closest && e.target.closest("button"); if (!b) return;
-    var t = b.getAttribute("data-t"); if (t === themePref()) return;
-    setTheme(t); themeRedraw();
-  });
   $("shareToggle").addEventListener("click", function () {
     if (!room) return;
     var on = !shareOn();
@@ -151,7 +153,7 @@
   var pushBusy = false;
   $("pushToggle").addEventListener("click", function () {
     var btn = this;
-    if (!pushSupported()) { setRoomMsg("아이패드 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
+    if (!pushSupported()) { setRoomMsg("기기 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
     if (pushBusy) return;
     pushBusy = true;
     function done() { pushBusy = false; setSw(btn, !!pushSub, pushLabel()); }
@@ -162,7 +164,7 @@
     }
     setSw(btn, true, "켜짐");
     enablePush().then(function () { setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
-      .catch(function (err) { setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 아이패드 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); })
+      .catch(function (err) { setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 기기 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); })
       .then(done);
   });
   $("nickSave").addEventListener("click", function () {

@@ -23,7 +23,7 @@
 
   // ---------- 시계 눈금 (숫자 없음) ----------
   var ticks = $("ticks"), NS = "http://www.w3.org/2000/svg";
-  var CLOCK_INK = "#0f3b2e", CLOCK_SOFT = "#b9bec8", CLOCK_ACCENT = "#b8892f";
+  var CLOCK_INK = "#14234d", CLOCK_SOFT = "#9aa0ab", CLOCK_ACCENT = "#0aa388";
   for (var i = 0; i < 60; i++) {
     var quarter = i % 15 === 0, hour = i % 5 === 0, r = document.createElementNS(NS, "rect");
     var w = quarter ? 2.8 : (hour ? 1.8 : 0.7), h = quarter ? 12 : (hour ? 8 : 3.2);
@@ -64,6 +64,63 @@
     if (mq.addEventListener) mq.addEventListener("change", fn); else if (mq.addListener) mq.addListener(fn);
   })();
 
+  // ---------- 슬라이드 스위치 (홈의 점수/시간 스위치와 같은 방식: 탭하면 그쪽으로, 드래그하면 따라오고 손을 떼면 가까운 칸으로, 빠르게 밀면 그 방향으로) ----------
+  function makeSlideSwitch(sw, n, getIdx, onPick) {
+    var thumb = sw.querySelector(".thumb"), labs = sw.querySelectorAll(".lab"), drag = null, DRAG_START = 6, FLICK_V = 0.15;
+    function geom() {
+      var r = sw.getBoundingClientRect(), cs = getComputedStyle(sw);
+      var pl = parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), pr = parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth), inner = r.width - pl - pr;
+      return { left: r.left + pl, inner: inner, thumb: inner / n };
+    }
+    function paint(i) {
+      sw.setAttribute("data-pos", String(i));
+      Array.prototype.forEach.call(labs, function (l, k) { l.classList.toggle("on", k === i); l.setAttribute("aria-checked", k === i ? "true" : "false"); });
+    }
+    function sync() { paint(getIdx()); }
+    function clamp(i) { return Math.min(n - 1, Math.max(0, i)); }
+    function velocity(d) {
+      var now = performance.now(), recent = d.samples.filter(function (q) { return now - q.t <= 120; });
+      if (recent.length < 2) return 0;
+      var a = recent[0], b = recent[recent.length - 1], dt = b.t - a.t;
+      if (dt <= 0 || now - b.t > 90) return 0;
+      return (b.x - a.x) / dt;
+    }
+    function follow(x, instant) {
+      var g = drag.g, tx = Math.min(Math.max(x - g.left - g.thumb / 2, 0), g.thumb * (n - 1));
+      thumb.style.transition = instant ? "none" : "transform .12s ease-out"; thumb.style.transform = "translateX(" + tx + "px)";
+      drag.idx = clamp(Math.floor((tx + g.thumb / 2) / g.thumb)); paint(drag.idx);
+    }
+    function end(commit, x) {
+      if (!drag) return;
+      var d = drag, idx; drag = null;
+      if (d.dragging) { var vx = velocity(d); idx = Math.abs(vx) >= FLICK_V ? clamp(d.start + (vx > 0 ? 1 : -1)) : d.idx; }
+      else idx = clamp(Math.floor((x - d.g.left) / d.g.thumb));
+      thumb.style.transition = ""; thumb.style.transform = "";
+      if (commit && idx !== getIdx()) onPick(idx);
+      sync();
+    }
+    sw.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      drag = { g: geom(), start: getIdx(), idx: getIdx(), id: e.pointerId, startX: e.clientX, lastX: e.clientX, dragging: false, samples: [{ t: performance.now(), x: e.clientX }] };
+      try { sw.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    sw.addEventListener("pointermove", function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.lastX = e.clientX; drag.samples.push({ t: performance.now(), x: e.clientX }); if (drag.samples.length > 30) drag.samples.shift();
+      if (!drag.dragging) { if (Math.abs(e.clientX - drag.startX) < DRAG_START) return; drag.dragging = true; follow(e.clientX, false); return; }
+      follow(e.clientX, true);
+    });
+    sw.addEventListener("pointerup", function (e) { if (drag && e.pointerId === drag.id) end(true, e.clientX); });
+    sw.addEventListener("pointercancel", function () { if (drag) end(drag.dragging, drag.lastX); });
+    sw.addEventListener("lostpointercapture", function () { if (drag) end(drag.dragging, drag.lastX); });
+    sw.tabIndex = 0;
+    sw.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { onPick(clamp(getIdx() - 1)); sync(); e.preventDefault(); }
+      if (e.key === "ArrowRight") { onPick(clamp(getIdx() + 1)); sync(); e.preventDefault(); }
+    });
+    return sync;
+  }
+
   // ---------- 선택한 과목 (직접 수정하기 전까지 계속 유지) ----------
   var SUBJ_KEY = "examTimer.subjects.v1", memSubj = { 1: null, 2: null }, subjFailed = false;
   function loadSubjects() {
@@ -77,6 +134,13 @@
       };
     }
     return { 1: memSubj[1], 2: memSubj[2] };
+  }
+  // 탐구 과목 번호 = ALL_SUBJECTS 안의 순서 (생활과 윤리 1 … 지구과학Ⅱ 17). 화면에는 보이지 않고, 탐1이 탐2보다 번호가 크면 자동으로 서로 바꿈
+  function subjectNo(name) { return ALL_SUBJECTS.indexOf(name); }
+  function normalizeSubjects() {
+    var s = loadSubjects();
+    if (s[1] && s[2] && subjectNo(s[1]) > subjectNo(s[2])) { var a = s[1], b = s[2]; setSubject(1, b); setSubject(2, a); return true; }
+    return false;
   }
   function setSubject(slot, subject) {
     var s = loadSubjects();

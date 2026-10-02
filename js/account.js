@@ -356,17 +356,17 @@
       }, function () { roomListBusy = false; });
   }
   // ---- 설정 창의 계정 칸 ----
+  function josaRo(w) { return /[mn036]$/i.test(w) ? "으로" : "로"; }            // 메일 주소를 읽을 때 받침이 있으면 "으로" (…com → 엠 → 으로)
   var accountLinkDrawn = false, accountLinkFrom = "", acctProfileTried = false;
   function renderAccount() {
     var sec = $("accountSec"); if (!sec) return;
     sec.classList.toggle("hidden", !(USE_V2 && fbAuth));
     if (!(USE_V2 && fbAuth)) return;
     var anon = fbAuth.kind === "anon";
-    $("accountKind").textContent = anon ? "이 기기에서만 쓰는 중" : "구글메일로 로그인됨";
-    var av = $("accountAv"), em = $("accountEmail");
-    if (!anon && fbAuth.photo) { av.src = fbAuth.photo; av.classList.remove("hidden"); } else av.classList.add("hidden");
-    if (!anon && fbAuth.email) { em.textContent = fbAuth.email; em.classList.remove("hidden"); } else em.classList.add("hidden");
-    if (!anon && !fbAuth.photo && !fbAuth.email && !acctProfileTried) { acctProfileTried = true; authFetchProfile().then(function () { renderAccount(); }, function () {}); }      // 예전에 로그인해 저장된 프로필이 없으면 한 번 받아 옴
+    var av = $("accountAv");
+    $("accountKind").textContent = anon ? "이 기기에서만 쓰는 중" : (fbAuth.email ? fbAuth.email + josaRo(fbAuth.email) + " 로그인됨" : "구글 메일로 로그인됨");
+    if (!anon && fbAuth.photo) { av.onerror = function () { av.classList.add("hidden"); }; av.src = fbAuth.photo; av.classList.remove("hidden"); } else av.classList.add("hidden");
+    if (!anon && (!fbAuth.photo || !fbAuth.email) && !acctProfileTried) { acctProfileTried = true; authFetchProfile().then(function () { renderAccount(); }, function () {}); }      // 사진이나 메일이 비어 있으면 한 번 받아 옴
     $("accountLink").classList.toggle("hidden", !anon);
     if (anon && !accountLinkDrawn) {                 // 이 기기에서만 쓰던 계정에 구글을 연결 (방과 방장 권한은 그대로 이어짐)
       accountLinkDrawn = true; accountLinkFrom = fbAuth.uid;

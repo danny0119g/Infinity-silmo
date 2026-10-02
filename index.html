@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261002031341">
+<meta name="app-version" content="20261002033019">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
 <script>try{var tv=localStorage.getItem("examTimer.theme.v1");if(tv==="light"||(tv==="system"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
-<link rel="stylesheet" href="style.css?v=20261002031341">
+<link rel="stylesheet" href="style.css?v=20261002033019">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
       <h1>무수한 실모</h1>
       <div class="topRight">
         <div id="today" aria-live="polite">
-          <div class="line">오늘 응시한 실모 <strong id="todayTotal">0</strong>개</div>
+          <div class="line"><span id="todayLbl">오늘</span> 응시한 실모 <strong id="todayTotal">0</strong>개</div>
           <div class="detail" id="todayDetail"></div>
         </div>
         <div class="dateNav" id="dateNav">
@@ -61,7 +61,7 @@
     </section>
 
     <div class="records">
-      <h2>오늘의 응시 기록</h2>
+      <h2 id="recTitle">오늘의 응시 기록</h2>
       <div class="recbox" id="recBox">
         <div class="rectop" id="recTop">
           <div class="recfilter" id="recFilter"></div>
@@ -72,11 +72,6 @@
       </div>
     </div>
 
-    <section class="histCard" id="histCard">
-      <div class="histHead"><h2>날짜별 기록 <small id="histCardDay"></small></h2></div>
-      <p class="histSum" id="histSum"></p>
-      <ul class="histList" id="histList"></ul>
-    </section>
     </div>
 
     <aside class="together">
@@ -101,13 +96,13 @@
 <section id="stage">
   <div id="clockwrap">
     <svg id="clock" viewBox="-100 -100 200 200" role="img" aria-label="아날로그 시계">
-      <circle r="98" fill="#ffffff"/>
+      <circle r="98" fill="#e3e5ea"/>
       <g id="ticks"></g>
-      <g id="hour"><rect x="-1" y="-45" width="2" height="55" rx="1" fill="#0f3b2e"/></g>
-      <g id="minute"><rect x="-0.7" y="-71" width="1.4" height="82" rx=".7" fill="#0f3b2e"/></g>
-      <g id="second"><rect x="-0.3" y="-79" width="0.6" height="98" rx=".3" fill="#b8892f"/></g>
-      <circle r="3.2" fill="#0f3b2e"/>
-      <circle r="1.5" fill="#b8892f"/>
+      <g id="hour"><rect x="-1" y="-45" width="2" height="55" rx="1" fill="#14234d"/></g>
+      <g id="minute"><rect x="-0.7" y="-71" width="1.4" height="82" rx=".7" fill="#14234d"/></g>
+      <g id="second"><rect x="-0.3" y="-79" width="0.6" height="98" rx=".3" fill="#0aa388"/></g>
+      <circle r="3.2" fill="#14234d"/>
+      <circle r="1.5" fill="#0aa388"/>
     </svg>
   </div>
 
@@ -201,12 +196,13 @@
           <div id="roomLeaveSec" class="hidden"><button id="roomLeave" class="rowbtn danger" type="button">방 나가기</button></div>
         </div>
         <div id="roomJoinView" class="rjoin hidden">
-          <label class="flabel" for="nickInput">닉네임</label>
+          <label class="flabel" for="nickInput">내 닉네임</label>
           <input id="nickInput" class="tinput" type="text" maxlength="12" autocomplete="off" placeholder="친구들에게 보일 이름">
+          <label class="flabel gap" for="newTitleInput">방 이름 <small>(새로 만들 때)</small></label>
+          <input id="newTitleInput" class="tinput" type="text" maxlength="14" autocomplete="off" placeholder="비워 두면 자동으로 정해요">
           <button id="roomCreate" class="primary">새 방 만들기</button>
           <div class="or">또는 초대 코드로 입장</div>
-          <input id="codeInput" class="tinput code" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="초대 코드">
-          <button id="roomJoin" class="primary ghost">입장하기</button>
+          <div class="jrow"><input id="codeInput" class="tinput code" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="초대 코드"><button id="roomJoin" class="rbtn">입장하기</button></div>
         </div>
       </div>
     </div></div>
@@ -221,10 +217,10 @@
 
     <h2 class="gtitle">기타</h2>
     <div class="rcard"><div class="rin">
-      <div class="rrw"><span>화면 모드</span><div class="seg" id="themeSeg" role="radiogroup" aria-label="화면 모드"><button type="button" role="radio" data-t="system">기기 설정</button><button type="button" role="radio" data-t="light">밝게</button><button type="button" role="radio" data-t="dark">어둡게</button></div></div>
-      <div class="rrw hidden" id="pushLine"><span class="lblI"><svg class="bellI" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>채팅 알림</span><small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
+      <div class="rrw"><span>화면 모드</span><div class="switch s3" id="themeSeg" role="radiogroup" aria-label="화면 모드" data-pos="2"><span class="thumb"></span><span class="lab" role="radio" data-t="system">기기 설정</span><span class="lab" role="radio" data-t="light">밝게</span><span class="lab" role="radio" data-t="dark">어둡게</span></div></div>
+      <div class="rrw hidden" id="pushLine"><span class="lblI"><svg class="bellI bellOff" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg><svg class="bellI bellOn" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="bellBody"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></g><path class="bellWave" d="M1.6 6.5a9 9 0 0 1 2.4-3"/><path class="bellWave" d="M22.4 6.5a9 9 0 0 0-2.4-3"/></svg><span>채팅 알림</span><small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
       <div id="accountSec" class="hidden">
-        <div class="rrw"><span class="acctWho"><img id="accountAv" class="acctAv hidden" alt="" referrerpolicy="no-referrer"><span class="acctTxt"><span id="accountKind">-</span><small id="accountEmail" class="hidden"></small></span></span><button id="accountOut" class="rbtn" type="button">로그아웃</button></div>
+        <div class="rrw"><span class="acctWho"><img id="accountAv" class="acctAv hidden" alt="" referrerpolicy="no-referrer"><span class="acctTxt"><span id="accountKind">-</span></span></span><button id="accountOut" class="rbtn" type="button">로그아웃</button></div>
         <div id="accountLink" class="hidden rjoin"><p class="acctNote">구글 계정에 연결하면 기기를 바꿔도 방이 이어져요.</p><div id="accountGoogle" class="loginGoogle"></div></div>
       </div>
     </div></div>
@@ -273,23 +269,23 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261002031341"></script>
-<script src="js/auth.js?v=20261002031341"></script>
-<script src="js/records.js?v=20261002031341"></script>
-<script src="js/chart.js?v=20261002031341"></script>
-<script src="js/room-base.js?v=20261002031341"></script>
-<script src="js/push.js?v=20261002031341"></script>
-<script src="js/room-sync.js?v=20261002031341"></script>
-<script src="js/profile.js?v=20261002031341"></script>
-<script src="js/scoreask.js?v=20261002031341"></script>
-<script src="js/chat.js?v=20261002031341"></script>
-<script src="js/photo.js?v=20261002031341"></script>
-<script src="js/room-modal.js?v=20261002031341"></script>
-<script src="js/account.js?v=20261002031341"></script>
-<script src="js/dialogs.js?v=20261002031341"></script>
-<script src="js/history.js?v=20261002031341"></script>
-<script src="js/exam.js?v=20261002031341"></script>
-<script src="js/login.js?v=20261002031341"></script>
-<script src="js/refresh.js?v=20261002031341"></script>
+<script src="js/core.js?v=20261002033019"></script>
+<script src="js/auth.js?v=20261002033019"></script>
+<script src="js/records.js?v=20261002033019"></script>
+<script src="js/chart.js?v=20261002033019"></script>
+<script src="js/room-base.js?v=20261002033019"></script>
+<script src="js/push.js?v=20261002033019"></script>
+<script src="js/room-sync.js?v=20261002033019"></script>
+<script src="js/profile.js?v=20261002033019"></script>
+<script src="js/scoreask.js?v=20261002033019"></script>
+<script src="js/chat.js?v=20261002033019"></script>
+<script src="js/photo.js?v=20261002033019"></script>
+<script src="js/room-modal.js?v=20261002033019"></script>
+<script src="js/account.js?v=20261002033019"></script>
+<script src="js/dialogs.js?v=20261002033019"></script>
+<script src="js/history.js?v=20261002033019"></script>
+<script src="js/exam.js?v=20261002033019"></script>
+<script src="js/login.js?v=20261002033019"></script>
+<script src="js/refresh.js?v=20261002033019"></script>
 </body>
 </html>

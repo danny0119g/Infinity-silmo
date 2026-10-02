@@ -28,14 +28,14 @@
   // ---------- 점수 늦게 입력 (비어 있는 점수에 한 번만) ----------
   // 응시 기록 전체 삭제: 한 과목만 보고 있으면 그 과목 기록만, 전체를 보고 있으면 모든 기록
   $("recClear").addEventListener("click", function () {
-    var all = loadAll();
+    var all = loadView();
     var target = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
     if (!target.length) return;
     var label = focusSubject ? focusSubject + " 기록 " + target.length + "개를 모두 삭제하겠습니까?" : "응시 기록 " + target.length + "개를 모두 삭제하겠습니까?";
     ask(label + "\n되돌릴 수 없습니다.", "모두 삭제", true, function () {
       var gone = {};
       target.forEach(function (r) { gone[r.id] = true; });
-      saveAll(loadAll().filter(function (r) { return !gone[r.id]; }));
+      saveAll(loadView().filter(function (r) { return !gone[r.id]; }), viewDayStr());
       clearSelection();
       renderToday();
     });
@@ -54,11 +54,11 @@
     if (!lateTarget) return;
     var v = lateInput.value.trim();
     if (!/^\d{1,2}$/.test(v) || Number(v) > 50) { lateErr.textContent = "0~50 사이의 정수로 입력해 주세요."; return; }
-    var all = loadAll(), rec = findRec(all, lateTarget.id);
+    var all = loadView(), rec = findRec(all, lateTarget.id);
     if (rec && rec[lateTarget.field] == null) {          // 이미 값이 있으면 덮어쓰지 않음 (한 번만)
       rec[lateTarget.field] = Number(v);
       rec[lateTarget.field === "score1" ? "late1" : "late2"] = true;       // 시험 끝에 바로 입력한 점수가 아님
-      saveAll(all);
+      saveAll(all, viewDayStr());
     }
     closeLate();
     renderToday();
@@ -81,7 +81,7 @@
     $("pickerBody").scrollTop = 0;
     picker.classList.add("on");
   }
-  function closePicker() { picker.classList.remove("on"); }
+  function closePicker() { picker.classList.remove("on"); if (normalizeSubjects()) { renderSlots(); renderToday(); } }      // 닫을 때 탐1·탐2 번호 순서를 맞춤
   function renderPicker() {
     var subjects = loadSubjects();
     $("pickerTitle").textContent = pickerMode === "edit" ? "과목 수정" : SLOTS[pickerSlot].label + " 과목 선택";
@@ -122,4 +122,4 @@
   $("pickerDone").addEventListener("click", closePicker);
   picker.addEventListener("click", function (e) { if (e.target === picker) closePicker(); });
   $("editSubjects").addEventListener("click", function () { openPicker(1, "edit"); });
-
+  if (normalizeSubjects()) { renderSlots(); }          // 예전에 저장된 선택도 번호 순서에 맞춤

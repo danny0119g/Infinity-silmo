@@ -42,6 +42,7 @@
   function authSignInAnonymous() {
     return authCall("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + FB_API_KEY, { returnSecureToken: true }).then(function (j) { return applyAuthResult(j, "anon"); });
   }
+  function jwtClaims(t) { try { var p = String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"); return JSON.parse(decodeURIComponent(escape(atob(p)))); } catch (e) { return {}; } }
   var authLastFresh = false;                         // 마지막 구글 로그인이 "이어받지 않고 새로 시작"이었는지
   function authSignInGoogle(credential, confirmCarry) {            // credential: 구글이 준 ID 토큰(JWT). confirmCarry: (선택) 처음 쓰는 구글 계정일 때 "이 기기 정보를 옮길지" 묻는 함수(true/false로 끝나는 Promise)
     function exchange(linkToken) {
@@ -69,7 +70,12 @@
         if (lt && (err.message === "FEDERATED_USER_ID_ALREADY_LINKED" || err.message === "CREDENTIAL_ALREADY_IN_USE")) return exchange("");   // 이미 다른 계정에 연결된 구글이면 그 계정으로 로그인
         throw err;
       });
-    }).then(function (j) { return applyAuthResult(j, "google"); });
+    }).then(function (j) {
+      var c = jwtClaims(credential);                 // 로그인 응답에 사진·메일이 없으면 구글이 준 토큰 안의 값을 씀
+      if (!j.photoUrl && typeof c.picture === "string") j.photoUrl = c.picture;
+      if (!j.email && typeof c.email === "string") j.email = c.email;
+      return applyAuthResult(j, "google");
+    });
   }
   function authFetchProfile() {                      // 구글 프로필 사진·메일을 한 번 받아 저장 (예전에 로그인해서 저장된 게 없을 때)
     return authToken().then(function (tok) { return authCall("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + FB_API_KEY, { idToken: tok }); }).then(function (j) {

@@ -73,8 +73,16 @@
     if (!migrated) { migrated = true; migrateOldRecords(); }
     return loadDay(todayStr());
   }
-  function saveAll(arr) {                          // 오늘의 기록 저장 (목록에서 빠진 기록은 "지운 기록"으로 남김)
-    var d = todayStr(), prev = loadDay(d), keep = {}, gone = dayGone(d).slice();
+  var viewDay = "";                                // 홈 화면에 보여 줄 날짜 ("" = 오늘). 헤더의 날짜 이동으로 바뀜
+  function viewDayStr() { var t = todayStr(); return (validDay(viewDay) && viewDay < t) ? viewDay : t; }
+  function loadView() { return loadDay(viewDayStr()); }          // 홈 화면(기록 목록·그래프·숫자)이 읽는 기록
+  function setViewDay(d) {
+    viewDay = d || ""; clearSelection(); focusSubject = ""; scoreExpanded = false;
+    if (typeof renderHistory === "function") renderHistory();
+    renderToday();
+  }
+  function saveAll(arr, day) {                     // 기록 저장 (day 생략 시 오늘). 목록에서 빠진 기록은 "지운 기록"으로 남김
+    var d = day || todayStr(), prev = loadDay(d), keep = {}, gone = dayGone(d).slice();
     arr.forEach(function (r) { keep[r.id] = 1; });
     prev.forEach(function (r) { if (!keep[r.id] && gone.indexOf(r.id) < 0) gone.push(r.id); });
     saveDay(d, arr, gone);
@@ -185,7 +193,9 @@
     });
   }
   function renderSummary() {
-    var all = loadAll(), subjects = loadSubjects();
+    var all = loadView(), subjects = loadSubjects(), vd = viewDayStr(), vt = vd === todayStr();
+    $("todayLbl").textContent = vt ? "오늘" : (Number(vd.slice(5, 7)) + "월 " + Number(vd.slice(8)) + "일");
+    $("recTitle").textContent = vt ? "오늘의 응시 기록" : $("todayLbl").textContent + "의 응시 기록";
     // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
     var entries = [];
     function entry(name) {
@@ -201,7 +211,7 @@
   }
   // 응시 기록 상자만 다시 그림 (과목 버튼을 누를 때는 그래프나 페이지는 건드리지 않음)
   function renderRecords(keepHeight) {
-    var all = loadAll(), nums = attemptNumbers(all), recBox = $("recBox");
+    var all = loadView(), nums = attemptNumbers(all), recBox = $("recBox");
     if (keepHeight) recBox.style.minHeight = recBox.offsetHeight + "px";   // 목록이 짧아져도 상자 크기를 유지해서 페이지 길이가 안 변하게
     else recBox.style.minHeight = "";
     // 과목별로 따로 보기 (상자 위쪽 버튼)
@@ -233,7 +243,7 @@
     // 가장 최근에 본 것이 위로
     var ul = $("records"), keepTop = ul.scrollTop;
     ul.textContent = "";
-    $("recordsEmpty").style.display = all.length ? "none" : "";
+    $("recordsEmpty").style.display = all.length ? "none" : ""; $("recordsEmpty").textContent = viewDayStr() === todayStr() ? "아직 응시한 실모가 없어요." : "이 날은 응시한 기록이 없어요.";
     var shown = focusSubject ? all.filter(function (r) { return recSubject(r) === focusSubject; }) : all;
     shown.slice().reverse().forEach(function (rec) {
       var title = recSubject(rec) + " " + nums[rec.id] + "회";

@@ -76,6 +76,7 @@
   function setSw(btn, on, text) {                    // 아이폰 스위치처럼: 글자 없이 켜짐/꺼짐 상태만 표시
     btn.classList.toggle("on", !!on); btn.setAttribute("aria-checked", on ? "true" : "false");
     var na = text === "앱에서만"; btn.classList.toggle("na", na);
+    if (btn.parentNode && btn.parentNode.classList) btn.parentNode.classList.toggle("swOn", !!on);
     var note = btn.parentNode && btn.parentNode.querySelector(".swNote"); if (note) note.textContent = na ? "앱에서만 가능" : "";
   }
   // [/채팅 알림]
