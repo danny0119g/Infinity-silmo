@@ -859,7 +859,7 @@
   .srcLegend .item { font-size: 13px; }
   #srcModal { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; padding: 24px; background: var(--overlay); }
   #srcModal.on { display: flex; }
-  .legend .item.src.first { margin-left: 10px; }
+  .srcLegRow { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
   .legend .item .glyph { font-size: 12px; color: var(--muted); margin-right: 5px; }
   #srcEditPick .srcdd, #latePick .srcdd { width: 100%; }
   #latePick { margin: 0 0 14px; }

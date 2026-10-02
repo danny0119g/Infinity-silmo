@@ -102,8 +102,9 @@
     var shapeSeen = {}, shapeNames = [];            // 점 모양 안내: 그래프에 있는 업체만 (누르면 그 업체만 보기)
     allPts.forEach(function (r) { var k = r.src || ""; if (k && !shapeSeen[k]) { shapeSeen[k] = 1; shapeNames.push(k); } });
     if (focusSrc && shapeNames.indexOf(focusSrc) < 0 && !all.some(function (r) { return r.src === focusSrc; })) focusSrc = "";
+    var srcRow = el("div", "srcLegRow");               // 과목 줄 아래 새 줄
     shapeNames.forEach(function (k, i) {
-      var on = k === focusSrc, it = el("button", "item src" + (on ? " on" : "") + (i === 0 ? " first" : ""));
+      var on = k === focusSrc, it = el("button", "item src" + (on ? " on" : ""));
       it.type = "button"; it.setAttribute("aria-pressed", on ? "true" : "false"); it.setAttribute("title", on ? "전체 업체 보기" : k + "만 보기");
       it.appendChild(el("span", "glyph", SRC_SHAPE_CH[srcShapeIdx(k)])); it.appendChild(document.createTextNode(k));
       it.addEventListener("click", function () {
@@ -111,8 +112,9 @@
         keepPageScroll(function () { renderRecords(true); renderChart(); });
         $("records").scrollTop = 0;
       });
-      legend.appendChild(it);
+      srcRow.appendChild(it);
     });
+    if (shapeNames.length) legend.appendChild(srcRow);
 
     var pts = allPts.filter(inFocus);
     if (!pts.length) {

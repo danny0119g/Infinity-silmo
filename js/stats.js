@@ -48,12 +48,14 @@
     var names = []; flat.forEach(function (q) { if (names.indexOf(q.subject) < 0) names.push(q.subject); });
     function srcChips() {
       if (!srcNames.length) return;
+      var srow = el("div", "srcLegRow");
       [""].concat(srcNames).forEach(function (n, i) {
-        var on = statSrc === n, b = el("button", "item src" + (on ? " on" : "") + (i === 0 ? " first" : ""), n || "전체");
+        var on = statSrc === n, b = el("button", "item src" + (on ? " on" : ""), n || "전체");
         b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
         b.addEventListener("click", function () { statSrc = n; statSel = ""; renderChart(); });
-        legend.appendChild(b);
+        srow.appendChild(b);
       });
+      legend.appendChild(srow);
     }
     if (!data.length) { srcChips(); box.appendChild(el("p", "empty", "응시 기록이 쌓이면 여기에 날짜별 통계가 그려져요.")); return; }
     if (statFocus && names.indexOf(statFocus) < 0) statFocus = "";
