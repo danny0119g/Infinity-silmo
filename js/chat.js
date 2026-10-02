@@ -457,9 +457,9 @@
       var bw = el("div", "pBellWrap"), bbn = el("button", "pBellBtn"), wcode = room.code, wk = watchKey(wcode, m.id), mk = wk;
       bbn.type = "button"; bbn.setAttribute("aria-label", "이 사람 알림 설정"); bbn.setAttribute("title", "알림 설정");
       var paintBell = function () {
-        var wOn = watchState[wk] === true, cMuted = muteState[mk] === true;
-        bbn.innerHTML = (cMuted && !wOn) ? BELLOFFSVG : BELLSVG;
-        bbn.classList.toggle("on", wOn); bbn.classList.toggle("open", bellMenuOpen);
+        var n = (watchState[wk] === true ? 1 : 0) + (muteState[mk] !== true ? 1 : 0);          // 켜진 알림 개수 (채팅 알림은 기본 켜짐)
+        bbn.innerHTML = n === 0 ? BELLOFFSVG : BELLSVG;                                     // 둘 다 꺼짐: 빗금 종 / 하나만 켜짐: 회색 종 / 둘 다 켜짐: 파란 종
+        bbn.classList.toggle("both", n === 2);
       };
       var buildMenu = function () {
         var old = bw.querySelector(".bellMenu"); if (old) bw.removeChild(old);

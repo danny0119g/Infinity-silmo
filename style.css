@@ -822,9 +822,8 @@
   /* ---------- 프로필 카드: 종 아이콘 + 알림 메뉴 ---------- */
   .pTop { position: relative; }
   .pBellWrap { position: relative; margin-left: auto; align-self: flex-start; flex: none; }
-  .pBellBtn { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--line2); background: transparent; color: var(--muted); }
-  .pBellBtn.on { color: var(--accent2); border-color: var(--accent); }
-  .pBellBtn.open { background: var(--hover); }
+  .pBellBtn { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); }
+  .pBellBtn.both { color: var(--accent2); }
   .bellMenu { position: absolute; z-index: 3; right: 0; top: calc(100% + 6px); min-width: 188px; padding: 4px; display: flex; flex-direction: column; gap: 2px; background: var(--bg); border: 1px solid var(--line2); border-radius: 10px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
   .bmItem { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
   .bmItem:disabled { opacity: .5; }
