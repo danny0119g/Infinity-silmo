@@ -29,7 +29,7 @@
       refreshRoomPhoto();
       setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
       $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
-      $("labelNote").textContent = (USE_V2 && !titleBlocked) ? "방 친구들 모두에게 보여요" : "나에게만 보여요";
+      applyLabelPerm();
       $("pushCheckLine").classList.toggle("hidden", !PUSH_URL);
     }
     roomModal.classList.add("on");
@@ -192,8 +192,13 @@
     });
   });
   // 방 이름 (이 기기에서만 보임)
+  function applyLabelPerm() {                      // 방 이름은 방장만 바꿀 수 있음
+    var ok = !USE_V2 || isHost();
+    $("labelEdit").readOnly = !ok; $("labelEdit").classList.toggle("ro", !ok);
+    $("labelSave").classList.toggle("hidden", !ok);
+  }
   $("labelSave").addEventListener("click", function () {
-    if (!room) return;
+    if (!room || (USE_V2 && !isHost())) return;
     var v = cleanTitle($("labelEdit").value);
     if (!v) { setRoomMsg("방 이름을 입력해 주세요."); return; }
     room.label = v;
@@ -202,8 +207,8 @@
     if (!USE_V2) { setRoomMsg("저장했어요.", false); return; }
     var code = room.code;
     enqueue(function () { return putTitle(code, v); }).then(function (ok) {      // 방 이름은 방 친구들 모두에게 보임
-      if (ok) { setRoomMsg("방 이름을 바꿨어요. 방 친구들에게도 보여요.", false); $("labelNote").textContent = "방 친구들 모두에게 보여요"; }
-      else { setRoomMsg("이 기기에만 저장했어요. (서버 규칙을 업데이트해야 친구들에게도 보여요)"); $("labelNote").textContent = "나에게만 보여요"; }
+      if (ok) { setRoomMsg("방 이름을 바꿨어요. 방 친구들에게도 보여요.", false); }
+      else { setRoomMsg("이 기기에만 저장했어요. (서버 규칙을 업데이트해야 친구들에게도 보여요)"); }
     });
   });
   // ---------- 방 전환 메뉴 (방 이름을 누르면 펼쳐짐) ----------

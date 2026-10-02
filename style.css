@@ -713,3 +713,33 @@
   .roomdlg .rrw .tinput, .roomdlg .rjoin .tinput { border: 1px solid var(--line); background: var(--input); }
   .roomdlg .rrw .tinput:focus-visible, .roomdlg .rjoin .tinput:focus-visible { border-color: var(--accent); outline: none; }
   #roomClose { display: flex; margin: 12px auto 0 !important; }
+  .roomdlg .rrw .tinput.ro { color: var(--muted); background: transparent; border-color: transparent; padding-left: 0; }
+
+  /* ---------- 날짜별 기록 (대략적인 화면) ---------- */
+  .histCard { margin-top: 22px; }
+  .histHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .histHead h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
+  .histNav { display: flex; align-items: center; gap: 6px; }
+  .hcNav { width: 34px; height: 34px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; line-height: 1; color: var(--text); }
+  .hcNav:disabled { opacity: .35; }
+  .histDate { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .histCal { margin-bottom: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); }
+  .hcHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .hcTitle { font-size: 15px; font-weight: 700; }
+  .hcGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .hcWd { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+  .hcDay { position: relative; height: 38px; padding: 0; border-radius: 10px; border: 1px solid transparent; background: transparent; font-size: 14px; font-weight: 600; color: var(--text); }
+  .hcDay:disabled { color: var(--muted); opacity: .35; }
+  .hcDay.today { border-color: var(--line2); }
+  .hcDay.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hcDay.has::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); }
+  .hcDay.sel.has::after { background: #fff; }
+  .histSum { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); }
+  .histList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .hrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+  .hrow .hl { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .hrow .hs { font-size: 16px; font-weight: 800; }
+  .hrow .hm { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .hrow .hr { text-align: right; flex: none; }
+  .hrow .hsc { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mainCol > .histCard { order: 6; margin-top: 0; }

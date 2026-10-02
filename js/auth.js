@@ -40,7 +40,8 @@
   function authSignInAnonymous() {
     return authCall("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + FB_API_KEY, { returnSecureToken: true }).then(function (j) { return applyAuthResult(j, "anon"); });
   }
-  function authSignInGoogle(credential) {            // credential: 구글이 준 ID 토큰(JWT)
+  var authLastFresh = false;                         // 마지막 구글 로그인이 "이어받지 않고 새로 시작"이었는지
+  function authSignInGoogle(credential, confirmCarry) {            // credential: 구글이 준 ID 토큰(JWT). confirmCarry: (선택) 처음 쓰는 구글 계정일 때 "이 기기 정보를 옮길지" 묻는 함수(true/false로 끝나는 Promise)
     function exchange(linkToken) {
       var body = { postBody: "id_token=" + encodeURIComponent(credential) + "&providerId=google.com", requestUri: location.origin || "http://localhost", returnIdpCredential: true, returnSecureToken: true };
       if (linkToken) body.idToken = linkToken;       // 이 기기에서만 쓰던 계정(익명)이 있으면 그 계정에 구글을 연결
@@ -50,7 +51,18 @@
       });
     }
     var link = (fbAuth && fbAuth.kind === "anon" && fbAuth.token) ? authToken().catch(function () { return ""; }) : Promise.resolve("");
+    authLastFresh = false;
     return link.then(function (lt) {
+      if (lt && typeof confirmCarry === "function") {
+        return exchange("").then(function (j) {                 // 먼저 연결 없이 로그인해 보고, 이미 있던 구글 계정인지 확인
+          if (!j.isNewUser) return j;                           // 이미 있던 계정이면 그 계정으로 전환
+          return confirmCarry().then(function (carry) {
+            if (!carry) { authLastFresh = true; return j; }     // 새로 시작: 방금 만들어진 빈 계정을 씀
+            return authCall("https://identitytoolkit.googleapis.com/v1/accounts:delete?key=" + FB_API_KEY, { idToken: j.idToken })       // 이어받기: 방금 만든 빈 계정을 지우고 구글을 이 기기 계정에 연결
+              .then(function () { return exchange(lt); });
+          });
+        });
+      }
       return exchange(lt).catch(function (err) {
         if (lt && (err.message === "FEDERATED_USER_ID_ALREADY_LINKED" || err.message === "CREDENTIAL_ALREADY_IN_USE")) return exchange("");   // 이미 다른 계정에 연결된 구글이면 그 계정으로 로그인
         throw err;
@@ -84,13 +96,13 @@
     return gsiPromise;
   }
   // 구글 로그인 버튼을 box 안에 그림. 성공하면 onDone(fbAuth), 실패하면 onError(Error)
-  function authRenderGoogleButton(box, onDone, onError) {
+  function authRenderGoogleButton(box, onDone, onError, confirmCarry) {
     return authLoadGsi().then(function () {
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID, ux_mode: "popup", auto_select: false, cancel_on_tap_outside: true,
         callback: function (resp) {
           if (!resp || !resp.credential) { onError(new Error("NO_CREDENTIAL")); return; }
-          authSignInGoogle(resp.credential).then(onDone, onError);
+          authSignInGoogle(resp.credential, confirmCarry).then(onDone, onError);
         }
       });
       box.textContent = "";

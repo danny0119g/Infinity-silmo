@@ -369,13 +369,24 @@
       accountLinkDrawn = true; accountLinkFrom = fbAuth.uid;
       authRenderGoogleButton($("accountGoogle"), function () {
         accountLinkDrawn = false;
-        if (fbAuth.uid !== accountLinkFrom) {          // 이미 쓰던 구글 계정이라 그 계정으로 전환됨 → 새 계정 기준으로 다시 시작
-          try { sessionStorage.setItem("examTimer.acctSwitched", "1"); } catch (e) {}
+        if (fbAuth.uid !== accountLinkFrom) {          // 다른 계정으로 바뀜(이미 쓰던 구글 계정 / 새로 시작) → 이 기기에 남은 예전 계정 정보를 비우고 새 계정 기준으로 다시 시작
+          wipeLocalAccountData();
+          try { sessionStorage.setItem("examTimer.acctSwitched", authLastFresh ? "new" : "1"); } catch (e) {}
           location.reload(); return;
         }
         renderAccount(); setRoomMsg("구글 계정에 연결했어요.", false);
-      }, function (e) { setRoomMsg(authErrorText(e)); });
+      }, function (e) { accountLinkDrawn = false; setRoomMsg(authErrorText(e)); }, confirmCarryOver);
     }
+  }
+  function confirmCarryOver() {                      // 처음 쓰는 구글 계정에 연결할 때: 지금 이 기기의 정보를 옮길지 물음
+    return new Promise(function (resolve) {
+      ask("처음 쓰는 구글 계정이에요.\n지금까지 쓰던 방·기록·설정을 모두 이 구글 계정으로 옮길까요?\n\n'새로 시작'을 고르면 빈 계정으로 시작하고, 지금 계정의 정보는 이 기기에서 더 볼 수 없어요.", "옮기기", false, function () { resolve(true); }, function () { resolve(false); });
+      $("modalNo").textContent = "새로 시작";
+    });
+  }
+  function wipeLocalAccountData() {                  // 이 기기에 저장된 앱 정보를 지움 (로그인 정보·화면 색·기기 표시는 남김)
+    var keep = { "examTimer.auth.v1": 1, "examTimer.theme.v1": 1, "examTimer.inst.v1": 1 }, del = [];
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("examTimer.") === 0 && !keep[k]) del.push(k); } del.forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
   }
   $("accountOut").addEventListener("click", function () {
     var anon = fbAuth && fbAuth.kind === "anon";
@@ -385,9 +396,11 @@
     });
   });
   try {
-    if (sessionStorage.getItem("examTimer.acctSwitched")) {
+    var swKind = sessionStorage.getItem("examTimer.acctSwitched");
+    if (swKind) {
       sessionStorage.removeItem("examTimer.acctSwitched");
-      setTimeout(function () { notice("이미 쓰던 구글 계정이라 그 계정으로 전환했어요.\n이 기기에서만 쓰던 계정의 방은 옮겨지지 않아요."); }, 900);
+      var isNew = swKind === "new";
+      setTimeout(function () { notice(isNew ? "빈 구글 계정으로 새로 시작했어요." : "이미 쓰던 구글 계정이라 그 계정으로 전환했어요.\n이 기기에서만 쓰던 계정의 방은 옮겨지지 않아요."); }, 900);
     }
   } catch (e) {}
   if (USE_V2 && fbAuth) startAccountSync();

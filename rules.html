@@ -283,7 +283,7 @@ var FULL_STRICT = `{
               }
             },
             "title": {
-              ".write": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+              ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 14"
             },
             "$other": {
@@ -537,7 +537,7 @@ var FULL_SIMPLE = `{
               }
             },
             "title": {
-              ".write": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+              ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 14"
             },
             "$other": {
@@ -783,7 +783,7 @@ var V2_ONLY = `"v2": {
               }
             },
             "title": {
-              ".write": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+              ".write": "auth != null && root.child('v2/rooms/'+$code+'/meta/host').val() === auth.uid",
               ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 14"
             },
             "$other": {

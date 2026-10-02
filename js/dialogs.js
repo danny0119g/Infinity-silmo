@@ -12,7 +12,7 @@
     modal.classList.add("on");
     $("modalNo").focus();
   }
-  function closeAsk() { modal.classList.remove("on"); onYes = null; onNo = null; releaseHold(); $("modalNo").classList.remove("hidden"); $("modalMsg").classList.remove("rpt"); }
+  function closeAsk() { $("modalNo").textContent = "아니오"; modal.classList.remove("on"); onYes = null; onNo = null; releaseHold(); $("modalNo").classList.remove("hidden"); $("modalMsg").classList.remove("rpt"); }
   function notice(message) { ask(message, "확인", false, null); $("modalNo").classList.add("hidden"); }   // 아니오·Esc 등으로 닫히면 테두리가 원래대로 풀림
   modalYes.addEventListener("click", function () {
     var cb = onYes;

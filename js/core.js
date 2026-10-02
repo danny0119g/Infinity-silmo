@@ -32,7 +32,7 @@
     r.setAttribute("width", w);
     r.setAttribute("height", h);
     r.setAttribute("rx", Math.min(w / 2, 0.8));
-    r.setAttribute("fill", i === 0 ? CLOCK_ACCENT : (hour ? CLOCK_INK : CLOCK_SOFT));
+    r.setAttribute("fill", (i === 0 || i === 30) ? CLOCK_ACCENT : (hour ? CLOCK_INK : CLOCK_SOFT));
     r.setAttribute("transform", "rotate(" + (i * 6) + ")");
     ticks.appendChild(r);
   }

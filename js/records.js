@@ -2,7 +2,7 @@
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
   // ---------- 오늘의 기록 (응시한 순서대로 보관, 하루가 지나면 초기화) ----------
   var ALL_KEY = "examTimer.records.v3", OLD_KEY = "examTimer.today.v2";            // 옛 저장 칸(날짜 구분 없던 시절): 처음 한 번 날짜별 칸으로 옮김
-  var DAYREC_PREFIX = "examTimer.rec.v4.", DAYS_KEY = "examTimer.recDays.v1", DAY_CUTOFF_H = 0;     // DAY_CUTOFF_H: 하루가 시작되는 시각(0 = 자정). 새벽 시험을 전날로 치고 싶으면 이 값만 바꾸면 됨
+  var DAYREC_PREFIX = "examTimer.rec.v4.", DAYS_KEY = "examTimer.recDays.v1", DAY_CUTOFF_H = 5;     // DAY_CUTOFF_H: 하루가 시작되는 시각 (5 = 아침 5시). 하루는 그날 05:00 ~ 다음날 05:00 이고, 시험은 시작한 시각이 속한 하루로 처리됨 (03~05시에 시작하면 전날 기록)
   var memDays = {}, storeFailed = false;           // 저장소에 쓰기가 실패했으면(용량 초과 등) 이번 방문 동안은 메모리 값을 우선
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -27,6 +27,7 @@
     try { localStorage.setItem(DAYREC_PREFIX + d, JSON.stringify({ v: 1, list: arr, gone: g })); addDayIdx(d); storeFailed = false; } catch (e) { storeFailed = true; }
     if (!silent && typeof onRecordsChanged === "function") onRecordsChanged(d);
     scheduleSync();
+    if (typeof renderHistory === "function") renderHistory();
   }
   function migrateOldRecords() {                   // 날짜 구분 없이 하나로 저장하던 옛 기록을, 그 기록이 속한 날짜 칸으로 옮김
     var arr = null, old = null, stamp = null;

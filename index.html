@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261002024557">
+<meta name="app-version" content="20261002025722">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
 <script>try{if(localStorage.getItem("examTimer.theme.v1")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
-<link rel="stylesheet" href="style.css?v=20261002024557">
+<link rel="stylesheet" href="style.css?v=20261002025722">
 </head>
 <body>
 
@@ -65,6 +65,20 @@
         <p id="recordsEmpty">아직 응시한 실모가 없어요.</p>
       </div>
     </div>
+
+    <section class="histCard" id="histCard">
+      <div class="histHead">
+        <h2>날짜별 기록</h2>
+        <div class="histNav">
+          <button type="button" class="hcNav" id="histPrev" aria-label="이전 날">‹</button>
+          <button type="button" class="histDate" id="histDate" aria-label="날짜 선택"></button>
+          <button type="button" class="hcNav" id="histNext" aria-label="다음 날">›</button>
+        </div>
+      </div>
+      <div class="histCal hidden" id="histCal"></div>
+      <p class="histSum" id="histSum"></p>
+      <ul class="histList" id="histList"></ul>
+    </section>
     </div>
 
     <aside class="together">
@@ -91,11 +105,11 @@
     <svg id="clock" viewBox="-100 -100 200 200" role="img" aria-label="아날로그 시계">
       <circle r="98" fill="#ffffff"/>
       <g id="ticks"></g>
-      <g id="hour"><rect x="-2.6" y="-45" width="5.2" height="56" rx="2.6" fill="#111318"/></g>
-      <g id="minute"><rect x="-1.9" y="-71" width="3.8" height="83" rx="1.9" fill="#111318"/></g>
-      <g id="second"><rect x="-0.6" y="-79" width="1.2" height="98" rx=".6" fill="#ff5a1f"/></g>
-      <circle r="5" fill="#111318"/>
-      <circle r="2.4" fill="#ff5a1f"/>
+      <g id="hour"><rect x="-1.3" y="-45" width="2.6" height="55" rx="1.3" fill="#111318"/></g>
+      <g id="minute"><rect x="-0.9" y="-71" width="1.8" height="82" rx=".9" fill="#111318"/></g>
+      <g id="second"><rect x="-0.3" y="-79" width="0.6" height="98" rx=".3" fill="#ff5a1f"/></g>
+      <circle r="3.4" fill="#111318"/>
+      <circle r="1.6" fill="#ff5a1f"/>
     </svg>
   </div>
 
@@ -179,7 +193,7 @@
     <h2 class="gtitle first">방</h2>
     <div class="rcard"><div class="rin">
       <div id="roomInView" class="hidden">
-        <div class="rrw"><span class="rl2"><b>방 이름</b><small id="labelNote">나에게만 보여요</small></span><input id="labelEdit" class="tinput" type="text" maxlength="14" autocomplete="off" aria-label="방 이름"><button id="labelSave" class="rbtn">저장</button></div>
+        <div class="rrw"><span class="rl">방 이름</span><input id="labelEdit" class="tinput" type="text" maxlength="14" autocomplete="off" aria-label="방 이름"><button id="labelSave" class="rbtn">저장</button></div>
         <div class="rrw"><span class="rl">초대 코드</span><input id="roomCodeShow" class="tinput code" type="text" readonly aria-label="초대 코드"><button id="roomCopy" class="rbtn">복사</button></div>
         <div class="rrw"><span>이 방에서 점수 공개</span><button id="shareToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="이 방에서 점수 공개"></button></div>
       </div>
@@ -261,22 +275,23 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261002024557"></script>
-<script src="js/auth.js?v=20261002024557"></script>
-<script src="js/records.js?v=20261002024557"></script>
-<script src="js/chart.js?v=20261002024557"></script>
-<script src="js/room-base.js?v=20261002024557"></script>
-<script src="js/push.js?v=20261002024557"></script>
-<script src="js/room-sync.js?v=20261002024557"></script>
-<script src="js/profile.js?v=20261002024557"></script>
-<script src="js/scoreask.js?v=20261002024557"></script>
-<script src="js/chat.js?v=20261002024557"></script>
-<script src="js/photo.js?v=20261002024557"></script>
-<script src="js/room-modal.js?v=20261002024557"></script>
-<script src="js/account.js?v=20261002024557"></script>
-<script src="js/dialogs.js?v=20261002024557"></script>
-<script src="js/exam.js?v=20261002024557"></script>
-<script src="js/login.js?v=20261002024557"></script>
-<script src="js/refresh.js?v=20261002024557"></script>
+<script src="js/core.js?v=20261002025722"></script>
+<script src="js/auth.js?v=20261002025722"></script>
+<script src="js/records.js?v=20261002025722"></script>
+<script src="js/chart.js?v=20261002025722"></script>
+<script src="js/room-base.js?v=20261002025722"></script>
+<script src="js/push.js?v=20261002025722"></script>
+<script src="js/room-sync.js?v=20261002025722"></script>
+<script src="js/profile.js?v=20261002025722"></script>
+<script src="js/scoreask.js?v=20261002025722"></script>
+<script src="js/chat.js?v=20261002025722"></script>
+<script src="js/photo.js?v=20261002025722"></script>
+<script src="js/room-modal.js?v=20261002025722"></script>
+<script src="js/account.js?v=20261002025722"></script>
+<script src="js/dialogs.js?v=20261002025722"></script>
+<script src="js/history.js?v=20261002025722"></script>
+<script src="js/exam.js?v=20261002025722"></script>
+<script src="js/login.js?v=20261002025722"></script>
+<script src="js/refresh.js?v=20261002025722"></script>
 </body>
 </html>
