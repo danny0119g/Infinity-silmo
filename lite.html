@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>국어·수학 시계</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1b1d21">
+<style>
+  :root { --bg:#1b1d21; --panel:#23262b; --line:#3a3e46; --text:#f1f2f4; --muted:#9aa0aa; --accent:#3d8bfd; --second:#d8261c; --danger:#f0908a; --overlay:rgba(10,11,13,.78); }
+  @media (prefers-color-scheme: light) { :root { --bg:#f1f2f5; --panel:#fff; --line:#dcdfe5; --text:#17181a; --muted:#666d78; --danger:#c4352b; --overlay:rgba(24,27,32,.45); } }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+  button, a { font: inherit; color: inherit; user-select: none; -webkit-user-select: none; }
+  .hidden { display: none !important; }
+
+  /* 시작 화면 */
+  #pick { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; }
+  #pick h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; }
+  .opts { display: flex; gap: 14px; width: 100%; max-width: 520px; }
+  .opt { flex: 1; padding: 30px 12px; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; cursor: pointer; }
+  .opt:active { border-color: var(--accent); }
+  .opt b { display: block; font-size: 38px; font-weight: 800; letter-spacing: -.03em; }
+  .opt span { display: block; margin-top: 8px; color: var(--muted); font-size: 17px; font-variant-numeric: tabular-nums; }
+  #back { color: var(--muted); font-size: 15px; text-decoration: none; padding: 10px 16px; }
+
+  /* 시계 화면 */
+  #stage { position: fixed; inset: 0; background: var(--bg); }
+  #clockwrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(8px, env(safe-area-inset-top, 0px)) 8px max(8px, env(safe-area-inset-bottom, 0px)); }
+  #clock { width: min(100vw - 16px, 100vh - 16px); height: min(100vw - 16px, 100vh - 16px); display: block; }
+  @supports (height: 100dvh) { #clock { width: min(100vw - 16px, 100dvh - 16px); height: min(100vw - 16px, 100dvh - 16px); } }
+  .bar, .bottombar { position: absolute; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 16px; pointer-events: none; }
+  .bar > *, .bottombar > * { pointer-events: auto; }
+  .bar { top: 0; padding-top: max(16px, env(safe-area-inset-top, 0px)); flex-wrap: wrap; }
+  .bottombar { bottom: 0; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+  .pill { height: 38px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  #abandon { background: rgba(216,38,28,.2); border-color: rgba(240,104,94,.55); color: var(--danger); }
+  #remain { font-size: 20px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; visibility: hidden; pointer-events: none; }
+  #remain.on { visibility: visible; }
+  #endBtn { margin-left: auto; background: var(--accent); border: 0; border-radius: 14px; padding: 14px 26px; font-weight: 700; font-size: 18px; line-height: 1.2; color: #fff; cursor: pointer; }
+  #warn5 { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); display: none; white-space: nowrap; z-index: 3; background: var(--second); color: #fff; border-radius: 28px; padding: .18em .6em .22em; font-weight: 800; letter-spacing: -.03em; font-size: clamp(44px, 12vw, 120px); }
+  #warn5.on { display: block; }
+
+  /* 확인·종료 창 */
+  #dlg { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; padding: 24px; background: var(--overlay); }
+  #dlg.on { display: flex; }
+  .box { width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 28px 24px 24px; text-align: center; }
+  .box p { margin: 0 0 22px; font-size: 22px; font-weight: 700; line-height: 1.45; white-space: pre-line; }
+  .box .row { display: flex; gap: 10px; }
+  .box .row button { flex: 1; padding: 14px; font-size: 17px; font-weight: 700; background: transparent; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }
+  .box .row button.yes { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .box .row button.danger { background: var(--second); border-color: var(--second); color: #fff; }
+</style>
+</head>
+<body>
+
+<section id="pick">
+  <h1>국어 · 수학</h1>
+  <div class="opts">
+    <button class="opt" data-k="kor"><b>국어</b><span>8:40 ~ 10:00 · 80분</span></button>
+    <button class="opt" data-k="math"><b>수학</b><span>10:30 ~ 12:10 · 100분</span></button>
+  </div>
+  <a id="back" href="index.html">← 앱으로 돌아가기</a>
+</section>
+
+<section id="stage" class="hidden">
+  <div id="clockwrap">
+    <svg id="clock" viewBox="-100 -100 200 200" role="img" aria-label="아날로그 시계">
+      <circle r="98" fill="#e3e5ea"/>
+      <g id="ticks"></g>
+      <g id="hour"><rect x="-1" y="-45" width="2" height="55" rx="1" fill="#14234d"/></g>
+      <g id="minute"><rect x="-0.7" y="-71" width="1.4" height="82" rx=".7" fill="#14234d"/></g>
+      <g id="second"><rect x="-0.3" y="-79" width="0.6" height="98" rx=".3" fill="#16bf9f"/></g>
+      <circle r="3.2" fill="#14234d"/>
+      <circle r="1.5" fill="#16bf9f"/>
+    </svg>
+  </div>
+  <div class="bar">
+    <button class="pill" id="abandon">탈주하기</button>
+    <div style="margin-left:auto"><button class="pill" id="toggleRemain">남은 시간 보기</button></div>
+  </div>
+  <div class="bottombar">
+    <div id="remain"></div>
+    <button id="endBtn">종료</button>
+  </div>
+  <div id="warn5" role="alert">5분 남았습니다</div>
+</section>
+
+<div id="dlg" role="dialog" aria-modal="true">
+  <div class="box">
+    <p id="dlgMsg"></p>
+    <div class="row"><button id="dlgNo">아니오</button><button id="dlgYes" class="yes">예</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var EXAMS = { kor: { name: "국어", h: 8, m: 40, dur: 80 * 60 }, math: { name: "수학", h: 10, m: 30, dur: 100 * 60 } };
+  var WARN_BEFORE = 5 * 60, KEY = "examTimer.lite.session.v1";
+  var cur = null, t0 = 0, raf = 0, warned = false, showRemain = false, wake = null, warnTimer = 0, finished = false;
+
+  // 눈금 (본 앱 시계와 같은 모양)
+  var ticks = $("ticks"), NS = "http://www.w3.org/2000/svg";
+  for (var i = 0; i < 60; i++) {
+    var q = i % 15 === 0, hr = i % 5 === 0, r = document.createElementNS(NS, "rect");
+    var w = q ? 2.8 : (hr ? 1.8 : 0.7), h = q ? 12 : (hr ? 8 : 3.2);
+    r.setAttribute("x", -w / 2); r.setAttribute("y", -88 + (q ? -1 : 0)); r.setAttribute("width", w); r.setAttribute("height", h);
+    r.setAttribute("rx", Math.min(w / 2, 0.8));
+    r.setAttribute("fill", (i === 0 || i === 30) ? "#16bf9f" : (hr ? "#14234d" : "#9aa0ab"));
+    r.setAttribute("transform", "rotate(" + (i * 6) + ")");
+    ticks.appendChild(r);
+  }
+  function setHands(sec) {
+    $("second").setAttribute("transform", "rotate(" + ((sec % 60) * 6) + ")");
+    $("minute").setAttribute("transform", "rotate(" + (((sec / 60) % 60) * 6) + ")");
+    $("hour").setAttribute("transform", "rotate(" + (((sec / 3600) % 12) * 30) + ")");
+  }
+  function fmt(s) { s = Math.max(0, Math.floor(s)); var m = Math.floor(s / 60), x = s % 60; return m + ":" + (x < 10 ? "0" : "") + x; }
+
+  // 확인 창
+  var dlgYes = null, dlgNo = null;
+  function ask(msg, yesLabel, danger, yes, no, hideNo) {
+    $("dlgMsg").textContent = msg; $("dlgYes").textContent = yesLabel; $("dlgYes").className = danger ? "danger" : "yes";
+    $("dlgNo").classList.toggle("hidden", !!hideNo);
+    dlgYes = yes; dlgNo = no || null; $("dlg").classList.add("on");
+  }
+  function closeDlg() { $("dlg").classList.remove("on"); }
+  $("dlgYes").addEventListener("click", function () { closeDlg(); var f = dlgYes; dlgYes = null; if (f) f(); });
+  $("dlgNo").addEventListener("click", function () { closeDlg(); var f = dlgNo; dlgNo = null; if (f) f(); });
+
+  // 화면 켜짐 유지
+  function lockWake() { try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (l) { wake = l; }, function () {}); } catch (e) {} }
+  function unlockWake() { try { if (wake) wake.release(); } catch (e) {} wake = null; }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && cur && !finished) lockWake(); });
+
+  function elapsed() { return (Date.now() - t0) / 1000; }
+  function tick() {
+    var e = elapsed();
+    if (e >= cur.dur) { finish(); return; }
+    setHands(cur.h * 3600 + cur.m * 60 + e);
+    $("remain").textContent = "남은 시간 " + fmt(Math.ceil(cur.dur - e));
+    if (!warned && e >= cur.dur - WARN_BEFORE) { warned = true; if (e - (cur.dur - WARN_BEFORE) < 20) showWarn(); }
+    raf = requestAnimationFrame(tick);
+  }
+  function showWarn() { $("warn5").classList.add("on"); clearTimeout(warnTimer); warnTimer = setTimeout(hideWarn, 8000); }
+  function hideWarn() { clearTimeout(warnTimer); $("warn5").classList.remove("on"); }
+  $("warn5").addEventListener("click", hideWarn);
+
+  function begin(k, startedAt) {
+    cur = EXAMS[k]; cur.k = k; t0 = startedAt || Date.now(); warned = false; finished = false; showRemain = false;
+    $("remain").classList.remove("on"); $("toggleRemain").textContent = "남은 시간 보기"; hideWarn();
+    $("pick").classList.add("hidden"); $("stage").classList.remove("hidden");
+    try { localStorage.setItem(KEY, JSON.stringify({ k: k, t0: t0 })); } catch (e) {}
+    lockWake(); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
+  }
+  function toPick() {
+    cancelAnimationFrame(raf); hideWarn(); unlockWake(); cur = null; finished = true;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    $("stage").classList.add("hidden"); $("pick").classList.remove("hidden");
+  }
+  function finish() {
+    if (finished) return; finished = true; cancelAnimationFrame(raf); hideWarn();
+    setHands(cur.h * 3600 + cur.m * 60 + cur.dur);
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    ask(cur.name + " 시험이 종료되었습니다", "확인", false, toPick, null, true);
+  }
+
+  document.querySelectorAll(".opt").forEach(function (b) { b.addEventListener("click", function () { begin(b.getAttribute("data-k")); }); });
+  $("toggleRemain").addEventListener("click", function () {
+    showRemain = !showRemain; $("remain").classList.toggle("on", showRemain); this.textContent = showRemain ? "남은 시간 숨기기" : "남은 시간 보기";
+  });
+  $("abandon").addEventListener("click", function () { if (cur && !finished) ask("정말로 응시를 포기하겠습니까?", "포기하기", true, toPick); });
+  $("endBtn").addEventListener("click", function () { if (cur && !finished) ask("시험을 종료하겠습니까?", "예", false, finish); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && $("dlg").classList.contains("on") && !$("dlgNo").classList.contains("hidden")) { closeDlg(); dlgYes = null; } });
+
+  // 새로고침해도 진행 중이던 시험을 이어서
+  setHands(12 * 3600);
+  try {
+    var s = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (s && EXAMS[s.k] && typeof s.t0 === "number" && Date.now() - s.t0 < EXAMS[s.k].dur * 1000) begin(s.k, s.t0);
+    else localStorage.removeItem(KEY);
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
