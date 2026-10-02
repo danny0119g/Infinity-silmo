@@ -351,6 +351,11 @@
   .chatIn { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--input); color: var(--text); }
   .chatPic { flex: none; width: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--muted); }
   .chatPic.pressing { border-color: var(--accent); }
+  .chatPrev { position: relative; padding: 8px 8px 0; border-top: 1px solid var(--line); }
+  .chatPrev.hidden { display: none; }
+  .chatPrev img { display: block; max-width: 100%; max-height: 110px; border-radius: 9px; }
+  .chatPrevX { position: absolute; top: 12px; left: 12px; width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.62); color: #fff; font-size: 13px; line-height: 1; }
+  .chatPrev + .chatRow { border-top: 0; }
   .cm.img { padding: 4px; }
   .cmPic { display: block; max-width: 100%; max-height: 220px; border-radius: 9px; cursor: zoom-in; }
   .cmFail { margin: 2px 4px 0; font-size: 11px; }

@@ -178,13 +178,19 @@
     pf.type = "file"; pf.accept = "image/*"; pf.className = "hidden";
     pic.addEventListener("mousedown", function (e) { e.preventDefault(); });
     pic.addEventListener("click", function (e) { e.stopPropagation(); pf.click(); });
-    pf.addEventListener("change", function () { var f = pf.files && pf.files[0]; pf.value = ""; if (f) sendImage(peer, f); });
+    pf.addEventListener("change", function () { var f = pf.files && pf.files[0]; pf.value = ""; if (f) stageImage(peer, f); });
     row.appendChild(pic); row.appendChild(pf); row.appendChild(inp); row.appendChild(send);
     var grip = el("div", "chatGrip"); grip.setAttribute("aria-label", "채팅창 크기 조절");
-    win.appendChild(head); win.appendChild(mb); win.appendChild(notice); win.appendChild(row); win.appendChild(grip);
-    var c = { peer: peer, el: win, nameEl: nm, msgsEl: mb, row: row, notice: notice, input: inp, msgs: msgs, li: li, ended: false, timer: 0, sawServer: false, busy: false, lastSend: 0, opened: Date.now(), stick: true };
+    var prev = el("div", "chatPrev hidden"), pimg = el("img"), px = el("button", "chatPrevX", "✕"); px.type = "button"; px.setAttribute("aria-label", "사진 빼기");
+    prev.appendChild(pimg); prev.appendChild(px);
+    px.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    px.addEventListener("click", function (e) { e.stopPropagation(); clearStaged(peer); });
+    win.appendChild(head); win.appendChild(mb); win.appendChild(notice); win.appendChild(prev); win.appendChild(row); win.appendChild(grip);
+    var c = { prev: prev, pimg: pimg, pend: "", peer: peer, el: win, nameEl: nm, msgsEl: mb, row: row, notice: notice, input: inp, msgs: msgs, li: li, ended: false, timer: 0, sawServer: false, busy: false, lastSend: 0, opened: Date.now(), stick: true };
     function go() {
+      var c0 = chats[peer], pend = c0 && c0.pend;
       if (sendChat(peer, inp.value)) inp.value = "";
+      if (pend) { sendImageData(peer, pend); clearStaged(peer); }               // 고른 사진은 보내기를 눌러야 전송됨
       try { inp.focus({ preventScroll: true }); } catch (err) { inp.focus(); }       // 보낸 뒤에도 키보드를 그대로 유지
     }
     x.addEventListener("click", function (e) {                                       // 닫기는 한 번 확인 (이미 끝난 대화 = 안내가 떠 있는 창은 바로 닫음)
@@ -265,23 +271,29 @@
       img.src = url;
     });
   }
-  function sendImage(peer, file) {
+  function stageImage(peer, file) {                    // 사진을 고르면 바로 보내지 않고 입력줄 위에 띄워 둠
     var c = chats[peer]; if (!c || c.ended || !room) return;
     shrinkImage(file).then(function (data) {
-      c = chats[peer]; if (!c || c.ended || !room) return;
-      var ms = Date.now(); if (ms - c.lastSend < 350) return; c.lastSend = ms;
-      var key = mkey(ms), me = getDeviceId(), msg = { f: me, k: "m", x: "", i: data, t: Math.floor(ms / 1000) }, node = chatNode(room.code, peer);
-      c.msgs[key] = { f: me, k: "m", x: "", s: "", i: data, t: msg.t, st: "pending" }; c.hasImg = true; c.stick = true;
-      renderChatMsgs(c);
-      enqueue(function () {
-        return dbFetch(node + "/" + key, { method: "PUT", headers: JSONH, body: JSON.stringify(msg) })
-          .then(function () { notifyPush(peer, "사진을 보냈어요"); if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
-          .catch(function (err) {
-            if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
-            if (err && err.message === "http 401") notice("사진을 보내려면 서버 규칙을 업데이트해야 해요.");
-          });
-      });
+      c = chats[peer]; if (!c || c.ended) return;
+      c.pend = data; c.pimg.src = data; c.prev.classList.remove("hidden"); c.stick = true; placeNear(c.el, c.li); c.msgsEl.scrollTop = c.msgsEl.scrollHeight;
     }).catch(function () { notice("사진을 불러오지 못했어요."); });
+  }
+  function clearStaged(peer) { var c = chats[peer]; if (!c) return; c.pend = ""; c.pimg.removeAttribute("src"); c.prev.classList.add("hidden"); placeNear(c.el, c.li); }
+  function sendImageData(peer, data) {
+    var c = chats[peer]; if (!c || c.ended || !room) return;
+    var ms = Date.now() + 1;                           // 같이 보낸 글자보다 뒤에 오게
+    c.lastSend = ms;
+    var key = mkey(ms), me = getDeviceId(), msg = { f: me, k: "m", x: "", i: data, t: Math.floor(ms / 1000) }, node = chatNode(room.code, peer);
+    c.msgs[key] = { f: me, k: "m", x: "", s: "", i: data, t: msg.t, st: "pending" }; c.hasImg = true; c.stick = true;
+    renderChatMsgs(c);
+    enqueue(function () {
+      return dbFetch(node + "/" + key, { method: "PUT", headers: JSONH, body: JSON.stringify(msg) })
+        .then(function () { notifyPush(peer, "사진을 보냈어요"); if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
+        .catch(function (err) {
+          if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
+          if (err && err.message === "http 401") notice("사진을 보내려면 서버 규칙을 업데이트해야 해요.");
+        });
+    });
   }
   var imgView = null;
   function openImgView(src) {
