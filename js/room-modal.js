@@ -163,6 +163,8 @@
       return;
     }
     setSw(btn, true, "켜짐");
+    hapticTap();                                     // 켤 때 톡 하는 햅틱 + 종이 한 번 울림
+    var pl = $("pushLine"); pl.classList.remove("ring"); void pl.offsetWidth; pl.classList.add("ring"); setTimeout(function () { pl.classList.remove("ring"); }, 1500);
     enablePush().then(function () { setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
       .catch(function (err) { setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 기기 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); })
       .then(done);

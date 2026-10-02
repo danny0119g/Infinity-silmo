@@ -64,6 +64,16 @@
     if (mq.addEventListener) mq.addEventListener("change", fn); else if (mq.addListener) mq.addListener(fn);
   })();
 
+  // ---------- 햅틱 (톡 하는 진동): 안드로이드는 vibrate, 아이폰·아이패드(사파리 17.4 이상)는 보이지 않는 스위치를 눌러 시스템 햅틱을 냄 ----------
+  function hapticTap() {
+    try { if (navigator.vibrate) { navigator.vibrate(12); return; } } catch (e) {}
+    try {
+      var l = document.createElement("label"), i = document.createElement("input");
+      l.style.cssText = "position:fixed;left:-100px;top:-100px;opacity:0;pointer-events:none";
+      i.type = "checkbox"; i.setAttribute("switch", ""); l.appendChild(i); document.body.appendChild(l);
+      l.click(); setTimeout(function () { if (l.parentNode) l.parentNode.removeChild(l); }, 80);
+    } catch (e) {}
+  }
   // ---------- 슬라이드 스위치 (홈의 점수/시간 스위치와 같은 방식: 탭하면 그쪽으로, 드래그하면 따라오고 손을 떼면 가까운 칸으로, 빠르게 밀면 그 방향으로) ----------
   function makeSlideSwitch(sw, n, getIdx, onPick) {
     var thumb = sw.querySelector(".thumb"), labs = sw.querySelectorAll(".lab"), drag = null, DRAG_START = 6, FLICK_V = 0.15;
@@ -139,7 +149,7 @@
   function subjectNo(name) { return ALL_SUBJECTS.indexOf(name); }
   function normalizeSubjects() {
     var s = loadSubjects();
-    if (s[1] && s[2] && subjectNo(s[1]) > subjectNo(s[2])) { var a = s[1], b = s[2]; setSubject(1, b); setSubject(2, a); return true; }
+    if (s[1] && s[2] && subjectNo(s[1]) > subjectNo(s[2])) { var a = s[1], b = s[2]; setSubject(1, b); setSubject(2, a); if (typeof fixRecordSlots === "function") fixRecordSlots(); return true; }
     return false;
   }
   function setSubject(slot, subject) {

@@ -87,6 +87,15 @@
     prev.forEach(function (r) { if (!keep[r.id] && gone.indexOf(r.id) < 0) gone.push(r.id); });
     saveDay(d, arr, gone);
   }
+  function fixRecordSlots() {                      // 기록의 탐1/탐2 표시를 지금 고른 과목에 맞춤 (과목 자리가 바뀌면 이미 쌓인 기록도 같이 바뀜). 모든 날짜가 대상
+    var s = loadSubjects(), any = false;
+    localDays().forEach(function (d) {
+      var arr = loadDay(d), ch = false;
+      arr.forEach(function (r) { var sub = recSubject(r), want = (sub === s[1]) ? 1 : ((sub === s[2]) ? 2 : 0); if (want && r.slot !== want) { r.slot = want; ch = true; } });
+      if (ch) { saveDay(d, arr); any = true; }
+    });
+    return any;
+  }
   function findRec(arr, id) {
     for (var j = 0; j < arr.length; j++) if (arr[j].id === id) return arr[j];
     return null;
@@ -193,9 +202,8 @@
     });
   }
   function renderSummary() {
-    var all = loadView(), subjects = loadSubjects(), vd = viewDayStr(), vt = vd === todayStr();
-    $("todayLbl").textContent = vt ? "오늘" : (Number(vd.slice(5, 7)) + "월 " + Number(vd.slice(8)) + "일");
-    $("recTitle").textContent = vt ? "오늘의 응시 기록" : $("todayLbl").textContent + "의 응시 기록";
+    var all = loadAll(), subjects = loadSubjects(), vd = viewDayStr(), vt = vd === todayStr();      // 상단 숫자는 항상 "오늘" 응시 수
+    $("recTitle").textContent = vt ? "오늘의 응시 기록" : (Number(vd.slice(5, 7)) + "월 " + Number(vd.slice(8)) + "일의 응시 기록");
     // 선택한 과목 이름으로 표시 (아직 안 골랐으면 탐1/탐2), 다른 과목으로 본 기록이 있으면 함께 표시
     var entries = [];
     function entry(name) {

@@ -778,3 +778,28 @@
   .rrw .switch { width: 214px; flex: none; }
   .rrw > span:not(.rl):not(.rl2):not(.acctWho) { white-space: nowrap; }
   .rrw #accountKind { font-size: 13px; white-space: normal; line-height: 1.35; }
+
+  /* ---------- 헤더 날짜 이동·달력 (원래 모양) ---------- */
+  .hcNav { width: 34px; height: 34px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; line-height: 1; color: var(--text); }
+  .hcNav:disabled { opacity: .35; }
+  .histDate { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .histCal { margin-bottom: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel2); }
+  .histCal.pop { margin-bottom: 0; }
+  .hcHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .hcTitle { font-size: 15px; font-weight: 700; }
+  .hcGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .hcWd { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+  .hcDay { position: relative; height: 38px; padding: 0; border-radius: 10px; border: 1px solid transparent; background: transparent; font-size: 14px; font-weight: 600; color: var(--text); }
+  .hcDay:disabled { color: var(--muted); opacity: .35; }
+  .hcDay.today { border-color: var(--line2); }
+  .hcDay.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hcDay.has::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); }
+  .hcDay.sel.has::after { background: #fff; }
+  /* ---------- 초대 코드 입력: 안내 글자는 자간 없이, 입력한 코드만 넓게 ---------- */
+  .roomdlg .rjoin .tinput.code, .roomdlg .rrw .tinput.code { letter-spacing: 2px; }
+  .roomdlg .rjoin .tinput.code:placeholder-shown, .roomdlg .rrw .tinput.code:placeholder-shown { letter-spacing: 0; text-transform: none; }
+  /* ---------- 종: 켤 때 한 번만 울림 ---------- */
+  .rrw.swOn .bellBody { animation: none; }
+  .rrw.swOn .bellWave { animation: none; opacity: 0; }
+  .rrw.ring .bellBody { transform-origin: 12px 3px; animation: bellRing 1.1s ease-in-out 1; }
+  .rrw.ring .bellWave { animation: bellWave 1.1s ease-in-out 1; }

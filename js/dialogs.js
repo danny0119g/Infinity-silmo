@@ -123,3 +123,4 @@
   picker.addEventListener("click", function (e) { if (e.target === picker) closePicker(); });
   $("editSubjects").addEventListener("click", function () { openPicker(1, "edit"); });
   if (normalizeSubjects()) { renderSlots(); }          // 예전에 저장된 선택도 번호 순서에 맞춤
+  try { if (!localStorage.getItem("examTimer.slotFix.v1")) { fixRecordSlots(); localStorage.setItem("examTimer.slotFix.v1", "1"); } } catch (e) {}          // 이미 쌓인 기록의 탐1/탐2도 한 번 맞춤
