@@ -843,7 +843,16 @@
   .srcsel .arr { width: 24px; height: 24px; display: inline-flex; color: var(--muted); }
   .srcsel .arr svg { width: 22px; height: 22px; display: block; transition: transform .15s; }
   .srcsel.open .arr svg { transform: rotate(180deg); }
-  .srclist { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .srcdd { position: relative; }
+  .srclist {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 6;
+    display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.28);
+    opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-8px) scale(.98); transform-origin: top center;
+    transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
+  }
+  .srclist.up { top: auto; bottom: calc(100% + 6px); transform: translateY(8px) scale(.98); transform-origin: bottom center; }
+  .srclist.open { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: opacity .18s ease, transform .18s ease, visibility 0s; }
   .srcrow { display: flex; align-items: center; gap: 6px; }
   .srcrow .srcopt { flex: 1; }
   .srcopt { min-height: 40px; padding: 6px 12px; font-size: 16px; font-weight: 700; background: transparent; color: var(--text); border: 1px solid var(--line2); border-radius: 10px; }
@@ -863,7 +872,7 @@
   .legend .item .glyph { font-size: 12px; color: var(--muted); margin-right: 5px; }
   #srcEditPick .srcdd, #latePick .srcdd { width: 100%; }
   #latePick { margin: 0 0 14px; }
-  .srcline { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px; }
+  .srcline { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
   .srcline #srcPick { width: 170px; }
   .nobox { display: flex; align-items: center; gap: 4px; min-height: 46px; }
   .nobtn { width: 36px; height: 46px; padding: 0; font-size: 22px; font-weight: 700; color: var(--text); background: var(--panel); border: 1px solid var(--line2); border-radius: 12px; }
@@ -871,5 +880,5 @@
   .nou { font-size: 16px; font-weight: 700; color: var(--muted); margin-right: 2px; }
   .noedit { display: flex; justify-content: center; margin-top: 12px; }
   .noHint { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
-  .nostack { display: flex; flex-direction: column; gap: 2px; }
-  .nostack .nobtn { width: 34px; height: 22px; font-size: 11px; line-height: 1; border-radius: 8px; }
+  .nostack { display: flex; flex-direction: column; gap: 8px; }
+  .nostack .nobtn { width: 46px; height: 32px; font-size: 24px; font-weight: 600; line-height: 1; border-radius: 10px; }

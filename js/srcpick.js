@@ -30,56 +30,66 @@
   var CHEV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
   // box 안에 드롭다운을 그림. get(): 지금 고른 값, set(v): 바꾸기, placeholder: 값이 없을 때 글자
   function buildSrcPicker(box, get, set, placeholder) {
-    var listOpen = false, otherOpen = false;
+    var listOpen = false, otherOpen = false, closeTimer = 0;
     function render() {
       box.textContent = "";
       var cur = get(), wrap = el("div", "srcdd");
       var sel = el("button", "srcsel" + (listOpen ? " open" : ""));
       sel.type = "button"; sel.setAttribute("aria-haspopup", "listbox"); sel.setAttribute("aria-expanded", listOpen ? "true" : "false");
-      sel.appendChild(el("span", "v" + (cur ? "" : " none"), cur || placeholder || "업체 선택"));
+      var vv = el("span", "v" + (cur ? "" : " none"), cur || placeholder || "업체 선택");
+      sel.appendChild(vv);
       var ar = el("span", "arr"); ar.innerHTML = CHEV_ICON; sel.appendChild(ar);
-      sel.addEventListener("click", function () { listOpen = !listOpen; if (!listOpen) otherOpen = false; render(); });
       wrap.appendChild(sel);
-      if (listOpen) {
-        var list = el("div", "srclist");
-        function opt(name) {
-          var on = cur === name, b = el("button", "srcopt" + (on ? " on" : ""), name);
-          b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
-          b.addEventListener("click", function () { set(name); listOpen = false; otherOpen = false; render(); });
-          return b;
-        }
-        srcOptions().forEach(function (n) {          // 기본·기타 모두 오른쪽 휴지통으로 지움
-          var row = el("div", "srcrow"), tr = el("button", "srctrash");
-          tr.type = "button"; tr.innerHTML = TRASH_ICON; tr.setAttribute("aria-label", n + " 삭제"); tr.setAttribute("title", "목록에서 삭제");
-          tr.addEventListener("click", function () {
-            removeSrcOption(n);
-            if (get() === n) set("");
-            render();
-          });
-          row.appendChild(opt(n)); row.appendChild(tr); list.appendChild(row);
-        });
-        var ob = el("button", "srcopt other" + (otherOpen ? " on" : ""), "기타");
-        ob.type = "button"; ob.setAttribute("aria-expanded", otherOpen ? "true" : "false");
-        ob.addEventListener("click", function () { otherOpen = !otherOpen; render(); if (otherOpen) { var i = box.querySelector("input"); if (i) i.focus(); } });
-        list.appendChild(ob);
-        if (otherOpen) {
-          var row2 = el("div", "srcadd"), inp = el("input", "tinput"), add = el("button", "srcaddbtn", "추가");
-          inp.type = "text"; inp.maxLength = 10; inp.placeholder = "업체 이름"; inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "기타 업체 이름");
-          add.type = "button";
-          function commit() {
-            var v = cleanSrc(inp.value); if (!v) return;
-            var ls = loadSrcCustom();
-            if (SRC_DEFAULTS.indexOf(v) >= 0) saveSrcHidden(loadSrcHidden().filter(function (x) { return x !== v; }));      // 지웠던 기본 업체를 다시 쓰면 되살림
-            else if (ls.indexOf(v) < 0) { ls.push(v); if (ls.length > SRC_MAX_CUSTOM) ls.shift(); saveSrcCustom(ls); }
-            listOpen = false; otherOpen = false; set(v); render();
-          }
-          add.addEventListener("click", commit);
-          inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); commit(); } });
-          inp.addEventListener("focus", function () { if (typeof exitFullscreen === "function") exitFullscreen(); });
-          row2.appendChild(inp); row2.appendChild(add); list.appendChild(row2);
-        }
-        wrap.appendChild(list);
+      var list = el("div", "srclist" + (listOpen ? " open" : ""));      // 화면 레이아웃을 밀지 않고 위에 떠서 부드럽게 열리고 닫힘
+      function setOpen(on) {
+        listOpen = on; clearTimeout(closeTimer);
+        sel.classList.toggle("open", on); list.classList.toggle("open", on); sel.setAttribute("aria-expanded", on ? "true" : "false");
+        if (on) {                                  // 아래 자리가 모자라고 위가 더 넓으면 위로 열기
+          var sr = sel.getBoundingClientRect(), below = window.innerHeight - sr.bottom;
+          list.classList.toggle("up", list.offsetHeight + 12 > below && sr.top > below);
+        } else if (otherOpen) { otherOpen = false; closeTimer = setTimeout(render, 220); }
       }
+      sel.addEventListener("click", function () { setOpen(!listOpen); });
+      function opt(name) {
+        var on = cur === name, b = el("button", "srcopt" + (on ? " on" : ""), name);
+        b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.addEventListener("click", function () {
+          set(name); vv.textContent = get() || placeholder || "업체 선택"; vv.classList.toggle("none", !get());
+          setOpen(false); clearTimeout(closeTimer); closeTimer = setTimeout(render, 220);      // 닫히는 동안은 그대로 두고, 끝난 뒤 표시를 새로 맞춤
+        });
+        return b;
+      }
+      srcOptions().forEach(function (n) {          // 기본·기타 모두 오른쪽 휴지통으로 지움
+        var row = el("div", "srcrow"), tr = el("button", "srctrash");
+        tr.type = "button"; tr.innerHTML = TRASH_ICON; tr.setAttribute("aria-label", n + " 삭제"); tr.setAttribute("title", "목록에서 삭제");
+        tr.addEventListener("click", function () {
+          removeSrcOption(n);
+          if (get() === n) set("");
+          render();
+        });
+        row.appendChild(opt(n)); row.appendChild(tr); list.appendChild(row);
+      });
+      var ob = el("button", "srcopt other" + (otherOpen ? " on" : ""), "기타");
+      ob.type = "button"; ob.setAttribute("aria-expanded", otherOpen ? "true" : "false");
+      ob.addEventListener("click", function () { otherOpen = !otherOpen; render(); if (otherOpen) { var i = box.querySelector("input"); if (i) i.focus(); } });
+      list.appendChild(ob);
+      if (otherOpen) {
+        var row2 = el("div", "srcadd"), inp = el("input", "tinput"), add = el("button", "srcaddbtn", "추가");
+        inp.type = "text"; inp.maxLength = 10; inp.placeholder = "업체 이름"; inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "기타 업체 이름");
+        add.type = "button";
+        function commit() {
+          var v = cleanSrc(inp.value); if (!v) return;
+          var ls = loadSrcCustom();
+          if (SRC_DEFAULTS.indexOf(v) >= 0) saveSrcHidden(loadSrcHidden().filter(function (x) { return x !== v; }));      // 지웠던 기본 업체를 다시 쓰면 되살림
+          else if (ls.indexOf(v) < 0) { ls.push(v); if (ls.length > SRC_MAX_CUSTOM) ls.shift(); saveSrcCustom(ls); }
+          otherOpen = false; set(v); listOpen = false; render();
+        }
+        add.addEventListener("click", commit);
+        inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); commit(); } });
+        inp.addEventListener("focus", function () { if (typeof exitFullscreen === "function") exitFullscreen(); });
+        row2.appendChild(inp); row2.appendChild(add); list.appendChild(row2);
+      }
+      wrap.appendChild(list);
       box.appendChild(wrap);
     }
     render();
@@ -102,7 +112,7 @@
   // [− 4 회 +] 칸. get(): 숫자 또는 null, set(v): 바꾸기. 돌려주는 refresh()는 바깥에서 값이 바뀐 뒤 화면을 갱신
   function buildNoBox(box, get, set) {
     box.textContent = "";
-    var wrap = el("div", "nobox"), mi = el("button", "nobtn", "▼"), pl = el("button", "nobtn", "▲"), inp = el("input", "noinp"), u = el("span", "nou", "회");
+    var wrap = el("div", "nobox"), mi = el("button", "nobtn", "−"), pl = el("button", "nobtn", "+"), inp = el("input", "noinp"), u = el("span", "nou", "회");
     mi.type = "button"; pl.type = "button"; mi.setAttribute("aria-label", "회차 줄이기"); pl.setAttribute("aria-label", "회차 늘리기");
     inp.type = "text"; inp.maxLength = 3; inp.setAttribute("inputmode", "numeric"); inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "회차"); inp.placeholder = "-";
     function show() { var v = get(); inp.value = v == null ? "" : String(v); }
