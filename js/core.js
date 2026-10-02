@@ -23,10 +23,10 @@
 
   // ---------- 시계 눈금 (숫자 없음) ----------
   var ticks = $("ticks"), NS = "http://www.w3.org/2000/svg";
-  var CLOCK_INK = "#111318", CLOCK_SOFT = "#b9bec8", CLOCK_ACCENT = "#ff5a1f";
+  var CLOCK_INK = "#0f3b2e", CLOCK_SOFT = "#b9bec8", CLOCK_ACCENT = "#b8892f";
   for (var i = 0; i < 60; i++) {
     var quarter = i % 15 === 0, hour = i % 5 === 0, r = document.createElementNS(NS, "rect");
-    var w = quarter ? 3.6 : (hour ? 2.4 : 0.9), h = quarter ? 12 : (hour ? 8 : 3.2);
+    var w = quarter ? 2.8 : (hour ? 1.8 : 0.7), h = quarter ? 12 : (hour ? 8 : 3.2);
     r.setAttribute("x", -w / 2);
     r.setAttribute("y", -88 + (quarter ? -1 : 0));
     r.setAttribute("width", w);
@@ -43,18 +43,26 @@
     var cs = getComputedStyle(document.documentElement);
     ["bg", "panel", "line", "muted", "text", "glow", "scorecard"].forEach(function (n) { TC[n] = cs.getPropertyValue("--" + n).trim(); });
   }
-  function getTheme() { try { return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark"; } catch (e) { return "dark"; } }
-  function applyTheme(t) {
-    if (t === "light") document.documentElement.setAttribute("data-theme", "light"); else document.documentElement.removeAttribute("data-theme");
+  function themePref() { try { var v = localStorage.getItem(THEME_KEY); return (v === "light" || v === "system") ? v : "dark"; } catch (e) { return "dark"; } }      // 저장된 선택: dark | light | system(기기 설정 따르기)
+  function systemLight() { try { return !!(window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches); } catch (e) { return false; } }
+  function getTheme() { var p = themePref(); return p === "system" ? (systemLight() ? "light" : "dark") : p; }      // 실제로 화면에 쓰는 색: dark | light
+  function applyTheme() {
+    if (getTheme() === "light") document.documentElement.setAttribute("data-theme", "light"); else document.documentElement.removeAttribute("data-theme");
     loadTC();
     var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", TC.bg || "#1b1d21");
   }
-  function setTheme(t) {
-    try { localStorage.setItem(THEME_KEY, t); localStorage.setItem(THEMEAT_KEY, String(Date.now())); } catch (e) {}
-    applyTheme(t);
+  function setTheme(p) {
+    try { localStorage.setItem(THEME_KEY, p); localStorage.setItem(THEMEAT_KEY, String(Date.now())); } catch (e) {}
+    applyTheme();
     if (typeof onThemeChanged === "function") onThemeChanged();
   }
-  applyTheme(getTheme());
+  applyTheme();
+  (function () {                                     // 기기 설정이 바뀌면(밤이 되어 자동으로 어두워지는 등) "기기 설정 따르기"일 때만 따라감
+    if (!window.matchMedia) return;
+    var mq = matchMedia("(prefers-color-scheme: light)");
+    var fn = function () { if (themePref() === "system") { applyTheme(); if (typeof themeRedraw === "function") themeRedraw(); } };
+    if (mq.addEventListener) mq.addEventListener("change", fn); else if (mq.addListener) mq.addListener(fn);
+  })();
 
   // ---------- 선택한 과목 (직접 수정하기 전까지 계속 유지) ----------
   var SUBJ_KEY = "examTimer.subjects.v1", memSubj = { 1: null, 2: null }, subjFailed = false;

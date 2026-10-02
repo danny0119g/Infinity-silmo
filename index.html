@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261002025722">
+<meta name="app-version" content="20261002031341">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -13,8 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="무수한 실모">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
-<script>try{if(localStorage.getItem("examTimer.theme.v1")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
-<link rel="stylesheet" href="style.css?v=20261002025722">
+<script>try{var tv=localStorage.getItem("examTimer.theme.v1");if(tv==="light"||(tv==="system"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
+<link rel="stylesheet" href="style.css?v=20261002031341">
 </head>
 <body>
 
@@ -27,13 +27,19 @@
           <div class="line">오늘 응시한 실모 <strong id="todayTotal">0</strong>개</div>
           <div class="detail" id="todayDetail"></div>
         </div>
-        <button class="pill" id="editSubjects">과목 수정하기</button>
+        <div class="dateNav" id="dateNav">
+          <button type="button" class="hcNav" id="histPrev" aria-label="이전 날">‹</button>
+          <button type="button" class="histDate" id="histDate" aria-label="날짜 선택"></button>
+          <button type="button" class="hcNav" id="histNext" aria-label="다음 날">›</button>
+          <div class="histCal pop hidden" id="histCal"></div>
+        </div>
       </div>
     </div>
   </header>
 
   <main class="homeMain">
     <div class="mainCol">
+    <div class="subjBar"><button class="pill" id="editSubjects">과목 수정하기</button></div>
     <div class="slots">
       <button class="slot" id="slot1" data-slot="1"></button>
       <button class="slot" id="slot2" data-slot="2"></button>
@@ -67,15 +73,7 @@
     </div>
 
     <section class="histCard" id="histCard">
-      <div class="histHead">
-        <h2>날짜별 기록</h2>
-        <div class="histNav">
-          <button type="button" class="hcNav" id="histPrev" aria-label="이전 날">‹</button>
-          <button type="button" class="histDate" id="histDate" aria-label="날짜 선택"></button>
-          <button type="button" class="hcNav" id="histNext" aria-label="다음 날">›</button>
-        </div>
-      </div>
-      <div class="histCal hidden" id="histCal"></div>
+      <div class="histHead"><h2>날짜별 기록 <small id="histCardDay"></small></h2></div>
       <p class="histSum" id="histSum"></p>
       <ul class="histList" id="histList"></ul>
     </section>
@@ -105,11 +103,11 @@
     <svg id="clock" viewBox="-100 -100 200 200" role="img" aria-label="아날로그 시계">
       <circle r="98" fill="#ffffff"/>
       <g id="ticks"></g>
-      <g id="hour"><rect x="-1.3" y="-45" width="2.6" height="55" rx="1.3" fill="#111318"/></g>
-      <g id="minute"><rect x="-0.9" y="-71" width="1.8" height="82" rx=".9" fill="#111318"/></g>
-      <g id="second"><rect x="-0.3" y="-79" width="0.6" height="98" rx=".3" fill="#ff5a1f"/></g>
-      <circle r="3.4" fill="#111318"/>
-      <circle r="1.6" fill="#ff5a1f"/>
+      <g id="hour"><rect x="-1" y="-45" width="2" height="55" rx="1" fill="#0f3b2e"/></g>
+      <g id="minute"><rect x="-0.7" y="-71" width="1.4" height="82" rx=".7" fill="#0f3b2e"/></g>
+      <g id="second"><rect x="-0.3" y="-79" width="0.6" height="98" rx=".3" fill="#b8892f"/></g>
+      <circle r="3.2" fill="#0f3b2e"/>
+      <circle r="1.5" fill="#b8892f"/>
     </svg>
   </div>
 
@@ -198,7 +196,10 @@
         <div class="rrw"><span>이 방에서 점수 공개</span><button id="shareToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="이 방에서 점수 공개"></button></div>
       </div>
       <div id="roomAddSec">
-        <button id="roomAddToggle" class="rowbtn" type="button">+ 새 방 만들기 · 입장</button>
+        <div class="rowpair">
+          <button id="roomAddToggle" class="rowbtn" type="button">+ 새 방 만들기 · 입장</button>
+          <div id="roomLeaveSec" class="hidden"><button id="roomLeave" class="rowbtn danger" type="button">방 나가기</button></div>
+        </div>
         <div id="roomJoinView" class="rjoin hidden">
           <label class="flabel" for="nickInput">닉네임</label>
           <input id="nickInput" class="tinput" type="text" maxlength="12" autocomplete="off" placeholder="친구들에게 보일 이름">
@@ -208,7 +209,6 @@
           <button id="roomJoin" class="primary ghost">입장하기</button>
         </div>
       </div>
-      <div id="roomLeaveSec" class="hidden"><button id="roomLeave" class="rowbtn danger" type="button">방 나가기</button></div>
     </div></div>
 
     <div id="profileGroup" class="hidden">
@@ -216,17 +216,15 @@
       <div class="rcard"><div class="rin">
         <div class="rrw"><div class="avWrap roomAvWrap"><div class="avatar roomAv" id="roomAv"></div><button id="photoChange" class="avPen" type="button" aria-label="프로필 사진 편집" title="프로필 사진 편집"></button></div><input id="nickEdit" class="tinput" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임"><button id="nickSave" class="rbtn">저장</button></div>
         <div class="rrw hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="이 방에서 사진 사용"></button></div>
-        <button id="photoDel" class="rowbtn danger hidden" type="button">프로필 사진 삭제</button>
       </div></div>
     </div>
 
     <h2 class="gtitle">기타</h2>
     <div class="rcard"><div class="rin">
-      <div class="rrw"><span>다크 모드</span><button id="themeToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="다크 모드"></button></div>
-      <div class="rrw hidden" id="pushLine"><span>채팅 알림 <small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
-      <div class="rrw hidden" id="pushCheckLine"><span>알림 점검 <small class="swNote">10초 뒤 시험 알림이 와요</small></span><button id="pushCheck" class="rbtn" type="button">실행</button></div>
+      <div class="rrw"><span>화면 모드</span><div class="seg" id="themeSeg" role="radiogroup" aria-label="화면 모드"><button type="button" role="radio" data-t="system">기기 설정</button><button type="button" role="radio" data-t="light">밝게</button><button type="button" role="radio" data-t="dark">어둡게</button></div></div>
+      <div class="rrw hidden" id="pushLine"><span class="lblI"><svg class="bellI" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>채팅 알림</span><small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
       <div id="accountSec" class="hidden">
-        <div class="rrw"><span id="accountKind">-</span><button id="accountOut" class="rbtn" type="button">로그아웃</button></div>
+        <div class="rrw"><span class="acctWho"><img id="accountAv" class="acctAv hidden" alt="" referrerpolicy="no-referrer"><span class="acctTxt"><span id="accountKind">-</span><small id="accountEmail" class="hidden"></small></span></span><button id="accountOut" class="rbtn" type="button">로그아웃</button></div>
         <div id="accountLink" class="hidden rjoin"><p class="acctNote">구글 계정에 연결하면 기기를 바꿔도 방이 이어져요.</p><div id="accountGoogle" class="loginGoogle"></div></div>
       </div>
     </div></div>
@@ -275,23 +273,23 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261002025722"></script>
-<script src="js/auth.js?v=20261002025722"></script>
-<script src="js/records.js?v=20261002025722"></script>
-<script src="js/chart.js?v=20261002025722"></script>
-<script src="js/room-base.js?v=20261002025722"></script>
-<script src="js/push.js?v=20261002025722"></script>
-<script src="js/room-sync.js?v=20261002025722"></script>
-<script src="js/profile.js?v=20261002025722"></script>
-<script src="js/scoreask.js?v=20261002025722"></script>
-<script src="js/chat.js?v=20261002025722"></script>
-<script src="js/photo.js?v=20261002025722"></script>
-<script src="js/room-modal.js?v=20261002025722"></script>
-<script src="js/account.js?v=20261002025722"></script>
-<script src="js/dialogs.js?v=20261002025722"></script>
-<script src="js/history.js?v=20261002025722"></script>
-<script src="js/exam.js?v=20261002025722"></script>
-<script src="js/login.js?v=20261002025722"></script>
-<script src="js/refresh.js?v=20261002025722"></script>
+<script src="js/core.js?v=20261002031341"></script>
+<script src="js/auth.js?v=20261002031341"></script>
+<script src="js/records.js?v=20261002031341"></script>
+<script src="js/chart.js?v=20261002031341"></script>
+<script src="js/room-base.js?v=20261002031341"></script>
+<script src="js/push.js?v=20261002031341"></script>
+<script src="js/room-sync.js?v=20261002031341"></script>
+<script src="js/profile.js?v=20261002031341"></script>
+<script src="js/scoreask.js?v=20261002031341"></script>
+<script src="js/chat.js?v=20261002031341"></script>
+<script src="js/photo.js?v=20261002031341"></script>
+<script src="js/room-modal.js?v=20261002031341"></script>
+<script src="js/account.js?v=20261002031341"></script>
+<script src="js/dialogs.js?v=20261002031341"></script>
+<script src="js/history.js?v=20261002031341"></script>
+<script src="js/exam.js?v=20261002031341"></script>
+<script src="js/login.js?v=20261002031341"></script>
+<script src="js/refresh.js?v=20261002031341"></script>
 </body>
 </html>

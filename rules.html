@@ -235,7 +235,7 @@ var FULL_STRICT = `{
             }
           },
           "theme": {
-            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light')"
+            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light' || newData.val() === 'system')"
           },
           "themeAt": {
             ".validate": "newData.isNumber()"
@@ -489,7 +489,7 @@ var FULL_SIMPLE = `{
             }
           },
           "theme": {
-            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light')"
+            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light' || newData.val() === 'system')"
           },
           "themeAt": {
             ".validate": "newData.isNumber()"
@@ -735,7 +735,7 @@ var V2_ONLY = `"v2": {
             }
           },
           "theme": {
-            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light')"
+            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light' || newData.val() === 'system')"
           },
           "themeAt": {
             ".validate": "newData.isNumber()"

@@ -11,7 +11,7 @@
     try {
       var o = JSON.parse(localStorage.getItem(AUTH_KEY));
       if (o && typeof o.uid === "string" && typeof o.refresh === "string" && o.refresh.length > 20 && (o.kind === "google" || o.kind === "anon")) {
-        return { uid: o.uid, refresh: o.refresh, token: typeof o.token === "string" ? o.token : "", exp: typeof o.exp === "number" ? o.exp : 0, kind: o.kind };
+        return { uid: o.uid, refresh: o.refresh, token: typeof o.token === "string" ? o.token : "", exp: typeof o.exp === "number" ? o.exp : 0, kind: o.kind, photo: typeof o.photo === "string" ? o.photo : "", email: typeof o.email === "string" ? o.email : "" };
       }
     } catch (e) {}
     return null;
@@ -34,7 +34,9 @@
   function applyAuthResult(j, kind) {                // 로그인/갱신 응답을 저장
     var token = j.idToken || j.id_token, refresh = j.refreshToken || j.refresh_token, uid = j.localId || j.user_id, sec = Number(j.expiresIn || j.expires_in) || 3600;
     if (!token || !refresh || !uid) throw new Error("BAD_RESPONSE");
-    saveFbAuth({ uid: uid, refresh: refresh, token: token, exp: Date.now() + sec * 1000, kind: kind || (fbAuth && fbAuth.kind) || "anon" });
+    var keepAcct = (fbAuth && fbAuth.uid === uid) ? fbAuth : null;           // 갱신 응답에는 프로필이 없으므로 같은 계정이면 이전 값을 유지
+    saveFbAuth({ uid: uid, refresh: refresh, token: token, exp: Date.now() + sec * 1000, kind: kind || (fbAuth && fbAuth.kind) || "anon",
+                 photo: typeof j.photoUrl === "string" ? j.photoUrl : (keepAcct ? keepAcct.photo || "" : ""), email: typeof j.email === "string" ? j.email : (keepAcct ? keepAcct.email || "" : "") });
     return fbAuth;
   }
   function authSignInAnonymous() {
@@ -68,6 +70,15 @@
         throw err;
       });
     }).then(function (j) { return applyAuthResult(j, "google"); });
+  }
+  function authFetchProfile() {                      // 구글 프로필 사진·메일을 한 번 받아 저장 (예전에 로그인해서 저장된 게 없을 때)
+    return authToken().then(function (tok) { return authCall("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + FB_API_KEY, { idToken: tok }); }).then(function (j) {
+      var u = j && j.users && j.users[0]; if (!u || !fbAuth) return null;
+      var pi = (u.providerUserInfo && u.providerUserInfo[0]) || {};
+      var photo = u.photoUrl || pi.photoUrl || "", email = u.email || pi.email || "";
+      saveFbAuth({ uid: fbAuth.uid, refresh: fbAuth.refresh, token: fbAuth.token, exp: fbAuth.exp, kind: fbAuth.kind, photo: String(photo), email: String(email) });
+      return fbAuth;
+    });
   }
   function authRefresh() {
     if (!fbAuth) return Promise.reject(new Error("NO_AUTH"));
@@ -106,7 +117,7 @@
         }
       });
       box.textContent = "";
-      google.accounts.id.renderButton(box, { type: "standard", theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 260, locale: "ko" });
+      google.accounts.id.renderButton(box, { type: "standard", theme: (typeof getTheme === "function" && getTheme() === "dark") ? "filled_black" : "outline", size: "large", text: "signin_with", shape: "pill", width: 260, locale: "ko" });
     }, onError);
   }
   function authErrorText(err) {                      // 사람이 읽을 수 있는 설명

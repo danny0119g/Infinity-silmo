@@ -249,7 +249,7 @@
   }
   function pushTheme() {
     if (!USE_V2 || !fbAuth || !accountReady || themeBlocked) return Promise.resolve();
-    var body = JSON.stringify({ theme: getTheme(), themeAt: Number(recGet(THEMEAT_KEY)) || Date.now() });
+    var body = JSON.stringify({ theme: themePref(), themeAt: Number(recGet(THEMEAT_KEY)) || Date.now() });
     return enqueue(function () { return dbFetch("/v2/users/" + getDeviceId(), { method: "PATCH", headers: JSONH, body: body }).catch(function (err) { if (err && err.message === "http 401") themeBlocked = true; }); });
   }
   function syncTheme() {
@@ -261,13 +261,12 @@
       var mine = Number(recGet(THEMEAT_KEY)) || 0;
       if (srvAt > mine) {
         return dbFetch(base + "/theme", { cache: "no-store" }).then(function (t) {
-          if (t !== "dark" && t !== "light") return;
+          if (t !== "dark" && t !== "light" && t !== "system") return;
           recSet(THEMEAT_KEY, String(srvAt));
-          if (getTheme() === t) return;
+          if (themePref() === t) return;
           try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
-          applyTheme(t);
-          keepPageScroll(function () { renderToday(); renderTogether(); });
-          if (roomModal.classList.contains("on")) setSw($("themeToggle"), t === "dark", t === "dark" ? "켜짐" : "꺼짐");
+          applyTheme();
+          if (typeof themeRedraw === "function") themeRedraw();
         });
       }
       if (mine > srvAt) return pushTheme();
@@ -357,13 +356,17 @@
       }, function () { roomListBusy = false; });
   }
   // ---- 설정 창의 계정 칸 ----
-  var accountLinkDrawn = false, accountLinkFrom = "";
+  var accountLinkDrawn = false, accountLinkFrom = "", acctProfileTried = false;
   function renderAccount() {
     var sec = $("accountSec"); if (!sec) return;
     sec.classList.toggle("hidden", !(USE_V2 && fbAuth));
     if (!(USE_V2 && fbAuth)) return;
     var anon = fbAuth.kind === "anon";
-    $("accountKind").textContent = anon ? "이 기기에서만 쓰는 중" : "구글 계정으로 로그인됨";
+    $("accountKind").textContent = anon ? "이 기기에서만 쓰는 중" : "구글메일로 로그인됨";
+    var av = $("accountAv"), em = $("accountEmail");
+    if (!anon && fbAuth.photo) { av.src = fbAuth.photo; av.classList.remove("hidden"); } else av.classList.add("hidden");
+    if (!anon && fbAuth.email) { em.textContent = fbAuth.email; em.classList.remove("hidden"); } else em.classList.add("hidden");
+    if (!anon && !fbAuth.photo && !fbAuth.email && !acctProfileTried) { acctProfileTried = true; authFetchProfile().then(function () { renderAccount(); }, function () {}); }      // 예전에 로그인해 저장된 프로필이 없으면 한 번 받아 옴
     $("accountLink").classList.toggle("hidden", !anon);
     if (anon && !accountLinkDrawn) {                 // 이 기기에서만 쓰던 계정에 구글을 연결 (방과 방장 권한은 그대로 이어짐)
       accountLinkDrawn = true; accountLinkFrom = fbAuth.uid;

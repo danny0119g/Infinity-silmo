@@ -32,7 +32,8 @@
     var card = $("histCard"); if (!card) return;
     var t = todayStr(); if (!histDay) { histDay = t; histMonth = t.slice(0, 7); }
     if (histDay > t) histDay = t;
-    $("histDate").textContent = dayLabel(histDay) + (histDay === t ? " · 오늘" : "");
+    var lbl = dayLabel(histDay) + (histDay === t ? " · 오늘" : "");
+    $("histDate").textContent = lbl; $("histCardDay").textContent = "· " + lbl;
     $("histPrev").disabled = histDay <= histFirstDay();
     $("histNext").disabled = histDay >= t;
     var cal = $("histCal"); cal.textContent = ""; cal.classList.toggle("hidden", !histCalOpen);
@@ -58,4 +59,5 @@
   $("histPrev").addEventListener("click", function () { var d = dayAdd(histDay, -1); histSelect(d); });
   $("histNext").addEventListener("click", function () { histSelect(dayAdd(histDay, 1)); });
   $("histDate").addEventListener("click", function () { histCalOpen = !histCalOpen; histMonth = histDay.slice(0, 7); renderHistory(); });
+  document.addEventListener("click", function (e) { if (histCalOpen && !(e.target.closest && e.target.closest("#dateNav"))) { histCalOpen = false; renderHistory(); } });
   renderHistory();

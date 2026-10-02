@@ -19,9 +19,8 @@
     $("roomInView").classList.toggle("hidden", !has);
     $("roomLeaveSec").classList.toggle("hidden", !has);
     $("profileGroup").classList.toggle("hidden", !has);
-    setSw($("themeToggle"), getTheme() === "dark", getTheme() === "dark" ? "켜짐" : "꺼짐");
-    if (!has) { $("pushLine").classList.add("hidden"); $("pushCheckLine").classList.add("hidden"); }
-    $("roomTitle").textContent = has ? roomLabel(room) : "설정";
+    renderThemeSeg();
+    if (!has) $("pushLine").classList.add("hidden");
     if (has) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }
     $("roomAddToggle").disabled = full; $("roomAddToggle").textContent = full ? "방은 최대 " + MAX_ROOMS + "개예요" : "+ 새 방 만들기 · 입장";
     setAddOpen(!full && (mode === "add" || !has));      // 방이 없으면 항상 펼쳐 둠
@@ -30,13 +29,12 @@
       setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
       $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
       applyLabelPerm();
-      $("pushCheckLine").classList.toggle("hidden", !PUSH_URL);
     }
     roomModal.classList.add("on");
     renderAccount();                                 // 창이 보이는 상태에서 계정 칸(구글 연결 버튼 포함)을 그림
   }
   $("roomAddToggle").addEventListener("click", function () { setAddOpen(true); nickInput.focus(); setTimeout(function () { $("roomJoinView").scrollIntoView({ block: "nearest" }); }, 0); });
-  function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
+  function closeRoomModal() { closePenMenu(); roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
   function enterRoom(code, name, joining) {
     if (roomBusy) return;
     var had = roomByCode(code), hadName = had ? had.name : "", prev = room, joinTitle = "", newLabel = had ? "" : defaultLabel();
@@ -109,11 +107,19 @@
   codeInput.addEventListener("keydown", function (e) { if (e.key === "Enter") joinNow(); });
   codeInput.addEventListener("input", function () { codeInput.value = codeInput.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12); setRoomMsg(""); });
   nickInput.addEventListener("input", function () { setRoomMsg(""); });
-  $("themeToggle").addEventListener("click", function () {
-    var dark = getTheme() === "dark";
-    setTheme(dark ? "light" : "dark");
-    setSw(this, !dark, !dark ? "켜짐" : "꺼짐");
-    keepPageScroll(function () { renderToday(); renderTogether(); });          // 그래프 색도 새로 그림
+  function renderThemeSeg() {
+    var p = themePref();
+    Array.prototype.forEach.call($("themeSeg").children, function (b) { var on = b.getAttribute("data-t") === p; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
+  }
+  function themeRedraw() {                           // 화면 색이 바뀐 뒤: 그래프·목록을 새 색으로 다시 그림, 구글 로그인 버튼도 새 색으로
+    renderThemeSeg();
+    keepPageScroll(function () { renderToday(); renderTogether(); });
+    if (typeof renderAccount === "function") { accountLinkDrawn = false; renderAccount(); }
+  }
+  $("themeSeg").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button"); if (!b) return;
+    var t = b.getAttribute("data-t"); if (t === themePref()) return;
+    setTheme(t); themeRedraw();
   });
   $("shareToggle").addEventListener("click", function () {
     if (!room) return;
@@ -123,8 +129,11 @@
     delete lastSentBy[room.code]; scheduleSync();
     setRoomMsg(on ? "이 방 친구들이 내 점수를 볼 수 있어요." : "이 방 친구들에게 내 점수가 보이지 않아요.", false);
   });
-  $("photoChange").addEventListener("click", function () { $("photoInput").click(); });
-  $("photoDel").addEventListener("click", function () { removePhoto(); });
+  $("photoChange").addEventListener("click", function (e) {      // 펜 아이콘: 프로필 사진 수정 / 삭제 메뉴
+    e.stopPropagation();
+    if (penMenuOpen) closePenMenu(); else { penMenuOpen = true; buildPenMenu(this.parentNode); }
+  });
+  roomModal.addEventListener("click", function (e) { if (penMenuOpen && !(e.target.closest && e.target.closest(".penMenu, .avPen"))) closePenMenu(); });
   $("photoUseToggle").addEventListener("click", function () {
     if (!room) return;
     var code = room.code;
@@ -203,7 +212,7 @@
     if (!v) { setRoomMsg("방 이름을 입력해 주세요."); return; }
     room.label = v;
     persistRoom(); renderRoomSwitch();
-    $("labelEdit").value = roomLabel(room); $("roomTitle").textContent = roomLabel(room);
+    $("labelEdit").value = roomLabel(room);
     if (!USE_V2) { setRoomMsg("저장했어요.", false); return; }
     var code = room.code;
     enqueue(function () { return putTitle(code, v); }).then(function (ok) {      // 방 이름은 방 친구들 모두에게 보임

@@ -86,7 +86,7 @@
   }
   .topIn h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
   .topRight { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; min-width: 0; }
-  #editSubjects { flex: none; margin-left: auto; }
+  #editSubjects { flex: none; }
   #today { text-align: right; line-height: 1.4; }
   #today .line { font-size: 15px; font-weight: 700; white-space: nowrap; }
   #today .line strong { font-size: 22px; font-variant-numeric: tabular-nums; margin: 0 2px; }
@@ -234,6 +234,7 @@
   /* ---------- 함께 응시 ---------- */
   /* 좁은 화면(폰): 한 줄 배치. 방 칸은 시작 버튼 바로 아래 */
   .mainCol { display: contents; }
+  .mainCol > .subjBar { order: 0; }
   .mainCol > .slots { order: 1; }
   .mainCol > .hint { order: 2; }
   .together { order: 3; width: 100%; background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
@@ -716,9 +717,9 @@
   .roomdlg .rrw .tinput.ro { color: var(--muted); background: transparent; border-color: transparent; padding-left: 0; }
 
   /* ---------- 날짜별 기록 (대략적인 화면) ---------- */
-  .histCard { margin-top: 22px; }
   .histHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .histHead h2 { font-size: 16px; font-weight: 700; color: var(--muted); margin: 0; }
+  .histHead h2 small { font-size: 14px; font-weight: 600; margin-left: 4px; }
   .histNav { display: flex; align-items: center; gap: 6px; }
   .hcNav { width: 34px; height: 34px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; line-height: 1; color: var(--text); }
   .hcNav:disabled { opacity: .35; }
@@ -743,3 +744,35 @@
   .hrow .hr { text-align: right; flex: none; }
   .hrow .hsc { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .mainCol > .histCard { order: 6; margin-top: 0; }
+
+  /* ---------- 헤더 날짜 이동 · 과목 수정 줄 ---------- */
+  .subjBar { display: flex; justify-content: flex-end; width: 100%; }
+  .dateNav { position: relative; display: flex; align-items: center; gap: 6px; }
+  .histCal.pop { position: absolute; z-index: 30; right: 0; top: calc(100% + 8px); width: min(320px, calc(100vw - 32px)); margin: 0; box-shadow: 0 12px 32px rgba(0,0,0,.45); background: var(--panel); }
+  .histDate { min-width: 0; }
+  /* ---------- 설정 창 보강 ---------- */
+  .rowpair { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+  .rowpair .rowbtn { border-bottom: 0; width: auto; }
+  .rowpair #roomAddToggle { flex: 1; min-width: 0; }
+  .rowpair #roomLeaveSec { margin-left: auto; flex: none; display: flex; }
+  .rowpair #roomLeaveSec .rowbtn { padding: 0 16px; text-align: right; }
+  .seg { margin-left: auto; display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--input); }
+  .seg button { height: 30px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .lblI { display: inline-flex; align-items: center; gap: 8px; }
+  .lblI .bellI { flex: none; color: var(--muted); transition: color .2s; }
+  .rrw:has(.sw.on) .bellI { color: var(--accent); }
+  .acctWho { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .acctAv { flex: none; width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: var(--raised); }
+  .acctTxt { display: flex; flex-direction: column; min-width: 0; }
+  .acctTxt small { font-size: 12px; font-weight: 500; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 헤더 배치: 좁은 화면은 [제목 ........ 날짜] / [오늘 응시 수], 넓은 화면은 [제목 ... 오늘 응시 수 날짜] */
+  .topRight { display: contents; }
+  .topIn h1 { order: 1; }
+  .topIn .dateNav { order: 2; margin-left: auto; }
+  #today { order: 3; flex-basis: 100%; text-align: left; }
+  @media (min-width: 700px) {
+    #today { order: 2; flex-basis: auto; text-align: right; margin-left: auto; }
+    .topIn .dateNav { order: 3; margin-left: 0; }
+  }

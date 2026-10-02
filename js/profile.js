@@ -148,7 +148,7 @@
   }
 
   // 펜 버튼 옆의 작은 메뉴 (수정 / 삭제)
-  function closePenMenu() { penMenuOpen = false; var mn = document.querySelector("#profilePop .penMenu"); if (mn) mn.parentNode.removeChild(mn); }
+  function closePenMenu() { penMenuOpen = false; var mn = document.querySelector(".penMenu"); if (mn) mn.parentNode.removeChild(mn); }
   function buildPenMenu(wrap) {
     var old = wrap.querySelector(".penMenu"); if (old) wrap.removeChild(old);
     var mn = el("div", "penMenu"), ed = el("button", "pmItem", "프로필 사진 수정");
