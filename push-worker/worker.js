@@ -26,7 +26,7 @@ function subFromString(str) {                        // 알림 주소(base64url 
   try {
     var o = JSON.parse(atob(str.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(str.length / 4) * 4, "=")));
     if (typeof o.e !== "string" || !/^https:\/\//.test(o.e) || typeof o.p !== "string" || typeof o.a !== "string") return null;
-    return { endpoint: o.e, expirationTime: null, keys: { p256dh: o.p, auth: o.a } };
+    return { endpoint: o.e, expirationTime: null, keys: { p256dh: o.p, auth: o.a }, chat: o.x !== 0 };      // chat: 이 기기가 채팅·답장 알림을 켰는지 (표시가 없는 옛 주소는 켠 것으로 봄)
   } catch (e) { return null; }
 }
 function uidFromToken(tok) {                         // 로그인 토큰(JWT)의 계정 ID. 서명 검증은 서버(Firebase)가 토큰을 받아들이는 것으로 갈음됨
@@ -40,13 +40,13 @@ function uidFromToken(tok) {                         // 로그인 토큰(JWT)의
 }
 function cleanText(t) { return String(t).replace(/\s+/g, " ").trim().slice(0, 60); }
 function hostOf(sub) { try { return new URL(sub.endpoint).host; } catch (e) { return ""; } }
-async function pushOnce(sub, name, text, fromId, env) {      // 푸시 서비스(애플·구글 등)에 알림 1건을 보내고 응답을 돌려줌
-  var req = await T({ data: { t: name.slice(0, 12), b: text, g: fromId }, options: { ttl: 600, urgency: "high" } }, sub, { subject: SUBJECT, publicKey: PUB, privateKey: env.VAPID_PRIVATE_KEY });
+async function pushOnce(sub, name, text, fromId, env, kind) {      // 푸시 서비스(애플·구글 등)에 알림 1건을 보내고 응답을 돌려줌
+  var req = await T({ data: { t: name.slice(0, 12), b: text, g: fromId, k: kind || "chat" }, options: { ttl: 600, urgency: "high" } }, sub, { subject: SUBJECT, publicKey: PUB, privateKey: env.VAPID_PRIVATE_KEY });
   return fetch(sub.endpoint, req);
 }
-async function sendPush(sub, name, text, fromId, env) {
+async function sendPush(sub, name, text, fromId, env, kind) {
   try {
-    var res = await pushOnce(sub, name, text, fromId, env);
+    var res = await pushOnce(sub, name, text, fromId, env, kind);
     console.log(JSON.stringify({ push: "sent", ok: res.ok, status: res.status, host: hostOf(sub) }));   // Cloudflare 대시보드 로그에서 확인 가능 (내용·사람 정보는 남기지 않음)
     return reply({ ok: res.ok, sent: res.ok, status: res.status, host: hostOf(sub) });
   } catch (e) {
@@ -57,16 +57,21 @@ async function sendPush(sub, name, text, fromId, env) {
 function later(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 async function notifyV2(n, env, ctx) {
   var token = n.token, from = uidFromToken(token);
+  var kind = (n.kind === "ask" || n.kind === "reply" || n.kind === "start") ? n.kind : "chat";      // chat·reply(점수 답장 포함)=채팅 알림, ask=점수 질문 알림, start=실모 시작 알림
+  if (kind === "start") return notifyStart(n, from, env);
   var selfTest = n.test === true && typeof from === "string" && from === n.to;      // 앱의 "알림 점검": 나에게 시험 알림을 보냄 (보는 중 건너뛰기 없음, 지연 가능)
   if (!ROOM_RE.test(n.room || "") || !UID_RE.test(n.to || "") || typeof n.text !== "string" || typeof token !== "string" || token.length > 4000 || !UID_RE.test(from) || (from === n.to && !selfTest)) return reply({ ok: false, error: "bad request" }, 400);
   var text = selfTest ? "알림 시험이에요. 이 알림이 보이면 정상이에요." : cleanText(n.text);
   if (!text) return reply({ ok: false, error: "empty" }, 400);
   var base = "/v2/rooms/" + n.room;
-  var got = await Promise.all([dbGet(base + "/members/" + from, token), dbGet(base + "/members/" + n.to + "/on", token), dbGet(base + "/push/" + n.to, token)]);
+  var got = await Promise.all([dbGet(base + "/members/" + from, token), dbGet(base + "/members/" + n.to, token), dbGet(base + "/push/" + n.to, token)]);
   var me = got[0], on = got[1], push = got[2];
   if (!me.ok || !me.v || typeof me.v !== "object" || typeof me.v.name !== "string") return reply({ ok: false, error: "not a member" }, 403);
-  if (!selfTest && on.ok && recentSignal(on.v)) return reply({ ok: true, sent: false, skipped: "viewing" });
+  var tm = (on.ok && on.v && typeof on.v === "object") ? on.v : {};
+  if (!selfTest && recentSignal(tm.on)) return reply({ ok: true, sent: false, skipped: "viewing" });
+  if (kind === "ask" && (tm.ask === "mute" || tm.ask === "off")) return reply({ ok: true, sent: false, skipped: "ask muted" });          // 점수 질문 알림을 끈(또는 차단한) 사람
   var sub = subFromString(push.ok ? push.v : null);
+  if (sub && !selfTest && kind !== "ask" && !sub.chat) return reply({ ok: true, sent: false, skipped: "chat off" });                         // 채팅 알림을 끈 기기
   if (!sub) return reply(selfTest ? { ok: true, sent: false, reason: "no subscription on server" } : { ok: true, sent: false, reason: "no push address" });
   if (selfTest) {
     var delay = Math.min(15, Math.max(0, Math.floor(Number(n.delay) || 0))), host = hostOf(sub);
@@ -78,7 +83,28 @@ async function notifyV2(n, env, ctx) {
     }
     return sendPush(sub, "알림 시험", text, from, env);
   }
-  return sendPush(sub, me.v.name, text, from, env);
+  return sendPush(sub, me.v.name, text, from, env, kind);
+}
+async function notifyStart(n, from, env) {            // 실모 시작 알림: 시작한 사람(보낸 사람)을 지켜보기로 한 방 친구들에게만 보냄
+  var token = n.token;
+  if (!ROOM_RE.test(n.room || "") || typeof n.text !== "string" || typeof token !== "string" || token.length > 4000 || !UID_RE.test(from)) return reply({ ok: false, error: "bad request" }, 400);
+  var text = cleanText(n.text);
+  if (!text) return reply({ ok: false, error: "empty" }, 400);
+  var base = "/v2/rooms/" + n.room;
+  var got = await Promise.all([dbGet(base + "/members/" + from, token), dbGet(base + "/watch/" + from, token)]);
+  var me = got[0], w = got[1];
+  if (!me.ok || !me.v || typeof me.v !== "object" || typeof me.v.name !== "string") return reply({ ok: false, error: "not a member" }, 403);
+  var ids = (w.ok && w.v && typeof w.v === "object") ? Object.keys(w.v).filter(function (id) { return UID_RE.test(id) && w.v[id] === true && id !== from; }).slice(0, 30) : [];
+  if (!ids.length) return reply({ ok: true, sent: false, reason: "no watchers" });
+  var results = await Promise.all(ids.map(async function (id) {
+    var r = await Promise.all([dbGet(base + "/members/" + id + "/on", token), dbGet(base + "/push/" + id, token)]);
+    if (r[0].ok && recentSignal(r[0].v)) return "viewing";
+    var sub = subFromString(r[1].ok ? r[1].v : null);
+    if (!sub) return "no-address";
+    try { var res = await pushOnce(sub, me.v.name, text, from, env, "start"); return res.ok ? "sent" : "rejected"; } catch (e) { return "error"; }
+  }));
+  console.log(JSON.stringify({ push: "start", watchers: ids.length, sent: results.filter(function (x) { return x === "sent"; }).length }));
+  return reply({ ok: true, sent: results.indexOf("sent") >= 0, results: results });
 }
 function legacyViewing(subjects) {                   // 옛 구조: 친구 칸 안의 "~온|<초>" 신호
   if (!subjects || typeof subjects !== "object") return false;

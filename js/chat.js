@@ -425,6 +425,7 @@
     requestAnimationFrame(function () { o.classList.add("on"); });
   }
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePhotoZoom(); });
+  var BELLSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
   function openProfile(m, anchor) {
     var pop = $("profilePop");
     pop.textContent = "";
@@ -473,12 +474,34 @@
       if (!m.me && justDone(m) && !chats[m.id]) {       // 방금(5분 이내) 끝냈다면: 점수 물어보기 (이미 대화 중이면 안 띄움)
         var aw = el("div", "pAskWrap"), already = asked[m.id] && Date.now() - asked[m.id] < 300000, blocked = askBlocked(m);
         aw.appendChild(el("div", "pAskSub", "방금 친 시험 · " + m.live.s + (blocked ? (resolved[m.id].k === "decline" ? " · 답변을 거절했어요" : " · 이미 답을 받았어요") : "")));
-        var ab = el("button", "pAsk", already && !blocked ? "물어봤어요" : "점수 물어보기");
-        ab.type = "button"; ab.disabled = !!already || blocked;
+        var noAsk = m.ask === "off", ab = el("button", "pAsk", noAsk ? "점수 질문을 받지 않아요" : (already && !blocked ? "물어봤어요" : "점수 물어보기"));
+        ab.type = "button"; ab.disabled = !!already || blocked || noAsk;
         ab.addEventListener("click", function (e) { e.stopPropagation(); askScore(m); });
         aw.appendChild(ab);
         pop.appendChild(aw);
       }
+    }
+    if (!m.me && room) {                                // 다른 사람 프로필: 실모 시작 알림 (기본 꺼짐, 켠 상대가 실모를 시작할 때 알림)
+      var wcode = room.code, wk = watchKey(wcode, m.id), wb = el("button", "pSpy pBell");
+      wb.type = "button";
+      var paintW = function () {
+        var st = watchState[wk];
+        wb.innerHTML = BELLSVG; wb.appendChild(document.createTextNode(st === true ? "실모 시작 알림 끄기" : "실모 시작 알림 받기"));
+        wb.classList.toggle("on", st === true); wb.disabled = st === undefined;
+      };
+      paintW();
+      if (watchState[wk] === undefined) watchLoad(wcode, m.id).then(paintW, function () { watchState[wk] = false; paintW(); });
+      wb.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var turnOn = watchState[wk] !== true;
+        if (turnOn && !pushSupported()) { notice("홈 화면에 추가한 앱에서만 알림을 켤 수 있어요."); return; }
+        wb.disabled = true;
+        (turnOn ? ensurePush(false) : Promise.resolve()).then(function () { return watchSet(wcode, m.id, turnOn); }).then(function () { if (turnOn) hapticTap(); paintW(); }, function (err) {
+          paintW();
+          notice(err && err.message === "denied" ? "알림이 허용되지 않았어요.\n기기 설정 > 알림에서 허용해 주세요." : "실모 시작 알림을 바꾸지 못했어요.\n잠시 뒤 다시 시도해 주세요.");
+        });
+      });
+      pop.appendChild(wb);
     }
     if (!m.me) {                                        // 다른 사람 프로필: 점수 염탐하기
       var sb = el("button", "pSpy", spyKey === m.uid ? "염탐 그만하기" : "점수 염탐하기");

@@ -2,15 +2,16 @@
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
   // 점수 물어보기: 질문한 사람의 카드 옆에 말풍선이 뜨고, 눌러서 아무 말이나 적어 보내면 그대로 답장이 감
   function askScore(m) {
-    if (!room || !m.live || chats[m.id] || askBlocked(m)) return;
+    if (!room || !m.live || chats[m.id] || askBlocked(m) || m.ask === "off") return;
     var code = room.code, now = Math.floor(Date.now() / 1000), subj = m.live.s;
     asked[m.id] = Date.now(); askMeta[m.id] = { s: subj, t: now };
     keepPageScroll(renderTogether);
     enqueue(function () {
       return dbFetch(ROOMS_ROOT + code + "/msgs/" + m.id + "/" + getDeviceId(), { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "ask", s: subj, t: now }) })
+        .then(function () { notifyPush(m.id, "점수를 물어봤어요 · " + subj, "ask"); })
         .catch(function (err) {
           delete asked[m.id];
-          if (err && err.message === "http 401") { if (!USE_V2) msgBlocked = true; notice("서버 규칙을 업데이트해야 점수를 물어볼 수 있어요."); }
+          if (err && err.message === "http 401") { if (!USE_V2) msgBlocked = true; notice("점수를 물어볼 수 없어요.\n상대가 점수 질문을 받지 않거나, 서버 규칙을 업데이트해야 해요."); }
           keepPageScroll(renderTogether);
         });
     });
@@ -30,6 +31,7 @@
     enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });
     enqueue(function () {
       return dbFetch(ROOMS_ROOT + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: String(it.s || "").slice(0, 30), x: DECLINE_X, t: now }) })
+        .then(function () { notifyPush(it.from, "답변을 거절했어요", "reply"); })
         .catch(function (err) { if (err && err.message === "http 401") notice("서버 규칙을 업데이트하면 상대에게 거절했다고 알릴 수 있어요."); });
     });
   }
@@ -86,6 +88,7 @@
     keepPageScroll(renderTogether);
     enqueue(function () {
       return dbFetch(ROOMS_ROOT + code + "/msgs/" + it.from + "/" + me, { method: "PUT", headers: JSONH, body: JSON.stringify({ k: "reply", s: it.s, x: x, t: now }) })
+        .then(function () { notifyPush(it.from, m && Number(m[1]) <= 50 ? Number(m[1]) + "점" : txt, "reply"); })       // 점수 답장은 채팅 알림으로 감
         .catch(function (err) { if (err && err.message === "http 401") if (!USE_V2) msgBlocked = true; });
     });
     enqueue(function () { return dbFetch(ROOMS_ROOT + code + "/msgs/" + me + "/" + it.from, { method: "DELETE" }).catch(function () {}); });

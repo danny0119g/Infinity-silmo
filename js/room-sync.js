@@ -12,6 +12,7 @@
     if (st.share) { var sm = scoreMap(); if (Object.keys(sm).length) st.scores = sm; }
     var lv = liveBlocked ? null : (liveInfo() || (typeof acctLiveInfo === "function" ? acctLiveInfo() : null));
     if (lv) st.live = lv;
+    if (askMode() !== "on") st.ask = askMode();                         // 점수 질문을 무음/차단으로 둔 사람은 친구들 화면과 알림 서버가 알 수 있게
     if (active && document.visibilityState === "visible") st.on = Math.floor(Date.now() / 1000);       // 앱이 화면에 보이는 동안 남기는 신호: 알림 서버가 이걸 보고 알림을 건너뜀
     return st;
   }
@@ -63,7 +64,7 @@
   var lastPushAt = {}, PUSH_REASSERT_MS = 300000;
   function pushFresh(code) { return !pushSub || Date.now() - (lastPushAt[code] || 0) < PUSH_REASSERT_MS; }
   function syncPushRecord(r) {                       // 새 구조: 내 알림 주소는 따로 저장 (방 멤버만 읽을 수 있음)
-    var code = r.code, want = pushSub || "";
+    var code = r.code, want = pushUploadStr();
     if (!want) { lastPushBy[code] = ""; return Promise.resolve(); }      // 알림을 안 켠 기기는 서버의 알림 주소를 건드리지 않음 (같은 계정의 다른 기기가 올린 것일 수 있음)
     if (lastPushBy[code] === want && pushFresh(code)) return Promise.resolve();         // 5분마다 다시 올려서, 누가 지웠어도 저절로 복구됨
     var path = ROOMS_ROOT + code + "/push/" + getDeviceId();
@@ -74,7 +75,7 @@
     if (!r) return Promise.resolve();
     if (USE_V2 && (!fbAuth || !accountReady || roomPending[r.code])) return Promise.resolve();      // 로그인 전이거나 아직 새 구조로 옮겨지지 않은 방
     var code = r.code, isActive = !!room && room.code === code, st = USE_V2 ? myStateV2(r, isActive) : myState(r, isActive), body = JSON.stringify(st);
-    if (!force && body === lastSentBy[code] && (!USE_V2 || (lastPushBy[code] === (pushSub || "") && pushFresh(code)))) return Promise.resolve();
+    if (!force && body === lastSentBy[code] && (!USE_V2 || (lastPushBy[code] === pushUploadStr() && pushFresh(code)))) return Promise.resolve();
     function put(b) {
       return dbFetch(ROOMS_ROOT + code + "/members/" + getDeviceId(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: b })
         .then(function () { lastSentBy[code] = b; if (isActive) netErr = false; });
@@ -239,7 +240,7 @@
         });
         var lv = null;
         if (m.live && typeof m.live === "object" && typeof m.live.s === "string" && typeof m.live.t === "number") lv = { s: m.live.s.slice(0, 30), t: m.live.t, e: (typeof m.live.e === "number") ? m.live.e : 0 };
-        list.push({ uid: uid, id: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv, shared: shared, series: series });
+        list.push({ uid: uid, id: uid, name: m.name.slice(0, 12), subs: subs, total: total, me: false, live: lv, shared: shared, series: series, ask: (m.ask === "off" || m.ask === "mute") ? m.ask : "on" });
       });
       list.sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });   // 실모를 많이 친 사람이 위로
       list.forEach(function (x) {                       // 응시 중이던 사람이 응시 중이 아니게 됐고 횟수가 줄지 않았으면(=탈주가 아니면) 방금 끝낸 것으로 봄
@@ -301,6 +302,7 @@
     if (typeof syncSubjects === "function") syncSubjects();
     if (typeof syncRecords === "function") syncRecords(false);
     if (typeof syncTheme === "function") syncTheme();
+    if (typeof syncAskMode === "function") syncAskMode();
     if (typeof pullExamState === "function") pullExamState();
     syncOtherRooms(false);
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });

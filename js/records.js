@@ -77,7 +77,7 @@
   function viewDayStr() { var t = todayStr(); return (validDay(viewDay) && viewDay < t) ? viewDay : t; }
   function loadView() { return loadDay(viewDayStr()); }          // 홈 화면(기록 목록·그래프·숫자)이 읽는 기록
   function setViewDay(d) {
-    viewDay = d || ""; clearSelection(); focusSubject = ""; scoreExpanded = false;
+    viewDay = d || ""; clearSelection(); focusSubject = ""; scoreExpanded = false; if (typeof setStats === "function") setStats(false, true);
     if (typeof renderHistory === "function") renderHistory();
     renderToday();
   }

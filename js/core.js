@@ -23,7 +23,7 @@
 
   // ---------- 시계 눈금 (숫자 없음) ----------
   var ticks = $("ticks"), NS = "http://www.w3.org/2000/svg";
-  var CLOCK_INK = "#14234d", CLOCK_SOFT = "#9aa0ab", CLOCK_ACCENT = "#0aa388";
+  var CLOCK_INK = "#14234d", CLOCK_SOFT = "#9aa0ab", CLOCK_ACCENT = "#16bf9f";
   for (var i = 0; i < 60; i++) {
     var quarter = i % 15 === 0, hour = i % 5 === 0, r = document.createElementNS(NS, "rect");
     var w = quarter ? 2.8 : (hour ? 1.8 : 0.7), h = quarter ? 12 : (hour ? 8 : 3.2);
@@ -66,12 +66,12 @@
 
   // ---------- 햅틱 (톡 하는 진동): 안드로이드는 vibrate, 아이폰·아이패드(사파리 17.4 이상)는 보이지 않는 스위치를 눌러 시스템 햅틱을 냄 ----------
   function hapticTap() {
-    try { if (navigator.vibrate) { navigator.vibrate(12); return; } } catch (e) {}
-    try {
+    try { if (navigator.vibrate && navigator.vibrate(12)) return; } catch (e) {}
+    try {                                            // 아이폰(사파리 17.4 이상): 보이지 않는 스위치를 눌러 시스템 햅틱을 냄. 아이패드에는 햅틱 부품이 없어서 아무 느낌도 없음
       var l = document.createElement("label"), i = document.createElement("input");
-      l.style.cssText = "position:fixed;left:-100px;top:-100px;opacity:0;pointer-events:none";
-      i.type = "checkbox"; i.setAttribute("switch", ""); l.appendChild(i); document.body.appendChild(l);
-      l.click(); setTimeout(function () { if (l.parentNode) l.parentNode.removeChild(l); }, 80);
+      l.setAttribute("aria-hidden", "true"); l.style.display = "none";
+      i.type = "checkbox"; i.setAttribute("switch", ""); l.appendChild(i);
+      document.head.appendChild(l); l.click(); document.head.removeChild(l);
     } catch (e) {}
   }
   // ---------- 슬라이드 스위치 (홈의 점수/시간 스위치와 같은 방식: 탭하면 그쪽으로, 드래그하면 따라오고 손을 떼면 가까운 칸으로, 빠르게 밀면 그 방향으로) ----------

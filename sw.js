@@ -9,7 +9,7 @@ self.addEventListener("push", function (e) {
   var body = typeof d.b === "string" && d.b ? d.b : "새 메시지가 왔어요";
   e.waitUntil(self.registration.showNotification(title, {
     body: body,
-    tag: "chat-" + (typeof d.g === "string" ? d.g : "x"),     // 같은 사람의 메시지는 알림 하나로 갱신
+    tag: (typeof d.k === "string" ? d.k : "chat") + "-" + (typeof d.g === "string" ? d.g : "x"),     // 같은 사람·같은 종류는 알림 하나로 갱신
     renotify: true,
     icon: "icon-192.png"
   }));

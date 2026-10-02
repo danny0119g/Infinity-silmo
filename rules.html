@@ -260,6 +260,12 @@ var FULL_STRICT = `{
               ".validate": false
             }
           },
+          "askMode": {
+            ".validate": "newData.isString() && (newData.val() === 'on' || newData.val() === 'mute' || newData.val() === 'off')"
+          },
+          "askAt": {
+            ".validate": "newData.isNumber()"
+          },
           "$other": {
             ".validate": false
           }
@@ -332,6 +338,9 @@ var FULL_STRICT = `{
               "on": {
                 ".validate": "newData.isNumber()"
               },
+              "ask": {
+                ".validate": "newData.isString() && (newData.val() == 'mute' || newData.val() == 'off')"
+              },
               "$other": {
                 ".validate": false
               }
@@ -356,7 +365,7 @@ var FULL_STRICT = `{
               ".read": "auth != null && auth.uid === $to && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
               "$from": {
                 ".write": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists() && root.child('v2/rooms/'+$code+'/members/'+$to).exists() && (auth.uid === $to || auth.uid === $from)",
-                ".validate": "newData.hasChildren(['k','t'])",
+                ".validate": "newData.hasChildren(['k','t']) && !(newData.child('k').val() == 'ask' && root.child('v2/rooms/'+$code+'/members/'+$to+'/ask').val() == 'off')",
                 "k": {
                   ".validate": "newData.isString() && (newData.val() == 'ask' || newData.val() == 'reply' || newData.val() == 'chat' || newData.val() == 'decline')"
                 },
@@ -399,6 +408,15 @@ var FULL_STRICT = `{
                 "$other": {
                   ".validate": false
                 }
+              }
+            }
+          },
+          "watch": {
+            ".read": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+            "$target": {
+              "$watcher": {
+                ".write": "auth != null && $watcher === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
               }
             }
           },
@@ -514,6 +532,12 @@ var FULL_SIMPLE = `{
               ".validate": false
             }
           },
+          "askMode": {
+            ".validate": "newData.isString() && (newData.val() === 'on' || newData.val() === 'mute' || newData.val() === 'off')"
+          },
+          "askAt": {
+            ".validate": "newData.isNumber()"
+          },
           "$other": {
             ".validate": false
           }
@@ -586,6 +610,9 @@ var FULL_SIMPLE = `{
               "on": {
                 ".validate": "newData.isNumber()"
               },
+              "ask": {
+                ".validate": "newData.isString() && (newData.val() == 'mute' || newData.val() == 'off')"
+              },
               "$other": {
                 ".validate": false
               }
@@ -610,7 +637,7 @@ var FULL_SIMPLE = `{
               ".read": "auth != null && auth.uid === $to && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
               "$from": {
                 ".write": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists() && root.child('v2/rooms/'+$code+'/members/'+$to).exists() && (auth.uid === $to || auth.uid === $from)",
-                ".validate": "newData.hasChildren(['k','t'])",
+                ".validate": "newData.hasChildren(['k','t']) && !(newData.child('k').val() == 'ask' && root.child('v2/rooms/'+$code+'/members/'+$to+'/ask').val() == 'off')",
                 "k": {
                   ".validate": "newData.isString() && (newData.val() == 'ask' || newData.val() == 'reply' || newData.val() == 'chat' || newData.val() == 'decline')"
                 },
@@ -653,6 +680,15 @@ var FULL_SIMPLE = `{
                 "$other": {
                   ".validate": false
                 }
+              }
+            }
+          },
+          "watch": {
+            ".read": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+            "$target": {
+              "$watcher": {
+                ".write": "auth != null && $watcher === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
               }
             }
           },
@@ -760,6 +796,12 @@ var V2_ONLY = `"v2": {
               ".validate": false
             }
           },
+          "askMode": {
+            ".validate": "newData.isString() && (newData.val() === 'on' || newData.val() === 'mute' || newData.val() === 'off')"
+          },
+          "askAt": {
+            ".validate": "newData.isNumber()"
+          },
           "$other": {
             ".validate": false
           }
@@ -832,6 +874,9 @@ var V2_ONLY = `"v2": {
               "on": {
                 ".validate": "newData.isNumber()"
               },
+              "ask": {
+                ".validate": "newData.isString() && (newData.val() == 'mute' || newData.val() == 'off')"
+              },
               "$other": {
                 ".validate": false
               }
@@ -856,7 +901,7 @@ var V2_ONLY = `"v2": {
               ".read": "auth != null && auth.uid === $to && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
               "$from": {
                 ".write": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists() && root.child('v2/rooms/'+$code+'/members/'+$to).exists() && (auth.uid === $to || auth.uid === $from)",
-                ".validate": "newData.hasChildren(['k','t'])",
+                ".validate": "newData.hasChildren(['k','t']) && !(newData.child('k').val() == 'ask' && root.child('v2/rooms/'+$code+'/members/'+$to+'/ask').val() == 'off')",
                 "k": {
                   ".validate": "newData.isString() && (newData.val() == 'ask' || newData.val() == 'reply' || newData.val() == 'chat' || newData.val() == 'decline')"
                 },
@@ -899,6 +944,15 @@ var V2_ONLY = `"v2": {
                 "$other": {
                   ".validate": false
                 }
+              }
+            }
+          },
+          "watch": {
+            ".read": "auth != null && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+            "$target": {
+              "$watcher": {
+                ".write": "auth != null && $watcher === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
               }
             }
           },

@@ -803,3 +803,18 @@
   .rrw.swOn .bellWave { animation: none; opacity: 0; }
   .rrw.ring .bellBody { transform-origin: 12px 3px; animation: bellRing 1.1s ease-in-out 1; }
   .rrw.ring .bellWave { animation: bellWave 1.1s ease-in-out 1; }
+  .pBell { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+  .pBell.on { color: var(--accent2); border-color: var(--accent); }
+  .pBell:disabled { opacity: .55; }
+
+  /* ---------- 전체 통계 ---------- */
+  .statsView .records { display: none; }
+  .hcDivider { height: 1px; margin: 12px 0 10px; background: var(--line); }
+  .hcStats { display: block; width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: transparent; font-size: 14px; font-weight: 700; color: var(--accent2); }
+  .hcStats.on { color: var(--text); }
+  .statInfo { padding: 10px 12px; border-radius: 12px; background: var(--input); border: 1px solid var(--line); }
+  .statHead { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .statHead b { font-weight: 800; }
+  .statLine { margin-top: 6px; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .statSub { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .statHint { font-size: 13px; color: var(--muted); text-align: center; padding: 4px 0; }

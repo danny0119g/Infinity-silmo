@@ -65,6 +65,7 @@
 
   function renderChart() { keepPageScroll(renderChartInner); }
   function renderChartInner() {
+    if (typeof statsOn !== "undefined" && statsOn) { renderStatsInner(); return; }          // 전체 통계 보기
     var box = $("chart"), legend = $("legend"), info = $("pointInfo");
     var measuredW = box.clientWidth;               // 비우기 전에 폭을 재야 페이지 높이가 순간적으로 줄어들지 않음
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
@@ -458,7 +459,7 @@
     if (chartMode === side) return;
     chartMode = side;
     sw.setAttribute("aria-checked", side === "homer" ? "true" : "false");
-    $("trendTitle").textContent = side === "homer" ? "시간 추이" : "점수 추이";
+    $("trendTitle").textContent = trendTitleText(side);
     clearSelection();
     renderChart();
     var card = $("chartCard");                    // 어느 쪽으로 바꿔도 같은 연한 페이드

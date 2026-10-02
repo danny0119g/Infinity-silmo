@@ -272,6 +272,33 @@
       if (mine > srvAt) return pushTheme();
     }).then(function () { themeBusy = false; }, function () { themeBusy = false; });
   }
+  // ---- 점수 질문 알림 설정 계정 동기화 (users/{uid}/askMode, askAt): 같은 계정의 기기들이 같은 값을 친구들에게 보이게 ----
+  var askBlocked2 = false, askBusy = false, askTimer = 0;
+  function onAskModeChanged() { if (!USE_V2 || !fbAuth) return; clearTimeout(askTimer); askTimer = setTimeout(pushAskMode, 800); }
+  function pushAskMode() {
+    if (!USE_V2 || !fbAuth || !accountReady || askBlocked2) return Promise.resolve();
+    var body = JSON.stringify({ askMode: askMode(), askAt: Number(recGet(ASKAT_KEY)) || Date.now() });
+    return enqueue(function () { return dbFetch("/v2/users/" + getDeviceId(), { method: "PATCH", headers: JSONH, body: body }).catch(function (err) { if (err && err.message === "http 401") askBlocked2 = true; }); });
+  }
+  function syncAskMode() {
+    if (!USE_V2 || !fbAuth || !accountReady || askBlocked2 || askBusy) return Promise.resolve();
+    askBusy = true;
+    var base = "/v2/users/" + getDeviceId();
+    return dbFetch(base + "/askAt", { cache: "no-store" }).then(function (srvAt) {
+      srvAt = (typeof srvAt === "number") ? srvAt : 0;
+      var mine = Number(recGet(ASKAT_KEY)) || 0;
+      if (srvAt > mine) {
+        return dbFetch(base + "/askMode", { cache: "no-store" }).then(function (v) {
+          if (v !== "on" && v !== "mute" && v !== "off") return;
+          recSet(ASKAT_KEY, String(srvAt));
+          if (askMode() === v) return;
+          recSet(ASK_KEY, v); lastSentBy = {}; scheduleSync();
+          if (typeof renderAskSeg === "function") renderAskSeg();
+        });
+      }
+      if (mine > srvAt) return pushAskMode();
+    }).then(function () { askBusy = false; }, function () { askBusy = false; });
+  }
   // ---- 같은 계정의 다른 기기에서 응시 중인지 (users/{uid}/exam: 응시 중인 기기만 씀) ----
   var INST = (function () { var v = ""; try { v = localStorage.getItem("examTimer.inst.v1") || ""; if (!v) { v = newId(); localStorage.setItem("examTimer.inst.v1", v); } } catch (e) {} return v || newId(); })();
   var acctExam = null, examPushed = false, examBlocked = false, examPullBusy = false;
@@ -348,7 +375,7 @@
         roomListBusy = false;
         if (!roomListReady) return;
         accountReady = true;
-        syncSubjects(); syncRecords(true); syncTheme(); pullExamState();
+        syncSubjects(); syncRecords(true); syncTheme(); syncAskMode(); pullExamState();
         return syncAccountPhoto(true).then(function () {         // 사진을 먼저 맞춘 뒤 방에 올림(기기마다 다른 사진을 방에 덮어쓰지 않게)
           renderRoomSwitch(); keepPageScroll(renderTogether);
           if (room) afterSwitch(); else syncOtherRooms(true);

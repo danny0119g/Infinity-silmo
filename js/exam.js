@@ -159,7 +159,8 @@
     closeAllChats("exam");                           // 대화 중이던 상대에게 "실모를 치러 갔다"고 알리고 내 창은 닫음
     current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
     recId = newId();
-    viewDay = ""; if (typeof renderHistory === "function") renderHistory();          // 응시를 시작하면 홈은 오늘로
+    viewDay = ""; if (typeof setStats === "function") setStats(false, true); if (typeof renderHistory === "function") renderHistory();          // 응시를 시작하면 홈은 오늘로
+    notifyStart(subject);                            // 나를 지켜보는 방 친구들에게 실모 시작 알림
     var all = loadAll();
     all.push({ id: recId, slot: slot, subject: subject });   // "예"를 누르는 순간 횟수가 오른다
     saveAll(all);

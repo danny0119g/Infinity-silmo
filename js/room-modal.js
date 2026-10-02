@@ -26,12 +26,13 @@
     $("profileGroup").classList.toggle("hidden", !has);
     renderThemeSeg();
     if (!has) $("pushLine").classList.add("hidden");
+    renderAskSeg();
     if (has) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }
     setAddOpen(!full && (mode === "add" || !has));      // 방이 없으면 항상 펼쳐 둠
     if (has) {
       refreshRoomPhoto();
       setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
-      $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
+      $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), chatPushOn(), pushLabel());
       applyLabelPerm();
     }
     roomModal.classList.add("on");
@@ -151,24 +152,34 @@
     keepPageScroll(renderTogether);
   });
   var pushBusy = false;
+  function ringBell() { var pl = $("pushLine"); pl.classList.remove("ring"); void pl.offsetWidth; pl.classList.add("ring"); setTimeout(function () { pl.classList.remove("ring"); }, 1500); }
   $("pushToggle").addEventListener("click", function () {
     var btn = this;
-    if (!pushSupported()) { setRoomMsg("기기 홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
+    if (!pushSupported()) { setRoomMsg("홈 화면에 추가한 앱에서만 알림을 켤 수 있어요.", false); return; }
     if (pushBusy) return;
     pushBusy = true;
-    function done() { pushBusy = false; setSw(btn, !!pushSub, pushLabel()); }
-    if (pushSub) {                                   // 스위치는 먼저 움직이고, 실제 처리는 뒤에서
-      setSw(btn, false, "꺼짐");
-      disablePush().then(function () { setRoomMsg("채팅 알림을 껐어요.", false); }).catch(function () {}).then(done);
+    function done() { pushBusy = false; setSw(btn, chatPushOn(), pushLabel()); }
+    if (chatPushOn()) {                              // 채팅·점수 답장 알림만 끔 (다른 알림이 켜져 있으면 알림 허용은 그대로 둠)
+      setPushChat(false); setSw(btn, false, "꺼짐");
+      setRoomMsg("채팅 알림을 껐어요.", false); done();
       return;
     }
     setSw(btn, true, "켜짐");
-    hapticTap();                                     // 켤 때 톡 하는 햅틱 + 종이 한 번 울림
-    var pl = $("pushLine"); pl.classList.remove("ring"); void pl.offsetWidth; pl.classList.add("ring"); setTimeout(function () { pl.classList.remove("ring"); }, 1500);
-    enablePush().then(function () { setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
+    hapticTap(); ringBell();                         // 켤 때 톡 하는 햅틱 + 종이 한 번 울림
+    var p = pushSub ? (setPushChat(true), Promise.resolve()) : ensurePush(true);
+    p.then(function () { setRoomMsg("이제 앱이 닫혀 있어도 채팅 알림이 와요.", false); })
       .catch(function (err) { setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 기기 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요. 잠시 뒤 다시 시도해 주세요."); })
       .then(done);
   });
+  var syncAskSw = makeSlideSwitch($("askSeg"), 3, function () { return ASK_ORDER.indexOf(askMode()); }, function (i) {
+    var mode = ASK_ORDER[i];
+    if (mode === "on" && pushSupported() && !pushSub) {          // 알림을 처음 켜는 경우: 허용부터 받음 (채팅 알림은 켜지 않음)
+      setAskMode("on");
+      ensurePush(false).catch(function (err) { setAskMode("mute"); renderAskSeg(); setRoomMsg(err && err.message === "denied" ? "알림이 허용되지 않았어요. 기기 설정 > 알림에서 허용해 주세요." : "알림을 켜지 못했어요."); });
+    } else setAskMode(mode);
+    setRoomMsg(mode === "on" ? "누가 점수를 물어보면 알림이 와요." : mode === "mute" ? "점수 질문은 받되 알림은 오지 않아요." : "이제 아무도 나에게 점수를 물어볼 수 없어요.", false);
+  });
+  function renderAskSeg() { syncAskSw(); }
   $("nickSave").addEventListener("click", function () {
     var name = cleanName(nickEdit.value);
     if (!name) { setRoomMsg("닉네임을 입력해 주세요."); return; }
