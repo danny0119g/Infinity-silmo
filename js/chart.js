@@ -29,7 +29,7 @@
   var SUBJECT_COLORS = {
     "생활과 윤리": "#ff8c1a", "윤리와 사상": "#818cf8", "한국지리": "#3ddc97", "세계지리": "#2dd4bf",
     "동아시아사": "#e08f5f", "세계사": "#cbd5e1", "경제": "#a3e635", "정치와 법": "#e879f9", "사회·문화": "#f87171",
-    "물리학Ⅰ": "#22d3ee", "화학Ⅰ": "#ff9f43", "생명과학Ⅰ": "#ff6b8b", "지구과학Ⅰ": "#a78bfa",
+    "물리학Ⅰ": "#22d3ee", "화학Ⅰ": "#4da3ff", "생명과학Ⅰ": "#ff6b8b", "지구과학Ⅰ": "#a78bfa",
     "물리학Ⅱ": "#67e8f9", "화학Ⅱ": "#fdba74", "생명과학Ⅱ": "#fda4af", "지구과학Ⅱ": "#d8b4fe"
   };
   function colorMap(all) {
@@ -126,12 +126,16 @@
     }
     if (!pts.some(function (r) { return r.id === selectedPoint; })) selectedPoint = "";
 
+    // 과목과 업체를 모두 골랐고 회차가 다 있으면: 가로축을 친 순서가 아니라 실제 회차로 (17회부터 시작했으면 17회가 맨 앞)
+    var realMode = !!(focusSubject && focusSrc) && pts.every(function (r) { return typeof r.no === "number"; });
+    if (realMode) { nums = {}; pts.forEach(function (r) { nums[r.id] = r.no; }); }
     var order = [], series = {};
     pts.forEach(function (r) {
       var sub = recSubject(r);
       if (!series[sub]) { series[sub] = []; order.push(sub); }
       series[sub].push({ n: nums[r.id], v: val(r), rec: r });
     });
+    if (realMode) order.forEach(function (nm) { series[nm].sort(function (a, b) { return a.n - b.n; }); });
 
     // 한 과목만 볼 때: 평균·최고·최저 (점이 2개 이상), 3개 이상이면 추세곡선도
     var focus = !!focusSubject, stat = null;
@@ -154,9 +158,10 @@
     var PADR = focus ? (homer ? 100 : 92) : PAD;           // 한 과목만 볼 때는 오른쪽에 숫자 자리를 남김
     var plotW = W - L - R, plotH = H - T - B - G, innerW = plotW - PAD - PADR;
     var yBottom = T + plotH;                                // 눈금의 맨 아래 (25점 / 0점 / 시간 맨 아래)
-    var maxN = 1;
-    pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
-    function X(nn) { return maxN === 1 ? L + (plotW - PADR + PAD) / 2 : L + PAD + (nn - 1) * innerW / (maxN - 1); }
+    var minN = 1, maxN = 1;
+    if (realMode) { minN = Infinity; maxN = -Infinity; pts.forEach(function (r) { if (nums[r.id] < minN) minN = nums[r.id]; if (nums[r.id] > maxN) maxN = nums[r.id]; }); }
+    else pts.forEach(function (r) { if (nums[r.id] > maxN) maxN = nums[r.id]; });
+    function X(nn) { return maxN === minN ? L + (plotW - PADR + PAD) / 2 : L + PAD + (nn - minN) * innerW / (maxN - minN); }
 
     // 세로축 범위
     var mn, mx, lo, hi, step;
@@ -232,9 +237,9 @@
       svg.appendChild(rl);
     }
     // 가로축: 회차 (자리가 좁으면 건너뛰며 표시)
-    var spacing = maxN > 1 ? innerW / (maxN - 1) : 100;
+    var spacing = maxN > minN ? innerW / (maxN - minN) : 100;
     var every = Math.max(1, Math.ceil(34 / spacing));
-    for (var nn = 1; nn <= maxN; nn += every) {
+    for (var nn = minN; nn <= maxN; nn += every) {
       var xl = svgEl("text", { x: X(nn), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: TC.muted });
       xl.textContent = nn + "회";
       svg.appendChild(xl);
