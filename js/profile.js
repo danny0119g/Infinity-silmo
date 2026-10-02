@@ -40,12 +40,12 @@
     function Y(v) { return T + (hi - v) / (hi - lo) * gh; }
     var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img", "aria-label": m.name + "님의 점수 추이" });
     for (var t = Math.ceil(lo / step) * step; t <= hi; t += step) {
-      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: "#3a3e46", "stroke-width": 1 }));
-      var yl = svgEl("text", { x: L - 6, y: Y(t) + 4, "text-anchor": "end", "font-size": 11, fill: "#9aa0aa" }); yl.textContent = t; svg.appendChild(yl);
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: TC.line, "stroke-width": 1 }));
+      var yl = svgEl("text", { x: L - 6, y: Y(t) + 4, "text-anchor": "end", "font-size": 11, fill: TC.muted }); yl.textContent = t; svg.appendChild(yl);
     }
     var every = Math.max(1, Math.ceil(30 / (maxN > 1 ? gw / (maxN - 1) : 100)));
     for (var n = 1; n <= maxN; n += every) {
-      var xl = svgEl("text", { x: X(n), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: "#9aa0aa" }); xl.textContent = n + "회"; svg.appendChild(xl);
+      var xl = svgEl("text", { x: X(n), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: TC.muted }); xl.textContent = n + "회"; svg.appendChild(xl);
     }
     var showAll = count <= 16;
     data.forEach(function (x) {
@@ -56,12 +56,12 @@
       pts.forEach(function (p, idx) {
         if (p.b != null) {                                // 호머식 점수: 연한 속 빈 점 + 점선
           if (p.a != null) svg.appendChild(svgEl("line", { x1: X(p.n), x2: X(p.n), y1: Y(p.a), y2: Y(p.b), stroke: lighten(col, 0.5), "stroke-width": 1.4, "stroke-dasharray": "3 3" }));
-          svg.appendChild(svgEl("circle", { cx: X(p.n), cy: Y(p.b), r: 4, fill: "#1b1d21", stroke: lighten(col, 0.5), "stroke-width": 2 }));
+          svg.appendChild(svgEl("circle", { cx: X(p.n), cy: Y(p.b), r: 4, fill: TC.bg, stroke: lighten(col, 0.5), "stroke-width": 2 }));
         }
         if (p.a != null) {
-          svg.appendChild(svgEl("circle", { cx: X(p.n), cy: Y(p.a), r: 4.4, fill: col, stroke: "#1b1d21", "stroke-width": 2 }));
+          svg.appendChild(svgEl("circle", { cx: X(p.n), cy: Y(p.a), r: 4.4, fill: col, stroke: TC.bg, "stroke-width": 2 }));
           if (showAll || idx === pts.length - 1) {
-            var tx = svgEl("text", { x: X(p.n), y: Y(p.a) - 9, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col, stroke: "#1b1d21", "stroke-width": 3, "paint-order": "stroke" });
+            var tx = svgEl("text", { x: X(p.n), y: Y(p.a) - 9, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col, stroke: TC.bg, "stroke-width": 3, "paint-order": "stroke" });
             tx.textContent = p.a; svg.appendChild(tx);
           }
         }

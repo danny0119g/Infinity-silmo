@@ -18,6 +18,9 @@
     codeInput.value = ""; nickInput.value = "";
     $("roomInView").classList.toggle("hidden", !has);
     $("roomLeaveSec").classList.toggle("hidden", !has);
+    $("profileGroup").classList.toggle("hidden", !has);
+    setSw($("themeToggle"), getTheme() === "dark", getTheme() === "dark" ? "켜짐" : "꺼짐");
+    if (!has) { $("pushLine").classList.add("hidden"); $("pushCheckLine").classList.add("hidden"); }
     $("roomTitle").textContent = has ? roomLabel(room) : "설정";
     if (has) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }
     $("roomAddToggle").disabled = full; $("roomAddToggle").textContent = full ? "방은 최대 " + MAX_ROOMS + "개예요" : "+ 새 방 만들기 · 입장";
@@ -106,6 +109,12 @@
   codeInput.addEventListener("keydown", function (e) { if (e.key === "Enter") joinNow(); });
   codeInput.addEventListener("input", function () { codeInput.value = codeInput.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12); setRoomMsg(""); });
   nickInput.addEventListener("input", function () { setRoomMsg(""); });
+  $("themeToggle").addEventListener("click", function () {
+    var dark = getTheme() === "dark";
+    setTheme(dark ? "light" : "dark");
+    setSw(this, !dark, !dark ? "켜짐" : "꺼짐");
+    keepPageScroll(function () { renderToday(); renderTogether(); });          // 그래프 색도 새로 그림
+  });
   $("shareToggle").addEventListener("click", function () {
     if (!room) return;
     var on = !shareOn();

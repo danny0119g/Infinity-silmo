@@ -462,7 +462,7 @@
         pop.appendChild(row);
       });
     } else pop.appendChild(el("div", "pRow none", "아직 응시 전이에요"));
-    if (!m.me && isLive(m)) {                           // 지금 시험 중: 녹화 중 느낌의 "응시 중" 표시
+    if (isLive(m)) {                                   // 지금 시험 중(내 다른 기기에서 응시 중인 경우 포함): 녹화 중 느낌의 "응시 중" 표시
       var rmin = liveMin(m), rec = el("div", "pRec"), rh = el("div", "pRecHead");
       rh.appendChild(el("span", "rdot")); rh.appendChild(el("span", "", m.live.e === 1 ? "추가 시간" : "응시 중"));
       rec.appendChild(rh);

@@ -70,6 +70,7 @@
     $("abandon").classList.toggle("hidden", phase !== "running");
     $("endBtn").classList.toggle("hidden", !(phase === "running" || phase === "extra"));
     scheduleSync();                                  // 응시 상태(시작·추가 시간·종료)가 바뀌었으니 친구들에게도 알림
+    if (typeof pushExamState === "function") pushExamState();      // 같은 계정의 다른 기기에도 알림
   }
 
   function saveRec(fields) {
@@ -149,9 +150,11 @@
   }
 
   // ---------- 시작 / 탈주 / 종료 ----------
+  function otherDeviceNotice() { notice("같은 계정의 다른 기기에서 응시 중이에요.\n그 시험이 끝난 뒤에 응시할 수 있어요."); }
   function start(slot) {
     var subject = loadSubjects()[slot];
     if (!subject) return;
+    if (typeof acctExamLive === "function" && acctExamLive()) { otherDeviceNotice(); return; }
     closeProfile();
     closeAllChats("exam");                           // 대화 중이던 상대에게 "실모를 치러 갔다"고 알리고 내 창은 닫음
     current = { slot: slot, label: SLOTS[slot].label, subject: subject, startH: SLOTS[slot].startH, startM: SLOTS[slot].startM };
@@ -183,6 +186,7 @@
     running = false;
     phase = "idle";
     liveStart = 0;
+    if (typeof pushExamState === "function") pushExamState();
     clearSession();
     dayRollover(recId);
     scheduleSync();
@@ -345,8 +349,13 @@
       var subject = loadSubjects()[slot];
       if (!subject) { openPicker(slot, "single"); return; }
       releaseHold();
-      holdSlot = this; this.classList.add("pressing");        // 확인 창이 떠 있는 동안 파란 테두리 유지
-      ask(subject + " 실모를 응시하겠습니까?", "예", false, function () { start(slot); });
+      var btn = this;
+      var go = function () {
+        if (typeof acctExamLive === "function" && acctExamLive()) { otherDeviceNotice(); return; }
+        holdSlot = btn; btn.classList.add("pressing");        // 확인 창이 떠 있는 동안 파란 테두리 유지
+        ask(subject + " 실모를 응시하겠습니까?", "예", false, function () { start(slot); });
+      };
+      if (typeof pullExamState === "function") pullExamState().then(go, go); else go();       // 누르는 순간 서버에서 한 번 더 확인
     });
   });
   $("fs").addEventListener("click", function () {

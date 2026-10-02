@@ -26,22 +26,43 @@
   for (var i = 0; i < 60; i++) {
     var major = i % 5 === 0;
     var r = document.createElementNS(NS, "rect");
-    r.setAttribute("x", major ? -1.6 : -0.6);
-    r.setAttribute("y", -90);
-    r.setAttribute("width", major ? 3.2 : 1.2);
-    r.setAttribute("height", major ? 9 : 4);
+    r.setAttribute("x", major ? -1.25 : -0.4);
+    r.setAttribute("y", major ? -87.5 : -87.5);
+    r.setAttribute("width", major ? 2.5 : 0.8);
+    r.setAttribute("height", major ? 8 : 3);
+    r.setAttribute("rx", major ? 0.6 : 0.3);
     r.setAttribute("fill", "#17181a");
+    if (!major) r.setAttribute("fill-opacity", "0.55");
     r.setAttribute("transform", "rotate(" + (i * 6) + ")");
     ticks.appendChild(r);
   }
   for (var n = 1; n <= 12; n++) {
     var t = document.createElementNS(NS, "text");
     var a = n * 30 * Math.PI / 180;
-    t.setAttribute("x", (Math.sin(a) * 70).toFixed(2));
-    t.setAttribute("y", (-Math.cos(a) * 70 + 5.4).toFixed(2));
+    t.setAttribute("x", (Math.sin(a) * 68).toFixed(2));
+    t.setAttribute("y", (-Math.cos(a) * 68 + 5.2).toFixed(2));
     t.textContent = n;
     nums.appendChild(t);
   }
+
+  // ---------- 화면 색 (다크 모드 / 밝은 모드) ----------
+  var THEME_KEY = "examTimer.theme.v1", THEMEAT_KEY = "examTimer.themeAt.v1", TC = {};
+  function loadTC() {                                // 그래프(SVG)가 쓰는 색을 CSS 변수에서 읽어 둠
+    var cs = getComputedStyle(document.documentElement);
+    ["bg", "panel", "line", "muted", "text", "glow", "scorecard"].forEach(function (n) { TC[n] = cs.getPropertyValue("--" + n).trim(); });
+  }
+  function getTheme() { try { return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark"; } catch (e) { return "dark"; } }
+  function applyTheme(t) {
+    if (t === "light") document.documentElement.setAttribute("data-theme", "light"); else document.documentElement.removeAttribute("data-theme");
+    loadTC();
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", TC.bg || "#1b1d21");
+  }
+  function setTheme(t) {
+    try { localStorage.setItem(THEME_KEY, t); localStorage.setItem(THEMEAT_KEY, String(Date.now())); } catch (e) {}
+    applyTheme(t);
+    if (typeof onThemeChanged === "function") onThemeChanged();
+  }
+  applyTheme(getTheme());
 
   // ---------- 선택한 과목 (직접 수정하기 전까지 계속 유지) ----------
   var SUBJ_KEY = "examTimer.subjects.v1", memSubj = { 1: null, 2: null }, subjFailed = false;

@@ -209,6 +209,64 @@
       }, function (err) { if (err && err.message === "http 401") recBlocked = true; });      // 서버 규칙이 아직 모르면 이번 접속 동안은 다시 시도하지 않음
     }).then(function () { recBusy = false; if (recAgain) { recAgain = false; syncRecords(true); } }, function () { recBusy = false; });
   }
+  // ---- 다크 모드 계정 동기화 (users/{uid}/theme, themeAt) ----
+  var themeBlocked = false, themeBusy = false, themeTimer = 0;
+  function onThemeChanged() {
+    if (!USE_V2 || !fbAuth) return;
+    clearTimeout(themeTimer); themeTimer = setTimeout(pushTheme, 800);
+  }
+  function pushTheme() {
+    if (!USE_V2 || !fbAuth || !accountReady || themeBlocked) return Promise.resolve();
+    var body = JSON.stringify({ theme: getTheme(), themeAt: Number(recGet(THEMEAT_KEY)) || Date.now() });
+    return enqueue(function () { return dbFetch("/v2/users/" + getDeviceId(), { method: "PATCH", headers: JSONH, body: body }).catch(function (err) { if (err && err.message === "http 401") themeBlocked = true; }); });
+  }
+  function syncTheme() {
+    if (!USE_V2 || !fbAuth || !accountReady || themeBlocked || themeBusy) return Promise.resolve();
+    themeBusy = true;
+    var base = "/v2/users/" + getDeviceId();
+    return dbFetch(base + "/themeAt", { cache: "no-store" }).then(function (srvAt) {
+      srvAt = (typeof srvAt === "number") ? srvAt : 0;
+      var mine = Number(recGet(THEMEAT_KEY)) || 0;
+      if (srvAt > mine) {
+        return dbFetch(base + "/theme", { cache: "no-store" }).then(function (t) {
+          if (t !== "dark" && t !== "light") return;
+          recSet(THEMEAT_KEY, String(srvAt));
+          if (getTheme() === t) return;
+          try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+          applyTheme(t);
+          keepPageScroll(function () { renderToday(); renderTogether(); });
+          if (roomModal.classList.contains("on")) setSw($("themeToggle"), t === "dark", t === "dark" ? "켜짐" : "꺼짐");
+        });
+      }
+      if (mine > srvAt) return pushTheme();
+    }).then(function () { themeBusy = false; }, function () { themeBusy = false; });
+  }
+  // ---- 같은 계정의 다른 기기에서 응시 중인지 (users/{uid}/exam: 응시 중인 기기만 씀) ----
+  var INST = (function () { var v = ""; try { v = localStorage.getItem("examTimer.inst.v1") || ""; if (!v) { v = newId(); localStorage.setItem("examTimer.inst.v1", v); } } catch (e) {} return v || newId(); })();
+  var acctExam = null, examPushed = false, examBlocked = false, examPullBusy = false;
+  function acctExamLive() { return (acctExam && Date.now() - acctExam.at < 180000 && Date.now() / 1000 - acctExam.t < 90 * 60) ? acctExam : null; }
+  function acctLiveInfo() { var a = acctExamLive(); return a ? { s: a.s, t: a.t, e: a.e } : null; }      // 방 서버의 내 칸에 이어서 올릴 값 (이 기기가 쉬는 중이어도 응시 표시가 지워지지 않게)
+  function pushExamState() {                         // 이 기기의 응시 상태가 바뀔 때·응시 중 20초마다
+    if (!USE_V2 || !fbAuth || !accountReady || examBlocked) return Promise.resolve();
+    var running = current && liveStart && (phase === "running" || phase === "extra"), base = "/v2/users/" + getDeviceId() + "/exam";
+    if (running) {
+      var body = JSON.stringify({ s: String(current.subject).slice(0, 30), t: Math.floor(liveStart / 1000), e: phase === "extra" ? 1 : 0, d: INST, at: Date.now() });
+      examPushed = true;
+      return enqueue(function () { return dbFetch(base, { method: "PUT", headers: JSONH, body: body }).catch(function (err) { if (err && err.message === "http 401") examBlocked = true; }); });
+    }
+    if (examPushed) { examPushed = false; return enqueue(function () { return dbFetch(base, { method: "DELETE" }).catch(function () {}); }); }
+    return Promise.resolve();
+  }
+  setInterval(function () { if (phase === "running" || phase === "extra") pushExamState(); }, 20000);
+  function pullExamState() {
+    if (!USE_V2 || !fbAuth || !accountReady || examBlocked || examPullBusy || phase === "running" || phase === "extra") return Promise.resolve();
+    examPullBusy = true;
+    var before = JSON.stringify(acctExamLive());
+    return dbFetch("/v2/users/" + getDeviceId() + "/exam", { cache: "no-store" }).then(function (o) {
+      acctExam = (o && typeof o === "object" && typeof o.s === "string" && typeof o.t === "number" && typeof o.at === "number" && o.d !== INST) ? { s: o.s.slice(0, 30), t: o.t, e: o.e === 1 ? 1 : 0, at: o.at } : null;
+      if (JSON.stringify(acctExamLive()) !== before) keepPageScroll(renderTogether);
+    }).then(function () { examPullBusy = false; }, function () { examPullBusy = false; });
+  }
   var photoSyncBusy = false, photoSyncAt = 0;
   function syncAccountPhoto(force) {                 // 서버의 계정 사진과 비교해서, 서버 것이 더 새로우면 받고 이 기기 것이 더 새로우면(또는 서버에 없으면) 올림
     if (!USE_V2 || !fbAuth || !accountReady || photoSyncBusy || acctPhotoBlocked) return Promise.resolve();
@@ -259,7 +317,7 @@
         roomListBusy = false;
         if (!roomListReady) return;
         accountReady = true;
-        syncSubjects(); syncRecords(true);
+        syncSubjects(); syncRecords(true); syncTheme(); pullExamState();
         return syncAccountPhoto(true).then(function () {         // 사진을 먼저 맞춘 뒤 방에 올림(기기마다 다른 사진을 방에 덮어쓰지 않게)
           renderRoomSwitch(); keepPageScroll(renderTogether);
           if (room) afterSwitch(); else syncOtherRooms(true);

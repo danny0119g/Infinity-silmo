@@ -10,7 +10,7 @@
     var st = { name: r.name, day: todayStr(), share: shareOn(r.code) };
     if (any) st.counts = counts;
     if (st.share) { var sm = scoreMap(); if (Object.keys(sm).length) st.scores = sm; }
-    var lv = liveBlocked ? null : liveInfo();
+    var lv = liveBlocked ? null : (liveInfo() || (typeof acctLiveInfo === "function" ? acctLiveInfo() : null));
     if (lv) st.live = lv;
     if (active && document.visibilityState === "visible") st.on = Math.floor(Date.now() / 1000);       // 앱이 화면에 보이는 동안 남기는 신호: 알림 서버가 이걸 보고 알림을 건너뜀
     return st;
@@ -24,7 +24,7 @@
     if (pushSub) subs["~푸시|" + pushSub] = 1;
     if (active && document.visibilityState === "visible") subs["~온|" + Math.floor(Date.now() / 1000)] = 1;     // 앱이 화면에 보이는 동안 남기는 신호: 서버가 이걸 보고 알림을 건너뜀
     if (shareOn(r.code)) { subs["~공개"] = 1; scoreKeys().forEach(function (k) { subs[k] = 1; }); }
-    var st = { name: r.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : liveInfo();
+    var st = { name: r.name, day: todayStr(), subjects: subs }, lv = liveBlocked ? null : (liveInfo() || (typeof acctLiveInfo === "function" ? acctLiveInfo() : null));
     if (lv) st.live = lv;
     return st;
   }
@@ -300,6 +300,8 @@
     if (typeof syncAccountPhoto === "function") syncAccountPhoto(false);
     if (typeof syncSubjects === "function") syncSubjects();
     if (typeof syncRecords === "function") syncRecords(false);
+    if (typeof syncTheme === "function") syncTheme();
+    if (typeof pullExamState === "function") pullExamState();
     syncOtherRooms(false);
     enqueue(function () { return pushMe(false).then(function () { return pushPhoto(false); }); }).then(pullOthers).then(function () { keepPageScroll(renderTogether); });
   }
@@ -316,7 +318,7 @@
     btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
     var mine = countsOf(loadAll()), mt = 0;
     mine.forEach(function (c) { mt += c.count; });
-    var meItem = { uid: "me", id: getDeviceId(), name: room.name, subs: mine, total: mt, me: true };
+    var meItem = { uid: "me", id: getDeviceId(), name: room.name, subs: mine, total: mt, me: true, live: (typeof acctLiveInfo === "function" ? acctLiveInfo() : null) };      // 같은 계정의 다른 기기에서 응시 중이면 나도 "응시 중"으로 보임
     var rest = others.slice().sort(function (a, b) { return (b.total - a.total) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
     var list = [meItem].concat(rest);                 // 나는 맨 위에 고정, 나머지는 응시 많은 순
     var ul = el("ul", "members"), lis = {};

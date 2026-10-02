@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261002021925">
+<meta name="app-version" content="20261002023216">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -13,7 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="무수한 실모">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
-<link rel="stylesheet" href="style.css?v=20261002021925">
+<script>try{if(localStorage.getItem("examTimer.theme.v1")==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
+<link rel="stylesheet" href="style.css?v=20261002023216">
 </head>
 <body>
 
@@ -88,15 +89,21 @@
 <section id="stage">
   <div id="clockwrap">
     <svg id="clock" viewBox="-100 -100 200 200" role="img" aria-label="아날로그 시계">
-      <circle r="98" fill="#2d3036"/>
-      <circle r="94" fill="var(--face)"/>
+      <defs>
+        <linearGradient id="bezelG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a5f69"/><stop offset=".5" stop-color="#2a2d33"/><stop offset="1" stop-color="#15171a"/></linearGradient>
+        <radialGradient id="faceG" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eeeee8"/></radialGradient>
+      </defs>
+      <circle r="99.5" fill="url(#bezelG)"/>
+      <circle r="95.2" fill="#0e0f11"/>
+      <circle r="94" fill="url(#faceG)"/>
+      <circle r="88.6" fill="none" stroke="#17181a" stroke-opacity=".10" stroke-width=".5"/>
       <g id="ticks"></g>
-      <g id="nums" font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#17181a" text-anchor="middle" font-size="15"></g>
-      <g id="hour"><polygon points="-2.1,4 2.1,4 1.5,-22 0.8,-36 0,-45 -0.8,-36 -1.5,-22" fill="#17181a" stroke="#17181a" stroke-width="0.4" stroke-linejoin="round"/></g>
-      <g id="minute"><polygon points="-1.7,6 1.7,6 1.15,-34 0.6,-55 0,-67 -0.6,-55 -1.15,-34" fill="#17181a" stroke="#17181a" stroke-width="0.3" stroke-linejoin="round"/></g>
-      <g id="second"><polygon points="-0.8,11 0.8,11 0.5,-46 0.25,-66 0,-77 -0.25,-66 -0.5,-46" fill="#d8261c"/></g>
-      <circle r="3.4" fill="#17181a"/>
-      <circle r="1.7" fill="#d8261c"/>
+      <g id="nums" font-family="'Helvetica Neue', 'Apple SD Gothic Neo', Arial, sans-serif" font-weight="500" fill="#17181a" text-anchor="middle" font-size="14.5"></g>
+      <g id="hour"><path d="M-2.6,9 L-2.6,-8 Q-2.6,-12 -1.6,-14 L-1.1,-39 Q-1,-43 0,-43 Q1,-43 1.1,-39 L1.6,-14 Q2.6,-12 2.6,-8 L2.6,9 Q2.6,11 0,11 Q-2.6,11 -2.6,9 Z" fill="#17181a"/></g>
+      <g id="minute"><path d="M-1.9,10 L-1.9,-10 Q-1.9,-14 -1.1,-16 L-0.7,-62 Q-0.6,-66 0,-66 Q0.6,-66 0.7,-62 L1.1,-16 Q1.9,-14 1.9,-10 L1.9,10 Q1.9,12 0,12 Q-1.9,12 -1.9,10 Z" fill="#17181a"/></g>
+      <g id="second"><rect x="-0.5" y="-76" width="1" height="100" rx=".5" fill="#d8261c"/><circle cy="19" r="3.4" fill="none" stroke="#d8261c" stroke-width="1.5"/></g>
+      <circle r="4.2" fill="#17181a"/>
+      <circle r="2.1" fill="#d8261c"/>
     </svg>
   </div>
 
@@ -177,6 +184,7 @@
   <div class="dlg roomdlg">
     <p id="roomTitle">설정</p>
 
+    <h2 class="gtitle first">방</h2>
     <div id="roomInView" class="hidden">
       <section class="rsec">
         <h3 class="rhead">방 이름 <small class="swNote" id="labelNote">나에게만 보여요</small></h3>
@@ -192,28 +200,10 @@
           <button id="roomCopy" class="rbtn">복사</button>
         </div>
       </section>
-      <section class="rsec">
-        <h3 class="rhead">내 프로필</h3>
-        <div class="rrow prow">
-          <div class="avWrap roomAvWrap"><div class="avatar roomAv" id="roomAv"></div><button id="photoChange" class="avPen" type="button" aria-label="프로필 사진 편집" title="프로필 사진 편집"></button></div>
-          <button id="photoDel" class="rbtn del hidden" type="button" aria-label="사진 삭제" title="사진 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
-        </div>
-        <div class="rrow nrow">
-          <input id="nickEdit" class="tinput nick" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임">
-          <button id="nickSave" class="rbtn">저장</button>
-        </div>
-      </section>
-      <section class="rsec">
-        <h3 class="rhead">기타</h3>
-        <div class="rlist">
-          <div class="rline hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="이 방에서 사진 사용"></button></div>
-          <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="내 점수 공개"></button></div>
-          <div class="rline hidden" id="pushLine"><span>채팅 알림 <small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
-          <div class="rline hidden" id="pushCheckLine"><span>알림 점검 <small class="swNote">10초 뒤 시험 알림이 와요</small></span><button id="pushCheck" class="rbtn" type="button">실행</button></div>
-        </div>
-      </section>
+      <section class="rsec"><div class="rlist">
+        <div class="rline"><span>내 점수 공개</span><button id="shareToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="내 점수 공개"></button></div>
+      </div></section>
     </div>
-
     <section class="rsec" id="roomAddSec">
       <h3 class="rhead">방 만들기 · 입장</h3>
       <button id="roomAddToggle" class="primary ghost" type="button">+ 새 방 만들기 · 입장</button>
@@ -226,6 +216,34 @@
         <button id="roomJoin" class="primary ghost">입장하기</button>
       </div>
     </section>
+    <section class="rsec leave hidden" id="roomLeaveSec">
+      <button id="roomLeave" class="leaveLink" type="button">방 나가기</button>
+    </section>
+
+    <div id="profileGroup" class="hidden">
+      <h2 class="gtitle">프로필</h2>
+      <section class="rsec">
+        <h3 class="rhead">내 프로필</h3>
+        <div class="rrow prow">
+          <div class="avWrap roomAvWrap"><div class="avatar roomAv" id="roomAv"></div><button id="photoChange" class="avPen" type="button" aria-label="프로필 사진 편집" title="프로필 사진 편집"></button></div>
+          <button id="photoDel" class="rbtn del hidden" type="button" aria-label="사진 삭제" title="사진 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+        </div>
+        <div class="rrow nrow">
+          <input id="nickEdit" class="tinput nick" type="text" maxlength="12" autocomplete="off" aria-label="내 닉네임">
+          <button id="nickSave" class="rbtn">저장</button>
+        </div>
+      </section>
+      <section class="rsec"><div class="rlist">
+        <div class="rline hidden" id="photoUseLine"><span>이 방에서 사진 사용</span><button id="photoUseToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="이 방에서 사진 사용"></button></div>
+      </div></section>
+    </div>
+
+    <h2 class="gtitle">기타</h2>
+    <section class="rsec"><div class="rlist">
+      <div class="rline"><span>다크 모드</span><button id="themeToggle" class="sw on" type="button" role="switch" aria-checked="true" aria-label="다크 모드"></button></div>
+      <div class="rline hidden" id="pushLine"><span>채팅 알림 <small class="swNote"></small></span><button id="pushToggle" class="sw" type="button" role="switch" aria-checked="false" aria-label="채팅 알림"></button></div>
+      <div class="rline hidden" id="pushCheckLine"><span>알림 점검 <small class="swNote">10초 뒤 시험 알림이 와요</small></span><button id="pushCheck" class="rbtn" type="button">실행</button></div>
+    </div></section>
     <section class="rsec hidden" id="accountSec">
       <h3 class="rhead">계정</h3>
       <div class="rlist">
@@ -234,9 +252,6 @@
       <div id="accountLink" class="hidden"><p class="acctNote">구글 계정에 연결하면 기기를 바꿔도 방이 이어져요.</p><div id="accountGoogle" class="loginGoogle"></div></div>
     </section>
     <div id="roomErrMsg" role="alert"></div>
-    <section class="rsec leave hidden" id="roomLeaveSec">
-      <button id="roomLeave" class="leaveLink" type="button">방 나가기</button>
-    </section>
     <button class="pill" id="roomClose" style="margin-top:14px">닫기</button>
   </div>
 </div>
@@ -280,22 +295,22 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261002021925"></script>
-<script src="js/auth.js?v=20261002021925"></script>
-<script src="js/records.js?v=20261002021925"></script>
-<script src="js/chart.js?v=20261002021925"></script>
-<script src="js/room-base.js?v=20261002021925"></script>
-<script src="js/push.js?v=20261002021925"></script>
-<script src="js/room-sync.js?v=20261002021925"></script>
-<script src="js/profile.js?v=20261002021925"></script>
-<script src="js/scoreask.js?v=20261002021925"></script>
-<script src="js/chat.js?v=20261002021925"></script>
-<script src="js/photo.js?v=20261002021925"></script>
-<script src="js/room-modal.js?v=20261002021925"></script>
-<script src="js/account.js?v=20261002021925"></script>
-<script src="js/dialogs.js?v=20261002021925"></script>
-<script src="js/exam.js?v=20261002021925"></script>
-<script src="js/login.js?v=20261002021925"></script>
-<script src="js/refresh.js?v=20261002021925"></script>
+<script src="js/core.js?v=20261002023216"></script>
+<script src="js/auth.js?v=20261002023216"></script>
+<script src="js/records.js?v=20261002023216"></script>
+<script src="js/chart.js?v=20261002023216"></script>
+<script src="js/room-base.js?v=20261002023216"></script>
+<script src="js/push.js?v=20261002023216"></script>
+<script src="js/room-sync.js?v=20261002023216"></script>
+<script src="js/profile.js?v=20261002023216"></script>
+<script src="js/scoreask.js?v=20261002023216"></script>
+<script src="js/chat.js?v=20261002023216"></script>
+<script src="js/photo.js?v=20261002023216"></script>
+<script src="js/room-modal.js?v=20261002023216"></script>
+<script src="js/account.js?v=20261002023216"></script>
+<script src="js/dialogs.js?v=20261002023216"></script>
+<script src="js/exam.js?v=20261002023216"></script>
+<script src="js/login.js?v=20261002023216"></script>
+<script src="js/refresh.js?v=20261002023216"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
   // 시간 추이: 세로축 시간 (위로 갈수록 짧음)
   var PALETTE = ["#4da3ff", "#ff9f43", "#3ddc97", "#ff6b8b", "#b388ff", "#ffd43b", "#22d3ee", "#a3e635", "#e879f9", "#f87171"];
   var TOL = 1;                                   // 같은 회차에서 ±1점(시간은 ±1분) 이내면 겹친 점으로 보고 고르는 창을 띄움
-  var SCORE_CARD_BG = "#252c37";                 // 점수 그래프 카드 색 (가림막 그라데이션이 이 색으로 사라짐)
+  var SCORE_CARD_BG_UNUSED = "";                 // 점수 그래프 카드 색 (가림막 그라데이션이 이 색으로 사라짐)
   // 점수 그래프는 29점 아래가 가려짐
   var selectedPoint = "", chooser = null, chartMode = "score", focusSubject = "", scoreExpanded = false;
   function svgEl(tag, attrs) {
@@ -166,12 +166,12 @@
     if (collapsed) ticks = [30, 35, 40, 45, 50];                                   // 29점 경계는 눈금 없이 그라데이션이 시작되는 곳
     else for (var tv = lo; tv <= hi; tv += step) ticks.push(tv);
     ticks.forEach(function (t) {
-      var gl = { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: homer ? "#434852" : "#3a3e46", "stroke-width": 1 };
+      var gl = { x1: L, x2: W - R, y1: Y(t), y2: Y(t), stroke: TC.line, "stroke-width": 1 };
       if (homer) gl["stroke-dasharray"] = "1 5"; gl["stroke-linecap"] = "round";
       svg.appendChild(svgEl("line", gl));
       var yl = svgEl("text", homer
-        ? { x: W - R + 10, y: Y(t) + 4, "text-anchor": "start", "font-size": 12, fill: "#9aa0aa" }
-        : { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: "#9aa0aa" });
+        ? { x: W - R + 10, y: Y(t) + 4, "text-anchor": "start", "font-size": 12, fill: TC.muted }
+        : { x: L - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 12, fill: TC.muted });
       yl.textContent = homer ? t + "분" : t;
       svg.appendChild(yl);
     });
@@ -183,15 +183,15 @@
       cp.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: yBottom + G }));
       defs.appendChild(cp);
       var lg = svgEl("linearGradient", { id: uid + "g", x1: 0, y1: 0, x2: 0, y2: 1 });
-      lg.appendChild(svgEl("stop", { offset: "0%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0 }));
-      lg.appendChild(svgEl("stop", { offset: "55%", "stop-color": SCORE_CARD_BG, "stop-opacity": 0.78 }));
-      lg.appendChild(svgEl("stop", { offset: "100%", "stop-color": SCORE_CARD_BG, "stop-opacity": 1 }));
+      lg.appendChild(svgEl("stop", { offset: "0%", "stop-color": TC.scorecard, "stop-opacity": 0 }));
+      lg.appendChild(svgEl("stop", { offset: "55%", "stop-color": TC.scorecard, "stop-opacity": 0.78 }));
+      lg.appendChild(svgEl("stop", { offset: "100%", "stop-color": TC.scorecard, "stop-opacity": 1 }));
       defs.appendChild(lg);
       var wg = svgEl("linearGradient", { id: uid + "w", x1: 0, y1: 0, x2: 0, y2: 1 });   // 위쪽은 차트 배경과 이어지고, 아래로 갈수록 살짝 하얘짐
-      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#ffffff", "stop-opacity": 0 }));
-      wg.appendChild(svgEl("stop", { offset: "50%", "stop-color": "#ffffff", "stop-opacity": 0.045 }));
-      wg.appendChild(svgEl("stop", { offset: "85%", "stop-color": "#ffffff", "stop-opacity": 0.13 }));
-      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#ffffff", "stop-opacity": 0.1 }));
+      wg.appendChild(svgEl("stop", { offset: "0%", "stop-color": TC.glow, "stop-opacity": 0 }));
+      wg.appendChild(svgEl("stop", { offset: "50%", "stop-color": TC.glow, "stop-opacity": 0.045 }));
+      wg.appendChild(svgEl("stop", { offset: "85%", "stop-color": TC.glow, "stop-opacity": 0.13 }));
+      wg.appendChild(svgEl("stop", { offset: "100%", "stop-color": TC.glow, "stop-opacity": 0.1 }));
       defs.appendChild(wg);
       var hg = svgEl("linearGradient", { id: uid + "h", x1: 0, y1: 0, x2: 1, y2: 0 });      // 눈금선 폭에 맞추고, 좌우 끝은 부드럽게 사라지게
       hg.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#fff", "stop-opacity": 0 }));
@@ -208,8 +208,8 @@
     }
     // 시간 그래프: 본 시험 시간(30분) 기준선. 각 점에서 이 선까지 이어지는 세로선이 추가로 쓴 시간
     if (homer) {
-      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(30), y2: Y(30), stroke: "#aab1bc", "stroke-width": 1.2, "stroke-dasharray": "6 4", "stroke-opacity": 0.8 }));
-      var rl = svgEl("text", { x: L + 2, y: Y(30) - 6, "text-anchor": "start", "font-size": 11, "font-weight": 600, fill: "#aab1bc" });
+      svg.appendChild(svgEl("line", { x1: L, x2: W - R, y1: Y(30), y2: Y(30), stroke: TC.muted, "stroke-width": 1.2, "stroke-dasharray": "6 4", "stroke-opacity": 0.8 }));
+      var rl = svgEl("text", { x: L + 2, y: Y(30) - 6, "text-anchor": "start", "font-size": 11, "font-weight": 600, fill: TC.muted });
       rl.textContent = "본 시험 30분";
       svg.appendChild(rl);
     }
@@ -217,7 +217,7 @@
     var spacing = maxN > 1 ? innerW / (maxN - 1) : 100;
     var every = Math.max(1, Math.ceil(34 / spacing));
     for (var nn = 1; nn <= maxN; nn += every) {
-      var xl = svgEl("text", { x: X(nn), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: "#9aa0aa" });
+      var xl = svgEl("text", { x: X(nn), y: H - 8, "text-anchor": "middle", "font-size": 12, fill: TC.muted });
       xl.textContent = nn + "회";
       svg.appendChild(xl);
     }
@@ -268,14 +268,14 @@
       var hc = lighten(color[recSubject(selRec)], 0.55);
       if (Math.abs(hy - sy) > 7) {
         dg.appendChild(svgEl("line", { x1: hx, x2: hx, y1: sy, y2: hy, stroke: hc, "stroke-width": 1.6, "stroke-dasharray": "3 3" }));
-        dg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 4.6, fill: hc, stroke: "#26292f", "stroke-width": 2 }));
+        dg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 4.6, fill: hc, stroke: TC.panel, "stroke-width": 2 }));
       } else {
         dg.appendChild(svgEl("circle", { cx: hx, cy: hy, r: 8.5, fill: "none", stroke: hc, "stroke-width": 2 }));
       }
       var hAbove = hy < sy || Math.abs(hy - sy) <= 7;
       var ht = svgEl("text", {
         x: hx, y: hAbove ? hy - 12 : hy + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: hc,
-        stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+        stroke: TC.panel, "stroke-width": 3, "paint-order": "stroke"
       });
       ht.textContent = selRec.score2;
       dg.appendChild(ht);
@@ -285,11 +285,11 @@
     var showAll = pts.length <= 12, labeled = {};
     plist.forEach(function (pt) {
       var selected = pt.rec.id === selectedPoint;
-      if (selected) dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: homer ? 10 : 9, fill: "none", stroke: "#f1f2f4", "stroke-width": 2 }));
+      if (selected) dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: homer ? 10 : 9, fill: "none", stroke: TC.text, "stroke-width": 2 }));
       if (homer) {
-        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 5.2, fill: selected ? pt.color : "#26292f", stroke: pt.color, "stroke-width": 2.4 }));
+        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 5.2, fill: selected ? pt.color : TC.panel, stroke: pt.color, "stroke-width": 2.4 }));
       } else {
-        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 4.6, fill: pt.color, stroke: "#26292f", "stroke-width": 2 }));
+        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 4.6, fill: pt.color, stroke: TC.panel, "stroke-width": 2 }));
       }
       if ((showAll || pt.last || selected) && visible(pt.y)) {
         var seenY = labeled[pt.n] || (labeled[pt.n] = []);
@@ -299,7 +299,7 @@
           if (selected && homerDotY != null && homerDotY < pt.y) above = false;   // 호머식 점이 위에 있으면 숫자는 아래로
           var tx = svgEl("text", {
             x: pt.x, y: above ? pt.y - 12 : pt.y + 20, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: pt.color,
-            stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+            stroke: TC.panel, "stroke-width": 3, "paint-order": "stroke"
           });
           tx.textContent = fmtVal(pt.v);
           dg.appendChild(tx);
@@ -322,7 +322,7 @@
       lines.forEach(function (ln, i) {
         var st = svgEl("text", {
           x: X(maxN) + 16, y: ty0 + i * 15, "text-anchor": "start", "font-size": 12, "font-weight": 700, fill: tcol,
-          stroke: "#26292f", "stroke-width": 3, "paint-order": "stroke"
+          stroke: TC.panel, "stroke-width": 3, "paint-order": "stroke"
         });
         st.textContent = ln;
         svg.appendChild(st);
@@ -341,7 +341,7 @@
         renderChart();
       });
       svg.appendChild(strip);
-      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 9, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#c6ccd6", "pointer-events": "none" });
+      var hint = svgEl("text", { x: L + plotW / 2, y: yBottom + G - 9, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: TC.muted, "pointer-events": "none" });
       hint.textContent = "눌러서 전체 보기";
       svg.appendChild(hint);
     }
@@ -353,7 +353,7 @@
       var fg = svgEl("g", { "class": "foldbtn", role: "button", tabindex: 0, "aria-label": "29점 아래를 다시 가리기" });
       // 보이지 않는 누르는 영역: 가린 상태의 띠(strip)와 같은 위치·크기
       fg.appendChild(svgEl("rect", { x: L, y: H - B - GC - 14, width: plotW, height: GC + 20, fill: "transparent" }));
-      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: "#aab1bc", "pointer-events": "none" });
+      var ft = svgEl("text", { x: fx, y: fy, "text-anchor": "middle", "font-size": 12, "font-weight": 700, fill: TC.muted, "pointer-events": "none" });
       ft.textContent = "다시 가리기";
       fg.appendChild(ft);
       var collapseAgain = function (e) { e.stopPropagation(); scoreExpanded = false; clearSelection(); renderChart(); };

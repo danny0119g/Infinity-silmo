@@ -223,6 +223,32 @@ var FULL_STRICT = `{
               ".validate": false
             }
           },
+          "theme": {
+            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light')"
+          },
+          "themeAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "exam": {
+            "s": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "e": {
+              ".validate": "newData.isNumber()"
+            },
+            "d": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
           "$other": {
             ".validate": false
           }
@@ -440,6 +466,32 @@ var FULL_SIMPLE = `{
               ".validate": false
             }
           },
+          "theme": {
+            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light')"
+          },
+          "themeAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "exam": {
+            "s": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "e": {
+              ".validate": "newData.isNumber()"
+            },
+            "d": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
           "$other": {
             ".validate": false
           }
@@ -644,6 +696,32 @@ var V2_ONLY = `"v2": {
             },
             "list": {
               ".validate": "newData.isString() && newData.val().length <= 30000"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "theme": {
+            ".validate": "newData.isString() && (newData.val() === 'dark' || newData.val() === 'light')"
+          },
+          "themeAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "exam": {
+            "s": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "t": {
+              ".validate": "newData.isNumber()"
+            },
+            "e": {
+              ".validate": "newData.isNumber()"
+            },
+            "d": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
             },
             "$other": {
               ".validate": false
