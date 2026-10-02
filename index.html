@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261002014541">
+<meta name="app-version" content="20261002015619">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="무수한 실모">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
-<link rel="stylesheet" href="style.css?v=20261002014541">
+<link rel="stylesheet" href="style.css?v=20261002015619">
 </head>
 <body>
 
@@ -73,7 +73,7 @@
           <button type="button" id="roomSwitch" class="roomSwitch" aria-haspopup="listbox" aria-expanded="false" aria-label="방 바꾸기"><span id="roomSwitchLabel">무수한 실모단</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
           <div id="roomMenu" class="roomMenu" role="listbox"></div>
         </div>
-        <button class="pill" id="roomBtn">방 만들기 · 입장</button>
+        <button class="pill gear" id="roomBtn" aria-label="설정" title="설정"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       </div>
       <div id="togetherBody"></div>
     </aside>
@@ -175,16 +175,7 @@
 
 <div id="roomModal" role="dialog" aria-modal="true" aria-labelledby="roomTitle">
   <div class="dlg roomdlg">
-    <p id="roomTitle">무수한 실모단</p>
-
-    <div id="roomJoinView">
-      <label class="flabel" for="nickInput">닉네임</label>
-      <input id="nickInput" class="tinput" type="text" maxlength="12" autocomplete="off" placeholder="친구들에게 보일 이름">
-      <button id="roomCreate" class="primary">새 방 만들기</button>
-      <div class="or">또는 초대 코드로 입장</div>
-      <input id="codeInput" class="tinput code" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="초대 코드">
-      <button id="roomJoin" class="primary ghost">입장하기</button>
-    </div>
+    <p id="roomTitle">설정</p>
 
     <div id="roomInView" class="hidden">
       <section class="rsec">
@@ -221,15 +212,27 @@
           <div class="rline hidden" id="pushCheckLine"><span>알림 점검 <small class="swNote">10초 뒤 시험 알림이 와요</small></span><button id="pushCheck" class="rbtn" type="button">실행</button></div>
         </div>
       </section>
-      <section class="rsec hidden" id="accountSec">
-        <h3 class="rhead">계정</h3>
-        <div class="rlist">
-          <div class="rline"><span id="accountKind">-</span><button id="accountOut" class="rbtn" type="button">로그아웃</button></div>
-        </div>
-        <div id="accountLink" class="hidden"><p class="acctNote">구글 계정에 연결하면 기기를 바꿔도 방이 이어져요.</p><div id="accountGoogle" class="loginGoogle"></div></div>
-      </section>
     </div>
 
+    <section class="rsec" id="roomAddSec">
+      <h3 class="rhead">방 만들기 · 입장</h3>
+      <button id="roomAddToggle" class="primary ghost" type="button">+ 새 방 만들기 · 입장</button>
+      <div id="roomJoinView" class="hidden">
+        <label class="flabel" for="nickInput">닉네임</label>
+        <input id="nickInput" class="tinput" type="text" maxlength="12" autocomplete="off" placeholder="친구들에게 보일 이름">
+        <button id="roomCreate" class="primary">새 방 만들기</button>
+        <div class="or">또는 초대 코드로 입장</div>
+        <input id="codeInput" class="tinput code" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="초대 코드">
+        <button id="roomJoin" class="primary ghost">입장하기</button>
+      </div>
+    </section>
+    <section class="rsec hidden" id="accountSec">
+      <h3 class="rhead">계정</h3>
+      <div class="rlist">
+        <div class="rline"><span id="accountKind">-</span><button id="accountOut" class="rbtn" type="button">로그아웃</button></div>
+      </div>
+      <div id="accountLink" class="hidden"><p class="acctNote">구글 계정에 연결하면 기기를 바꿔도 방이 이어져요.</p><div id="accountGoogle" class="loginGoogle"></div></div>
+    </section>
     <div id="roomErrMsg" role="alert"></div>
     <section class="rsec leave hidden" id="roomLeaveSec">
       <button id="roomLeave" class="leaveLink" type="button">방 나가기</button>
@@ -277,22 +280,22 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261002014541"></script>
-<script src="js/auth.js?v=20261002014541"></script>
-<script src="js/records.js?v=20261002014541"></script>
-<script src="js/chart.js?v=20261002014541"></script>
-<script src="js/room-base.js?v=20261002014541"></script>
-<script src="js/push.js?v=20261002014541"></script>
-<script src="js/room-sync.js?v=20261002014541"></script>
-<script src="js/profile.js?v=20261002014541"></script>
-<script src="js/scoreask.js?v=20261002014541"></script>
-<script src="js/chat.js?v=20261002014541"></script>
-<script src="js/photo.js?v=20261002014541"></script>
-<script src="js/room-modal.js?v=20261002014541"></script>
-<script src="js/account.js?v=20261002014541"></script>
-<script src="js/dialogs.js?v=20261002014541"></script>
-<script src="js/exam.js?v=20261002014541"></script>
-<script src="js/login.js?v=20261002014541"></script>
-<script src="js/refresh.js?v=20261002014541"></script>
+<script src="js/core.js?v=20261002015619"></script>
+<script src="js/auth.js?v=20261002015619"></script>
+<script src="js/records.js?v=20261002015619"></script>
+<script src="js/chart.js?v=20261002015619"></script>
+<script src="js/room-base.js?v=20261002015619"></script>
+<script src="js/push.js?v=20261002015619"></script>
+<script src="js/room-sync.js?v=20261002015619"></script>
+<script src="js/profile.js?v=20261002015619"></script>
+<script src="js/scoreask.js?v=20261002015619"></script>
+<script src="js/chat.js?v=20261002015619"></script>
+<script src="js/photo.js?v=20261002015619"></script>
+<script src="js/room-modal.js?v=20261002015619"></script>
+<script src="js/account.js?v=20261002015619"></script>
+<script src="js/dialogs.js?v=20261002015619"></script>
+<script src="js/exam.js?v=20261002015619"></script>
+<script src="js/login.js?v=20261002015619"></script>
+<script src="js/refresh.js?v=20261002015619"></script>
 </body>
 </html>

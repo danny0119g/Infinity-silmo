@@ -2,25 +2,37 @@
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
   // 방 창
   var roomModal = $("roomModal"), nickInput = $("nickInput"), codeInput = $("codeInput"), nickEdit = $("nickEdit"), roomMsg = $("roomErrMsg");
-  function setRoomMsg(text, bad) { roomMsg.textContent = text || ""; roomMsg.style.color = bad === false ? "#9aa0aa" : ""; }
-  function openRoom(mode) {                          // mode "add": 방 추가 화면 (이미 방이 있어도 새 방 만들기·입장)
-    var adding = mode === "add" || !room;
+  function setRoomMsg(text, bad) {
+    roomMsg.textContent = text || ""; roomMsg.style.color = bad === false ? "#9aa0aa" : "";
+    if (text && roomMsg.scrollIntoView) roomMsg.scrollIntoView({ block: "nearest" });       // 아래쪽에 있는 안내가 화면 밖이면 보이게
+  }
+  // 설정 창: 방이 있으면 방 설정(이름·초대 코드·프로필·기타) + 방 만들기·입장 + 계정(+방 나가기), 방이 없으면 방 만들기·입장(펼침) + 계정
+  function setAddOpen(on) {                          // 방 만들기·입장 칸을 펼치거나 접음
+    $("roomJoinView").classList.toggle("hidden", !on);
+    $("roomAddToggle").classList.toggle("hidden", on);
+  }
+  function openRoom(mode) {                          // mode "add": 방 만들기·입장 칸을 펼친 채로 열기
+    var has = !!room, full = rooms.length >= MAX_ROOMS;
     closeRoomMenu();
     setRoomMsg("");
     codeInput.value = ""; nickInput.value = "";
-    $("roomJoinView").classList.toggle("hidden", !adding);
-    $("roomInView").classList.toggle("hidden", adding);
-    $("roomLeaveSec").classList.toggle("hidden", adding);
-    $("roomTitle").textContent = adding ? (room ? "방 추가" : DEFAULT_LABEL) : roomLabel(room);
-    if (!adding) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }
-    refreshRoomPhoto();
-    setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
-    $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
-    renderAccount();
-    $("labelNote").textContent = (USE_V2 && !titleBlocked) ? "방 친구들 모두에게 보여요" : "나에게만 보여요";
-    $("pushCheckLine").classList.toggle("hidden", !PUSH_URL);
+    $("roomInView").classList.toggle("hidden", !has);
+    $("roomLeaveSec").classList.toggle("hidden", !has);
+    $("roomTitle").textContent = has ? roomLabel(room) : "설정";
+    if (has) { $("roomCodeShow").value = room.code; nickEdit.value = room.name; $("labelEdit").value = roomLabel(room); }
+    $("roomAddToggle").disabled = full; $("roomAddToggle").textContent = full ? "방은 최대 " + MAX_ROOMS + "개예요" : "+ 새 방 만들기 · 입장";
+    setAddOpen(!full && (mode === "add" || !has));      // 방이 없으면 항상 펼쳐 둠
+    if (has) {
+      refreshRoomPhoto();
+      setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
+      $("pushLine").classList.toggle("hidden", !PUSH_URL); setSw($("pushToggle"), !!pushSub, pushLabel());
+      $("labelNote").textContent = (USE_V2 && !titleBlocked) ? "방 친구들 모두에게 보여요" : "나에게만 보여요";
+      $("pushCheckLine").classList.toggle("hidden", !PUSH_URL);
+    }
     roomModal.classList.add("on");
+    renderAccount();                                 // 창이 보이는 상태에서 계정 칸(구글 연결 버튼 포함)을 그림
   }
+  $("roomAddToggle").addEventListener("click", function () { setAddOpen(true); nickInput.focus(); setTimeout(function () { $("roomJoinView").scrollIntoView({ block: "nearest" }); }, 0); });
   function closeRoomModal() { roomModal.classList.remove("on"); nickInput.blur(); codeInput.blur(); nickEdit.blur(); }
   function enterRoom(code, name, joining) {
     if (roomBusy) return;
@@ -199,10 +211,6 @@
       b.addEventListener("click", function (e) { e.stopPropagation(); closeRoomMenu(); switchRoom(r.code); });
       m.appendChild(b);
     });
-    var add = el("button", "roomOpt add", rooms.length >= MAX_ROOMS ? "방은 최대 " + MAX_ROOMS + "개예요" : "+ 방 추가");
-    add.type = "button"; add.disabled = rooms.length >= MAX_ROOMS;
-    add.addEventListener("click", function (e) { e.stopPropagation(); closeRoomMenu(); openRoom("add"); });
-    m.appendChild(add);
   }
   function openRoomMenu() {
     var m = $("roomMenu"), b = $("roomSwitch");
