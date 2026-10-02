@@ -181,6 +181,9 @@ var FULL_STRICT = `{
               "photo": {
                 ".validate": "newData.isBoolean()"
               },
+              "share": {
+                ".validate": "newData.isBoolean()"
+              },
               "$other": {
                 ".validate": false
               }
@@ -190,6 +193,20 @@ var FULL_STRICT = `{
             ".validate": "newData.isString() && newData.val().length <= 12000"
           },
           "photoAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "subjects": {
+            "s1": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "s2": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "subjAt": {
             ".validate": "newData.isNumber()"
           },
           "$other": {
@@ -367,6 +384,9 @@ var FULL_SIMPLE = `{
               "photo": {
                 ".validate": "newData.isBoolean()"
               },
+              "share": {
+                ".validate": "newData.isBoolean()"
+              },
               "$other": {
                 ".validate": false
               }
@@ -376,6 +396,20 @@ var FULL_SIMPLE = `{
             ".validate": "newData.isString() && newData.val().length <= 12000"
           },
           "photoAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "subjects": {
+            "s1": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "s2": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "subjAt": {
             ".validate": "newData.isNumber()"
           },
           "$other": {
@@ -545,6 +579,9 @@ var V2_ONLY = `"v2": {
               "photo": {
                 ".validate": "newData.isBoolean()"
               },
+              "share": {
+                ".validate": "newData.isBoolean()"
+              },
               "$other": {
                 ".validate": false
               }
@@ -554,6 +591,20 @@ var V2_ONLY = `"v2": {
             ".validate": "newData.isString() && newData.val().length <= 12000"
           },
           "photoAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "subjects": {
+            "s1": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "s2": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "subjAt": {
             ".validate": "newData.isNumber()"
           },
           "$other": {

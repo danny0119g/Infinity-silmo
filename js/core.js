@@ -62,5 +62,6 @@
     s[slot] = subject;
     memSubj = s;
     try { localStorage.setItem(SUBJ_KEY, JSON.stringify(s)); subjFailed = false; } catch (e) { subjFailed = true; }
+    if (typeof onSubjectsChanged === "function") onSubjectsChanged();                 // 선택한 과목도 계정에 저장
   }
 

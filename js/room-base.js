@@ -142,7 +142,9 @@
   function setShareOn(code, on) {
     var m = {}; try { m = JSON.parse(localStorage.getItem(SHAREROOMS_KEY)) || {}; } catch (e) {}
     m[code] = !!on; try { localStorage.setItem(SHAREROOMS_KEY, JSON.stringify(m)); } catch (e) {}
+    if (USE_V2 && typeof scheduleRoomListPush === "function") scheduleRoomListPush();      // 방별 점수 공개 여부도 계정에 저장
   }
+  function hasShareSetting(code) { try { var m = JSON.parse(localStorage.getItem(SHAREROOMS_KEY)); return !!(m && typeof m[code] === "boolean"); } catch (e) { return false; } }
   function countsOf(all) {
     var m = {}, order = [];
     all.forEach(function (r) {

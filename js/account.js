@@ -5,7 +5,7 @@
   function pushRoomList() {                          // 내 방 목록을 계정에 저장 (기기를 바꿔도 이어지게)
     return enqueue(function () {
       if (!fbAuth) return null;
-      function build(withPhoto) { var map = {}; rooms.forEach(function (r) { map[r.code] = { name: r.name }; if (r.label) map[r.code].label = r.label; if (withPhoto && typeof photoUse[r.code] === "boolean") map[r.code].photo = photoUse[r.code]; }); return map; }
+      function build(withExtra) { var map = {}; rooms.forEach(function (r) { map[r.code] = { name: r.name }; if (r.label) map[r.code].label = r.label; if (withExtra && typeof photoUse[r.code] === "boolean") map[r.code].photo = photoUse[r.code]; if (withExtra && hasShareSetting(r.code)) map[r.code].share = shareOn(r.code); }); return map; }
       var req = rooms.length ? dbFetch(roomListPath(), { method: "PUT", headers: JSONH, body: JSON.stringify(build(!roomPhotoFlagBlocked)) }) : dbFetch(roomListPath(), { method: "DELETE" });
       return req.catch(function (err) {
         if (rooms.length && !roomPhotoFlagBlocked && err && err.message === "http 401") {            // 서버 규칙이 "방별 사진 사용" 칸을 아직 모르면 그 칸을 빼고 다시 저장 (방 목록 저장이 막히지 않게)
@@ -22,9 +22,9 @@
     roomListPending = true;                                     // 아직 서버에 못 올린 변경이 있는 동안에는 서버 목록을 새로 받지 않음
     clearTimeout(roomListTimer); roomListTimer = setTimeout(function () { pushRoomList().then(function () { roomListPending = false; }, function () { roomListPending = false; }); }, 800);
   }
-  function refreshRoomList(force) {                  // 앱을 켜 둔 채로도 다른 기기에서 바꾼 방 목록·닉네임·방 이름을 1분마다 받아 옴
+  function refreshRoomList(force) {                  // 앱을 켜 둔 채로도 다른 기기에서 바꾼 방 목록·닉네임·방 이름·방별 설정을 20초마다 받아 옴
     if (!USE_V2 || !fbAuth || !roomListReady || !accountReady || roomListBusy || roomListDirty || roomListPending || roomBusy) return;
-    if (!force && Date.now() - roomListPulledAt < 60000) return;
+    if (!force && Date.now() - roomListPulledAt < 20000) return;
     roomListPulledAt = Date.now(); roomListBusy = true;
     var before = room ? room.code : "", beforeSig = JSON.stringify(rooms);
     pullRoomList().then(function () {
@@ -63,7 +63,13 @@
         roomListDirty = true;
         try { localStorage.setItem(ROOMSYNC_KEY, me); } catch (e) {}
       }
-      Object.keys(map).forEach(function (code) { var s = map[code]; if (validSrvRoom(code, s) && roomByCode(code) && typeof s.photo === "boolean") adoptPhotoUse(code, s.photo); });      // 다른 기기에서 바꾼 "이 방에서 사진 사용" 설정
+      var setChanged = false;
+      Object.keys(map).forEach(function (code) {       // 다른 기기에서 바꾼 "이 방에서 사진 사용"·"내 점수 공개" 설정
+        var s = map[code]; if (!validSrvRoom(code, s) || !roomByCode(code)) return;
+        if (typeof s.photo === "boolean" && adoptPhotoUse(code, s.photo)) setChanged = true;
+        if (typeof s.share === "boolean" && adoptShareOn(code, s.share)) setChanged = true;
+      });
+      if (setChanged) settingsApplied();
       if (changed) {
         saveRooms();
         if (activeGone || (!room && rooms.length)) activateRoom(rooms[0] || null);
@@ -82,6 +88,20 @@
     else if (photo && r) enqueue(function () { return pushPhoto(true, r); });
     return true;
   }
+  function adoptShareOn(code, v) {
+    if (hasShareSetting(code) && shareOn(code) === v) return false;
+    var m = {}; try { m = JSON.parse(localStorage.getItem(SHAREROOMS_KEY)) || {}; } catch (e) {}
+    m[code] = v; try { localStorage.setItem(SHAREROOMS_KEY, JSON.stringify(m)); } catch (e) {}      // 다시 서버에 올리지 않고 이 기기에만 반영
+    delete lastSentBy[code]; if (room && room.code === code) scheduleSync();
+    return true;
+  }
+  function settingsApplied() {                       // 다른 기기에서 바뀐 설정을 화면에 바로 반영 (스위치·사진·점수)
+    keepPageScroll(renderTogether);
+    if (roomModal.classList.contains("on") && room) {
+      setSw($("shareToggle"), shareOn(), shareOn() ? "켜짐" : "꺼짐");
+      refreshRoomPhoto();
+    }
+  }
   function pushAccountPhoto() {                      // 내 사진(없으면 빈 글자)과 바뀐 시각을 계정에 저장
     if (!USE_V2 || !fbAuth) return Promise.resolve(false);
     var body = JSON.stringify({ photo: photo || "", photoAt: photoAt || Date.now() });
@@ -97,10 +117,47 @@
     keepPageScroll(renderTogether);
     if (roomModal.classList.contains("on") && room) refreshRoomPhoto();
   }
+  // ---- 선택한 과목 계정 동기화 (users/{uid}/subjects = {s1,s2}, subjAt) ----
+  var SUBJAT_KEY = "examTimer.subjectsAt.v1", subjBlocked = false, subjBusy = false, subjPushTimer = 0;
+  function loadSubjAt() { try { return Number(localStorage.getItem(SUBJAT_KEY)) || 0; } catch (e) { return 0; } }
+  function saveSubjAt(t) { try { localStorage.setItem(SUBJAT_KEY, String(t)); } catch (e) {} }
+  function onSubjectsChanged() {
+    if (!USE_V2 || !fbAuth) return;
+    saveSubjAt(Date.now());
+    clearTimeout(subjPushTimer); subjPushTimer = setTimeout(pushSubjects, 800);
+  }
+  function pushSubjects() {
+    if (!USE_V2 || !fbAuth || !accountReady || subjBlocked) return Promise.resolve();
+    var s = loadSubjects(), body = JSON.stringify({ subjects: { s1: s[1] || "", s2: s[2] || "" }, subjAt: loadSubjAt() || Date.now() });
+    return enqueue(function () { return dbFetch("/v2/users/" + getDeviceId(), { method: "PATCH", headers: JSONH, body: body }).catch(function (err) { if (err && err.message === "http 401") subjBlocked = true; }); });
+  }
+  function syncSubjects() {
+    if (!USE_V2 || !fbAuth || !accountReady || subjBlocked || subjBusy) return Promise.resolve();
+    subjBusy = true;
+    var base = "/v2/users/" + getDeviceId();
+    return dbFetch(base + "/subjAt", { cache: "no-store" }).then(function (srvAt) {
+      srvAt = (typeof srvAt === "number") ? srvAt : 0;
+      var mine = loadSubjAt();
+      if (srvAt > mine) {
+        if (sessionPending()) return;                // 시험 중에는 과목을 바꾸지 않음(끝난 뒤 다음 확인 때 반영)
+        return dbFetch(base + "/subjects", { cache: "no-store" }).then(function (o) {
+          if (!o || typeof o !== "object") return;
+          var a = ALL_SUBJECTS.indexOf(o.s1) >= 0 ? o.s1 : null, b = ALL_SUBJECTS.indexOf(o.s2) >= 0 ? o.s2 : null, cur = loadSubjects();
+          saveSubjAt(srvAt);
+          if (cur[1] === a && cur[2] === b) return;
+          var keep = onSubjectsChanged; onSubjectsChanged = function () {};      // 받은 값은 다시 올리지 않음
+          try { setSubject(1, a); setSubject(2, b); } finally { onSubjectsChanged = keep; }
+          saveSubjAt(srvAt);
+          keepPageScroll(renderTogether); if (typeof renderSlots === "function") renderSlots();
+        });
+      }
+      if (mine > srvAt || (!srvAt && (loadSubjects()[1] || loadSubjects()[2]))) { if (!mine) saveSubjAt(Date.now()); return pushSubjects(); }
+    }).then(function () { subjBusy = false; }, function () { subjBusy = false; });
+  }
   var photoSyncBusy = false, photoSyncAt = 0;
   function syncAccountPhoto(force) {                 // 서버의 계정 사진과 비교해서, 서버 것이 더 새로우면 받고 이 기기 것이 더 새로우면(또는 서버에 없으면) 올림
     if (!USE_V2 || !fbAuth || !accountReady || photoSyncBusy || acctPhotoBlocked) return Promise.resolve();
-    if (!force && Date.now() - photoSyncAt < 60000) return Promise.resolve();
+    if (!force && Date.now() - photoSyncAt < 20000) return Promise.resolve();
     photoSyncBusy = true; photoSyncAt = Date.now();
     var base = "/v2/users/" + getDeviceId();
     return dbFetch(base + "/photoAt", { cache: "no-store" }).then(function (srvAt) {
@@ -147,6 +204,7 @@
         roomListBusy = false;
         if (!roomListReady) return;
         accountReady = true;
+        syncSubjects();
         return syncAccountPhoto(true).then(function () {         // 사진을 먼저 맞춘 뒤 방에 올림(기기마다 다른 사진을 방에 덮어쓰지 않게)
           renderRoomSwitch(); keepPageScroll(renderTogether);
           if (room) afterSwitch(); else syncOtherRooms(true);
