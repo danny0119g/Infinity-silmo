@@ -420,6 +420,15 @@ var FULL_STRICT = `{
               }
             }
           },
+          "mute": {
+            "$muter": {
+              "$target": {
+                ".read": "auth != null && (auth.uid === $muter || auth.uid === $target) && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".write": "auth != null && $muter === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
+              }
+            }
+          },
           "$other": {
             ".validate": false
           }
@@ -692,6 +701,15 @@ var FULL_SIMPLE = `{
               }
             }
           },
+          "mute": {
+            "$muter": {
+              "$target": {
+                ".read": "auth != null && (auth.uid === $muter || auth.uid === $target) && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".write": "auth != null && $muter === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
+              }
+            }
+          },
           "$other": {
             ".validate": false
           }
@@ -952,6 +970,15 @@ var V2_ONLY = `"v2": {
             "$target": {
               "$watcher": {
                 ".write": "auth != null && $watcher === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".validate": "newData.isBoolean()"
+              }
+            }
+          },
+          "mute": {
+            "$muter": {
+              "$target": {
+                ".read": "auth != null && (auth.uid === $muter || auth.uid === $target) && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
+                ".write": "auth != null && $muter === auth.uid && root.child('v2/rooms/'+$code+'/members/'+auth.uid).exists()",
                 ".validate": "newData.isBoolean()"
               }
             }

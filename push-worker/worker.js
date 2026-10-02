@@ -64,9 +64,10 @@ async function notifyV2(n, env, ctx) {
   var text = selfTest ? "알림 시험이에요. 이 알림이 보이면 정상이에요." : cleanText(n.text);
   if (!text) return reply({ ok: false, error: "empty" }, 400);
   var base = "/v2/rooms/" + n.room;
-  var got = await Promise.all([dbGet(base + "/members/" + from, token), dbGet(base + "/members/" + n.to, token), dbGet(base + "/push/" + n.to, token)]);
-  var me = got[0], on = got[1], push = got[2];
+  var got = await Promise.all([dbGet(base + "/members/" + from, token), dbGet(base + "/members/" + n.to, token), dbGet(base + "/push/" + n.to, token), dbGet(base + "/mute/" + n.to + "/" + from, token)]);
+  var me = got[0], on = got[1], push = got[2], muted = got[3];
   if (!me.ok || !me.v || typeof me.v !== "object" || typeof me.v.name !== "string") return reply({ ok: false, error: "not a member" }, 403);
+  if (!selfTest && kind !== "ask" && muted.ok && muted.v === true) return reply({ ok: true, sent: false, skipped: "muted" });                // 받는 사람이 이 사람의 채팅 알림을 꺼 둠
   var tm = (on.ok && on.v && typeof on.v === "object") ? on.v : {};
   if (!selfTest && recentSignal(tm.on)) return reply({ ok: true, sent: false, skipped: "viewing" });
   if (kind === "ask" && (tm.ask === "mute" || tm.ask === "off")) return reply({ ok: true, sent: false, skipped: "ask muted" });          // 점수 질문 알림을 끈(또는 차단한) 사람
@@ -96,10 +97,9 @@ async function notifyStart(n, from, env) {            // 실모 시작 알림: �
   if (!me.ok || !me.v || typeof me.v !== "object" || typeof me.v.name !== "string") return reply({ ok: false, error: "not a member" }, 403);
   var ids = (w.ok && w.v && typeof w.v === "object") ? Object.keys(w.v).filter(function (id) { return UID_RE.test(id) && w.v[id] === true && id !== from; }).slice(0, 30) : [];
   if (!ids.length) return reply({ ok: true, sent: false, reason: "no watchers" });
-  var results = await Promise.all(ids.map(async function (id) {
-    var r = await Promise.all([dbGet(base + "/members/" + id + "/on", token), dbGet(base + "/push/" + id, token)]);
-    if (r[0].ok && recentSignal(r[0].v)) return "viewing";
-    var sub = subFromString(r[1].ok ? r[1].v : null);
+  var results = await Promise.all(ids.map(async function (id) {      // 실모 시작 알림은 상대가 앱을 보고 있어도 보냄
+    var r = await dbGet(base + "/push/" + id, token);
+    var sub = subFromString(r.ok ? r.v : null);
     if (!sub) return "no-address";
     try { var res = await pushOnce(sub, me.v.name, text, from, env, "start"); return res.ok ? "sent" : "rejected"; } catch (e) { return "error"; }
   }));

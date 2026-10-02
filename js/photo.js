@@ -98,7 +98,7 @@
     pop.style.left = x + "px"; pop.style.top = y + "px"; pop.style.visibility = "";
   }
   document.addEventListener("click", function (e) {
-    if (!profileKey) return;
+    if (!profileKey || !e.isTrusted) return;           // 사람이 누른 클릭만 (햅틱용 가짜 클릭은 무시)
     var t = e.target;
     if (t && t.closest && t.closest("#profilePop, #spyPop, #modal, #cropModal, #photoZoom")) return;
     closeProfile();

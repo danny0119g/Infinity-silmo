@@ -818,3 +818,18 @@
   .statLine { margin-top: 6px; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .statSub { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
   .statHint { font-size: 13px; color: var(--muted); text-align: center; padding: 4px 0; }
+
+  /* ---------- 프로필 카드: 종 아이콘 + 알림 메뉴 ---------- */
+  .pTop { position: relative; }
+  .pBellWrap { position: relative; margin-left: auto; align-self: flex-start; flex: none; }
+  .pBellBtn { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--line2); background: transparent; color: var(--muted); }
+  .pBellBtn.on { color: var(--accent2); border-color: var(--accent); }
+  .pBellBtn.open { background: var(--hover); }
+  .bellMenu { position: absolute; z-index: 3; right: 0; top: calc(100% + 6px); min-width: 188px; padding: 4px; display: flex; flex-direction: column; gap: 2px; background: var(--bg); border: 1px solid var(--line2); border-radius: 10px; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
+  .bmItem { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .bmItem:disabled { opacity: .5; }
+  .bmItem:active { background: var(--hover); }
+  .bmSw { flex: none; position: relative; width: 34px; height: 20px; border-radius: 999px; background: var(--swoff); transition: background-color .2s; }
+  .bmSw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .bmSw.on { background: var(--accent); }
+  .bmSw.on::after { transform: translateX(14px); }

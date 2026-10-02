@@ -69,7 +69,7 @@
     try { if (navigator.vibrate && navigator.vibrate(12)) return; } catch (e) {}
     try {                                            // 아이폰(사파리 17.4 이상): 보이지 않는 스위치를 눌러 시스템 햅틱을 냄. 아이패드에는 햅틱 부품이 없어서 아무 느낌도 없음
       var l = document.createElement("label"), i = document.createElement("input");
-      l.setAttribute("aria-hidden", "true"); l.style.display = "none";
+      l.setAttribute("aria-hidden", "true"); l.style.display = "none"; l.addEventListener("click", function (ev) { ev.stopPropagation(); });          // 이 가짜 클릭이 화면의 다른 "바깥을 누르면 닫기"를 건드리지 않게
       i.type = "checkbox"; i.setAttribute("switch", ""); l.appendChild(i);
       document.head.appendChild(l); l.click(); document.head.removeChild(l);
     } catch (e) {}

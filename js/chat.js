@@ -425,7 +425,7 @@
     requestAnimationFrame(function () { o.classList.add("on"); });
   }
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePhotoZoom(); });
-  var BELLSVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+  var BELLSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>', BELLOFFSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>', bellMenuOpen = false;
   function openProfile(m, anchor) {
     var pop = $("profilePop");
     pop.textContent = "";
@@ -453,6 +453,46 @@
     who.appendChild(nm);
     who.appendChild(el("div", "pSub", "오늘 " + m.total + "개 응시"));
     top.appendChild(wrap); top.appendChild(who);
+    if (!m.me && room) {                                // 다른 사람 프로필: 사진·닉네임 오른쪽 종 아이콘 → 이 사람에 대한 알림(채팅 알림 / 실모 시작 알림) 메뉴
+      var bw = el("div", "pBellWrap"), bbn = el("button", "pBellBtn"), wcode = room.code, wk = watchKey(wcode, m.id), mk = wk;
+      bbn.type = "button"; bbn.setAttribute("aria-label", "이 사람 알림 설정"); bbn.setAttribute("title", "알림 설정");
+      var paintBell = function () {
+        var wOn = watchState[wk] === true, cMuted = muteState[mk] === true;
+        bbn.innerHTML = (cMuted && !wOn) ? BELLOFFSVG : BELLSVG;
+        bbn.classList.toggle("on", wOn); bbn.classList.toggle("open", bellMenuOpen);
+      };
+      var buildMenu = function () {
+        var old = bw.querySelector(".bellMenu"); if (old) bw.removeChild(old);
+        if (!bellMenuOpen) return;
+        var mn = el("div", "bellMenu");
+        function item(label, state, onToggle) {
+          var b = el("button", "bmItem"), sw = el("span", "bmSw" + (state === true ? " on" : ""));
+          b.type = "button"; b.appendChild(el("span", "bmLbl", label)); b.appendChild(sw); b.disabled = state === undefined;
+          b.addEventListener("click", function (e) { e.stopPropagation(); onToggle(b); });
+          return b;
+        }
+        mn.appendChild(item("채팅 알림", muteState[mk] === undefined ? undefined : muteState[mk] !== true, function (b) {
+          var turnOn = muteState[mk] === true;           // 지금 꺼져 있으면 켬 (끄면 내 알림이 켜져 있어도 이 사람의 메시지는 알림이 오지 않음)
+          b.disabled = true;
+          muteSet(wcode, m.id, !turnOn).then(function () { paintBell(); buildMenu(); }, function () { paintBell(); buildMenu(); notice("채팅 알림을 바꾸지 못했어요.\n서버 규칙을 업데이트했는지 확인해 주세요."); });
+        }));
+        mn.appendChild(item("실모 시작 알림", watchState[wk], function (b) {
+          var turnOn = watchState[wk] !== true;
+          if (turnOn && !pushSupported()) { notice("홈 화면에 추가한 앱에서만 알림을 켤 수 있어요."); return; }
+          b.disabled = true;
+          (turnOn ? ensurePush(false) : Promise.resolve()).then(function () { return watchSet(wcode, m.id, turnOn); }).then(function () { if (turnOn) hapticTap(); paintBell(); buildMenu(); }, function (err) {
+            paintBell(); buildMenu();
+            notice(err && err.message === "denied" ? "알림이 허용되지 않았어요.\n기기 설정 > 알림에서 허용해 주세요." : "실모 시작 알림을 바꾸지 못했어요.\n잠시 뒤 다시 시도해 주세요.");
+          });
+        }));
+        bw.appendChild(mn);
+      };
+      bbn.addEventListener("click", function (e) { e.stopPropagation(); bellMenuOpen = !bellMenuOpen; paintBell(); buildMenu(); });
+      bw.appendChild(bbn); top.appendChild(bw);
+      paintBell(); buildMenu();
+      if (watchState[wk] === undefined) watchLoad(wcode, m.id).then(function () { paintBell(); buildMenu(); }, function () { watchState[wk] = false; paintBell(); buildMenu(); });
+      if (muteState[mk] === undefined) muteLoad(wcode, m.id).then(function () { paintBell(); buildMenu(); }, function () { muteState[mk] = false; paintBell(); buildMenu(); });
+    }
     pop.appendChild(top);
     pop.appendChild(el("div", "pSec", "오늘의 응시"));
     if (m.subs.length) {
@@ -480,28 +520,6 @@
         aw.appendChild(ab);
         pop.appendChild(aw);
       }
-    }
-    if (!m.me && room) {                                // 다른 사람 프로필: 실모 시작 알림 (기본 꺼짐, 켠 상대가 실모를 시작할 때 알림)
-      var wcode = room.code, wk = watchKey(wcode, m.id), wb = el("button", "pSpy pBell");
-      wb.type = "button";
-      var paintW = function () {
-        var st = watchState[wk];
-        wb.innerHTML = BELLSVG; wb.appendChild(document.createTextNode(st === true ? "실모 시작 알림 끄기" : "실모 시작 알림 받기"));
-        wb.classList.toggle("on", st === true); wb.disabled = st === undefined;
-      };
-      paintW();
-      if (watchState[wk] === undefined) watchLoad(wcode, m.id).then(paintW, function () { watchState[wk] = false; paintW(); });
-      wb.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var turnOn = watchState[wk] !== true;
-        if (turnOn && !pushSupported()) { notice("홈 화면에 추가한 앱에서만 알림을 켤 수 있어요."); return; }
-        wb.disabled = true;
-        (turnOn ? ensurePush(false) : Promise.resolve()).then(function () { return watchSet(wcode, m.id, turnOn); }).then(function () { if (turnOn) hapticTap(); paintW(); }, function (err) {
-          paintW();
-          notice(err && err.message === "denied" ? "알림이 허용되지 않았어요.\n기기 설정 > 알림에서 허용해 주세요." : "실모 시작 알림을 바꾸지 못했어요.\n잠시 뒤 다시 시도해 주세요.");
-        });
-      });
-      pop.appendChild(wb);
     }
     if (!m.me) {                                        // 다른 사람 프로필: 점수 염탐하기
       var sb = el("button", "pSpy", spyKey === m.uid ? "염탐 그만하기" : "점수 염탐하기");

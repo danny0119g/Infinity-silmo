@@ -78,7 +78,7 @@
   function toggleSpy(m) { spyKey = (spyKey === m.uid) ? "" : m.uid; keepPageScroll(renderTogether); }
   function clearOpenMark() { Array.prototype.forEach.call(document.querySelectorAll(".mem.open"), function (x) { x.classList.remove("open"); }); }
   function closeProfile() {
-    profileKey = ""; profileM = null; penMenuOpen = false; spyKey = ""; hideSpy();
+    profileKey = ""; profileM = null; penMenuOpen = false; bellMenuOpen = false; spyKey = ""; hideSpy();
     var p = $("profilePop"); if (p) p.classList.remove("on");
     clearOpenMark();
   }
@@ -176,6 +176,7 @@
   }
   $("profilePop").addEventListener("click", function (e) {
     if (penMenuOpen && !(e.target.closest && e.target.closest(".penMenu, .avPen"))) closePenMenu();
+    if (bellMenuOpen && !(e.target.closest && e.target.closest(".bellMenu, .pBellBtn"))) { bellMenuOpen = false; var bm = document.querySelector("#profilePop .bellMenu"); if (bm && bm.parentNode) bm.parentNode.removeChild(bm); var bb = document.querySelector("#profilePop .pBellBtn"); if (bb) bb.classList.remove("open"); }
   });
 
   // 방장 기능: 추방 / 방장 넘기기 (새 구조에서는 서버 규칙이 방장만 가능하게 막고, 옛 구조에서는 앱 화면에서만 지켜져요)

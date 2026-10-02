@@ -49,6 +49,14 @@
     var p = ROOMS_ROOT + code + "/watch/" + uid + "/" + getDeviceId();
     return dbFetch(p, on ? { method: "PUT", headers: JSONH, body: "true" } : { method: "DELETE" }).then(function () { watchState[watchKey(code, uid)] = !!on; return !!on; });
   }
+  var muteState = {};                                // 사람별 채팅 알림 끄기 (켜져 있는 게 기본)
+  function muteLoad(code, uid) {
+    return dbFetch(ROOMS_ROOT + code + "/mute/" + getDeviceId() + "/" + uid, { cache: "no-store" }).then(function (v) { muteState[watchKey(code, uid)] = (v === true); return muteState[watchKey(code, uid)]; });
+  }
+  function muteSet(code, uid, on) {
+    var p = ROOMS_ROOT + code + "/mute/" + getDeviceId() + "/" + uid;
+    return dbFetch(p, on ? { method: "PUT", headers: JSONH, body: "true" } : { method: "DELETE" }).then(function () { muteState[watchKey(code, uid)] = !!on; return !!on; });
+  }
   function notifyStart(subject) {                    // 내가 실모를 시작할 때: 나를 지켜보는 방 친구들에게 알림 (방마다 서버가 확인해서 보냄)
     if (!PUSH_URL || !USE_V2 || !fbAuth) return;
     authToken().then(function (tok) {
