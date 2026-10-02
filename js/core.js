@@ -37,6 +37,25 @@
     ticks.appendChild(r);
   }
 
+  // ---------- 시계 모양: 지금 시계 / 버전 1 시계(눈금·숫자·뾰족한 바늘) — 이 기기에만 저장 ----------
+  (function () {
+    var tc = $("ticksC"), nc = $("numsC");
+    for (var i = 0; i < 60; i++) {
+      var major = i % 5 === 0, r = document.createElementNS(NS, "rect");
+      r.setAttribute("x", major ? -1.6 : -0.6); r.setAttribute("y", -90); r.setAttribute("width", major ? 3.2 : 1.2); r.setAttribute("height", major ? 9 : 4);
+      r.setAttribute("fill", "#17181a"); r.setAttribute("transform", "rotate(" + (i * 6) + ")"); tc.appendChild(r);
+    }
+    for (var n = 1; n <= 12; n++) {
+      var t = document.createElementNS(NS, "text"), a = n * 30 * Math.PI / 180;
+      t.setAttribute("x", (Math.sin(a) * 70).toFixed(2)); t.setAttribute("y", (-Math.cos(a) * 70 + 5.4).toFixed(2)); t.textContent = n; nc.appendChild(t);
+    }
+  })();
+  var CLK_KEY = "examTimer.clockTheme.v1";
+  function clockThemeGet() { try { return localStorage.getItem(CLK_KEY) === "classic" ? "classic" : "modern"; } catch (e) { return "modern"; } }
+  function clockThemeApply() { var v = clockThemeGet(); if (v === "classic") $("clock").setAttribute("data-clock", "classic"); else $("clock").removeAttribute("data-clock"); }
+  clockThemeApply();
+  $("clockTheme").addEventListener("click", function () { try { localStorage.setItem(CLK_KEY, clockThemeGet() === "classic" ? "modern" : "classic"); } catch (e) {} clockThemeApply(); });
+
   // ---------- 화면 색 (다크 모드 / 밝은 모드) ----------
   var THEME_KEY = "examTimer.theme.v1", THEMEAT_KEY = "examTimer.themeAt.v1", TC = {};
   function loadTC() {                                // 그래프(SVG)가 쓰는 색을 CSS 변수에서 읽어 둠

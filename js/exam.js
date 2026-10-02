@@ -31,6 +31,7 @@
     cancelAnimationFrame(raf);
   }
 
+  var hourC = $("hourC"), minuteC = $("minuteC"), secondC = $("secondC");
   function setHands(simSeconds) {
     var s = simSeconds % 60;            // 초침: 소수점 포함 → 부드럽게
     var m = (simSeconds / 60) % 60;
@@ -38,6 +39,9 @@
     secondEl.setAttribute("transform", "rotate(" + (s * 6) + ")");
     minuteEl.setAttribute("transform", "rotate(" + (m * 6) + ")");
     hourEl.setAttribute("transform", "rotate(" + (h * 30) + ")");
+    secondC.setAttribute("transform", "rotate(" + (s * 6) + ")");
+    minuteC.setAttribute("transform", "rotate(" + (m * 6) + ")");
+    hourC.setAttribute("transform", "rotate(" + (h * 30) + ")");
   }
   function render(e) {
     var base = current.startH * 3600 + current.startM * 60 + offset;
