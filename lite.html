@@ -59,7 +59,7 @@
 
   /* 기록 목록 */
   #records { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-  .rec { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 12px 16px; }
+  .rec { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 12px 16px; }
   .rec .no { min-width: 20px; font-size: 15px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
   .rec .subj { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; }
   .rec .dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -275,6 +275,7 @@
     var o = loadRec(), d = dayStrOf(t0); (o[d] = o[d] || []).push({ i: t0.toString(36) + Math.random().toString(36).slice(2, 6), k: k, s: score, t: t0 });
     saveRec(o); view = d > todayStr() ? todayStr() : d;
   }
+  function withNo(l) { var c = { kor: 0, math: 0 }; return l.map(function (r) { c[r.k]++; return { r: r, n: c[r.k] }; }); }
   function delRec(d, id) { var o = loadRec(); o[d] = (o[d] || []).filter(function (r) { return r.i !== id; }); if (!o[d].length) delete o[d]; saveRec(o); }
 
   var view = todayStr(), calOpen = false, calMonth = "", focus = "", expanded = false;
@@ -329,15 +330,16 @@
 
   // 기록 목록
   function renderList() {
-    var box = $("records"), l = dayList(view); box.textContent = "";
+    var box = $("records"), l = withNo(dayList(view)).reverse(); box.textContent = "";
     $("recEmpty").classList.toggle("hidden", l.length > 0);
-    l.forEach(function (r, i) {
+    l.forEach(function (q) {
+      var r = q.r;
       var li = el("li", "rec"), sj = el("div", "subj"), dot = el("span", "dot"), sc = el("div", "sc", String(r.s)), del = el("button", "del");
-      dot.style.background = COLORS[r.k]; sj.appendChild(dot); sj.appendChild(document.createTextNode(EXAMS[r.k].name));
+      dot.style.background = COLORS[r.k]; sj.appendChild(dot); sj.appendChild(document.createTextNode(EXAMS[r.k].name + " " + q.n + "회"));
       sc.appendChild(el("small", null, "점"));
       del.type = "button"; del.setAttribute("aria-label", "기록 삭제"); del.innerHTML = TRASH;
       del.addEventListener("click", function () { ask("이 기록을 삭제하겠습니까?", "삭제", true, function () { delRec(view, r.i); renderAll(); }); });
-      li.appendChild(el("div", "no", String(i + 1))); li.appendChild(sj); li.appendChild(sc); li.appendChild(del);
+      li.appendChild(sj); li.appendChild(sc); li.appendChild(del);
       box.appendChild(li);
     });
   }
@@ -353,7 +355,7 @@
   function renderChart() {
     var box = $("chart"), legend = $("legend"), mw = box.clientWidth || chartW; if (mw) chartW = mw;
     box.textContent = ""; legend.textContent = "";
-    var all = dayList(view), list = all.map(function (r, i) { return { r: r, n: i + 1 }; });
+    var list = withNo(dayList(view));
     if (!list.length) { box.appendChild(el("p", "empty", "이 날 응시한 국어·수학 점수가 아직 없어요.")); return; }
     var present = ["kor", "math"].filter(function (k) { return list.some(function (q) { return q.r.k === k; }); });
     if (focus && present.indexOf(focus) < 0) focus = "";
