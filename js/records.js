@@ -58,6 +58,7 @@
       c.score1 = cleanScore(r.score1); c.score2 = cleanScore(r.score2);
       c.elapsed = cleanSecs(r.elapsed); c.elapsed1 = cleanSecs(r.elapsed1);
       c.usedExtra = !!r.usedExtra;
+      if (typeof r.src === "string") c.src = r.src.trim().slice(0, 10); else delete c.src;
       out.push(c);
     });
     return out;
@@ -260,6 +261,10 @@
       var head = el("div", "head");
       head.appendChild(el("span", "subj", title));
       head.appendChild(el("span", "badge", SLOTS[recSlot(rec)].label));
+      var sb = el("button", "srctag" + (rec.src ? "" : " none"), rec.src || "업체 선택");
+      sb.type = "button"; sb.setAttribute("aria-label", title + " 업체 " + (rec.src ? "수정" : "선택"));
+      sb.addEventListener("click", function () { openSrcEdit(rec); });
+      head.appendChild(sb);
       info.appendChild(head);
       var sc = el("div", "scores");
       if (rec.score1 != null) sc.appendChild(el("span", "", rec.score1 + "점"));

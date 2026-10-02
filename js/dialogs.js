@@ -42,10 +42,13 @@
   });
 
   var lateTarget = null, lateModal = $("lateModal"), lateInput = $("lateInput"), lateErr = $("lateErr");
+  var lateSrcVal = "";
   function openLate(id, field, label) {
     lateTarget = { id: id, field: field };
     $("lateTitle").textContent = label;
     lateInput.value = ""; lateErr.textContent = "";
+    var lrec = findRec(loadView(), id); lateSrcVal = (lrec && typeof lrec.src === "string") ? lrec.src : "";
+    buildSrcPicker($("latePick"), function () { return lateSrcVal; }, function (v) { lateSrcVal = v; });
     lateModal.classList.add("on");
     lateInput.focus();
   }
@@ -55,6 +58,7 @@
     var v = lateInput.value.trim();
     if (!/^\d{1,2}$/.test(v) || Number(v) > 50) { lateErr.textContent = "0~50 사이의 정수로 입력해 주세요."; return; }
     var all = loadView(), rec = findRec(all, lateTarget.id);
+    if (rec && lateSrcVal && rec.src !== lateSrcVal) { rec.src = lateSrcVal; saveAll(all, viewDayStr()); }
     if (rec && rec[lateTarget.field] == null) {          // 이미 값이 있으면 덮어쓰지 않음 (한 번만)
       rec[lateTarget.field] = Number(v);
       rec[lateTarget.field === "score1" ? "late1" : "late2"] = true;       // 시험 끝에 바로 입력한 점수가 아님

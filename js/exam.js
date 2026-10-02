@@ -73,6 +73,8 @@
     if (typeof pushExamState === "function") pushExamState();      // 같은 계정의 다른 기기에도 알림
   }
 
+  var pendingSrc = "";
+  function withSrc(o) { if (pendingSrc) o.src = pendingSrc; return o; }
   function saveRec(fields) {
     var d = dayOfId(recId), all = loadDay(d), rec = findRec(all, recId);        // 시험을 시작한 날의 칸에 저장 (자정을 넘겨 끝나도 같은 날 기록)
     if (!rec) {                                  // 어떤 이유로 기록이 없으면 새로 만든다
@@ -243,6 +245,8 @@
     scoreErr.textContent = "";
     scoreInput.classList.remove("bad");
     $("extraBlock").classList.toggle("hidden", step !== 1);
+    $("srcSec").classList.toggle("hidden", step !== 1);
+    if (step === 1) { pendingSrc = ""; buildSrcPicker($("srcPick"), function () { return pendingSrc; }, function (v) { pendingSrc = v; }); }
     $("scoreSave").classList.toggle("hidden", step !== 2);
     done.classList.add("on");
     done.scrollTop = 0;
@@ -277,7 +281,7 @@
     if (phase !== "ended1") return;
     withScore("점수를 입력하지 않겠습니까?", function (score) {
     if (phase !== "ended1") return;
-    saveRec({ score1: score, elapsed1: Math.round(accum), usedExtra: true, elapsed: Math.round(accum) });
+    saveRec(withSrc({ score1: score, elapsed1: Math.round(accum), usedExtra: true, elapsed: Math.round(accum) }));
     phase = "extra";
     extraStart = accum;            // 여기서부터 추가 시간이 올라감
     done.classList.remove("on");
@@ -293,7 +297,7 @@
     if (phase !== "ended1") return;
     withScore("점수를 입력하지 않겠습니까?", function (score) {
       if (phase !== "ended1") return;
-      saveRec({ score1: score, elapsed1: Math.round(accum), usedExtra: false, elapsed: Math.round(accum) });
+      saveRec(withSrc({ score1: score, elapsed1: Math.round(accum), usedExtra: false, elapsed: Math.round(accum) }));
       goHome();
     });
   });
@@ -372,6 +376,7 @@
     if (e.key !== "Escape") return;
     if ($("cropModal").classList.contains("on")) { closeCrop(); return; }
     if (modal.classList.contains("on")) { closeAsk(); return; }
+    if ($("srcModal").classList.contains("on")) { closeSrcEdit(); return; }
     if (lateModal.classList.contains("on")) { closeLate(); return; }
     if (roomModal.classList.contains("on")) { closeRoomModal(); return; }
     if (profileKey) { closeProfile(); return; }

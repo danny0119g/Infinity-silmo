@@ -98,6 +98,13 @@
       });
       legend.appendChild(item);
     });
+    var shapeSeen = {}, shapeNames = [];            // 점 모양 안내: 그래프에 있는 업체만
+    allPts.forEach(function (r) { var k = r.src || ""; if (k && !shapeSeen[k]) { shapeSeen[k] = 1; shapeNames.push(k); } });
+    if (shapeNames.length) {
+      var sl = el("div", "srcLegend");
+      shapeNames.forEach(function (k) { sl.appendChild(el("span", "", SRC_SHAPE_CH[srcShapeIdx(k)] + " " + k)); });
+      legend.appendChild(sl);
+    }
 
     var pts = focusSubject ? allPts.filter(function (r) { return recSubject(r) === focusSubject; }) : allPts;
     if (!pts.length) {
@@ -288,9 +295,9 @@
       var selected = pt.rec.id === selectedPoint;
       if (selected) dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: homer ? 10 : 9, fill: "none", stroke: TC.text, "stroke-width": 2 }));
       if (homer) {
-        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 5.2, fill: selected ? pt.color : TC.panel, stroke: pt.color, "stroke-width": 2.4 }));
+        dg.appendChild(srcMarker(pt.rec.src, pt.x, pt.y, 5.2, selected ? pt.color : TC.panel, pt.color, 2.4));
       } else {
-        dg.appendChild(svgEl("circle", { cx: pt.x, cy: pt.y, r: 4.6, fill: pt.color, stroke: TC.panel, "stroke-width": 2 }));
+        dg.appendChild(srcMarker(pt.rec.src, pt.x, pt.y, 4.6, pt.color, TC.panel, 2));
       }
       if ((showAll || pt.last || selected) && visible(pt.y)) {
         var seenY = labeled[pt.n] || (labeled[pt.n] = []);

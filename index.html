@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="app-version" content="20261002045629">
+<meta name="app-version" content="20261002050546">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>무수한 실모</title>
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="theme-color" content="#1b1d21">
 <script>try{var tv=localStorage.getItem("examTimer.theme.v1");if(tv==="light"||(tv==="system"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
-<link rel="stylesheet" href="style.css?v=20261002045629">
+<link rel="stylesheet" href="style.css?v=20261002050546">
 </head>
 <body>
 
@@ -135,6 +135,11 @@
         <div id="scoreErr" role="alert"></div>
       </div>
 
+      <div id="srcSec" class="srcsec">
+        <div class="srclab">업체</div>
+        <div id="srcPick"></div>
+      </div>
+
       <div id="extraBlock">
         <p class="ask">추가 시간을 이용하겠습니까?</p>
         <div class="row">
@@ -195,7 +200,7 @@
           <button id="roomAddToggle" class="rowbtn" type="button">+ 새 방 만들기 · 입장</button>
           <div id="roomLeaveSec" class="hidden"><button id="roomLeave" class="rowbtn danger" type="button">방 나가기</button></div>
         </div>
-        <div id="roomDeleteSec" class="hidden"><button id="roomDelete" class="rowbtn danger" type="button">방 삭제 (방장)</button></div>
+        <div id="roomDeleteSec" class="hidden"><button id="roomDelete" class="rowbtn danger" type="button">방 삭제</button></div>
         <div id="roomJoinView" class="rjoin hidden">
           <label class="flabel" for="newTitleInput">방 이름</label>
           <input id="newTitleInput" class="tinput" type="text" maxlength="14" autocomplete="off" placeholder="비워 두면 자동으로 정해요">
@@ -232,6 +237,17 @@
   </div>
 </div>
 
+<div id="srcModal" role="dialog" aria-modal="true" aria-label="업체 선택">
+  <div class="dlg">
+    <p>업체 선택</p>
+    <div id="srcEditPick"></div>
+    <div class="row" style="margin-top:16px">
+      <button id="srcEditCancel">취소</button>
+      <button id="srcEditSave" class="yes">저장</button>
+    </div>
+  </div>
+</div>
+
 <div id="lateModal" role="dialog" aria-modal="true" aria-labelledby="lateTitle">
   <div class="dlg">
     <p id="lateTitle"></p>
@@ -242,6 +258,7 @@
       </div>
       <div id="lateErr" role="alert"></div>
     </div>
+    <div id="latePick"></div>
     <p class="once">한 번만 입력할 수 있어요.</p>
     <div class="row">
       <button id="lateCancel">취소</button>
@@ -271,24 +288,25 @@
   </div>
 </div>
 
-<script src="js/core.js?v=20261002045629"></script>
-<script src="js/auth.js?v=20261002045629"></script>
-<script src="js/records.js?v=20261002045629"></script>
-<script src="js/chart.js?v=20261002045629"></script>
-<script src="js/room-base.js?v=20261002045629"></script>
-<script src="js/push.js?v=20261002045629"></script>
-<script src="js/room-sync.js?v=20261002045629"></script>
-<script src="js/profile.js?v=20261002045629"></script>
-<script src="js/scoreask.js?v=20261002045629"></script>
-<script src="js/chat.js?v=20261002045629"></script>
-<script src="js/photo.js?v=20261002045629"></script>
-<script src="js/room-modal.js?v=20261002045629"></script>
-<script src="js/account.js?v=20261002045629"></script>
-<script src="js/dialogs.js?v=20261002045629"></script>
-<script src="js/history.js?v=20261002045629"></script>
-<script src="js/stats.js?v=20261002045629"></script>
-<script src="js/exam.js?v=20261002045629"></script>
-<script src="js/login.js?v=20261002045629"></script>
-<script src="js/refresh.js?v=20261002045629"></script>
+<script src="js/core.js?v=20261002050546"></script>
+<script src="js/auth.js?v=20261002050546"></script>
+<script src="js/records.js?v=20261002050546"></script>
+<script src="js/chart.js?v=20261002050546"></script>
+<script src="js/room-base.js?v=20261002050546"></script>
+<script src="js/push.js?v=20261002050546"></script>
+<script src="js/room-sync.js?v=20261002050546"></script>
+<script src="js/profile.js?v=20261002050546"></script>
+<script src="js/scoreask.js?v=20261002050546"></script>
+<script src="js/chat.js?v=20261002050546"></script>
+<script src="js/photo.js?v=20261002050546"></script>
+<script src="js/room-modal.js?v=20261002050546"></script>
+<script src="js/account.js?v=20261002050546"></script>
+<script src="js/dialogs.js?v=20261002050546"></script>
+<script src="js/history.js?v=20261002050546"></script>
+<script src="js/stats.js?v=20261002050546"></script>
+<script src="js/srcpick.js?v=20261002050546"></script>
+<script src="js/exam.js?v=20261002050546"></script>
+<script src="js/login.js?v=20261002050546"></script>
+<script src="js/refresh.js?v=20261002050546"></script>
 </body>
 </html>

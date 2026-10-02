@@ -1,6 +1,6 @@
 // [stats.js] 전체 통계: 날짜별 응시 횟수 / 평균 점수(호머식 평균 포함) 그래프. 날짜 달력의 "전체 통계"를 누르면 켜짐
 // 이 파일들은 index.html에 적힌 순서대로 한 덩어리처럼 이어서 실행됩니다. (순서를 바꾸면 안 됨)
-  var statsOn = false, statSel = "", statFocus = "";
+  var statsOn = false, statSel = "", statFocus = "", statSrc = "";
   function trendTitleText(side) {
     if (statsOn) return side === "homer" ? "평균 점수 추이" : "응시 횟수 추이";
     return side === "homer" ? "시간 추이" : "점수 추이";
@@ -8,7 +8,7 @@
   function setStats(on, quiet) {                     // 전체 통계 보기 켜기/끄기 (quiet: 화면을 다시 그리지 않음)
     on = !!on;
     if (statsOn === on && !quiet) return;
-    statsOn = on; statSel = ""; statFocus = "";
+    statsOn = on; statSel = ""; statFocus = ""; statSrc = "";
     document.body.classList.toggle("statsView", on);
     var labs = $("chartSwitch").querySelectorAll(".lab");
     labs[0].textContent = on ? "횟수" : "점수"; labs[1].textContent = on ? "점수" : "시간";
@@ -26,6 +26,7 @@
       var arr = loadDay(d); if (!arr.length) return;
       var by = {};
       arr.forEach(function (r) {
+        if (statSrc && r.src !== statSrc) return;
         var s = recSubject(r), o = by[s] || (by[s] = { n: 0, sc: [], hs: [] });
         o.n++; if (r.score1 != null) o.sc.push(r.score1); if (r.usedExtra && r.score2 != null) o.hs.push(r.score2);
       });
@@ -38,11 +39,25 @@
     box.textContent = ""; legend.textContent = ""; info.textContent = "";
     var score = chartMode === "homer";               // 오른쪽 = 평균 점수, 왼쪽 = 응시 횟수
     $("chartCard").setAttribute("data-mode", "stats");
+    var srcNames = [];                               // 업체 필터 칩 (기록에 있는 업체만)
+    localDays().forEach(function (d) { loadDay(d).forEach(function (r) { if (r.src && srcNames.indexOf(r.src) < 0) srcNames.push(r.src); }); });
+    if (statSrc && srcNames.indexOf(statSrc) < 0) statSrc = "";
     var data = statsData();
     var flat = []; data.forEach(function (x) { Object.keys(x.by).forEach(function (s) { flat.push({ subject: s }); }); });
     var color = colorMap(flat.map(function (q) { return { subject: q.subject }; }));
     var names = []; flat.forEach(function (q) { if (names.indexOf(q.subject) < 0) names.push(q.subject); });
-    if (!data.length) { box.appendChild(el("p", "empty", "응시 기록이 쌓이면 여기에 날짜별 통계가 그려져요.")); return; }
+    function srcChips() {
+      if (!srcNames.length) return;
+      var row = el("div", "srcLegend");
+      [""].concat(srcNames).forEach(function (n) {
+        var on = statSrc === n, b = el("button", "item" + (on ? " on" : ""), n || "전체 업체");
+        b.type = "button"; b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.addEventListener("click", function () { statSrc = n; statSel = ""; renderChart(); });
+        row.appendChild(b);
+      });
+      legend.appendChild(row);
+    }
+    if (!data.length) { srcChips(); box.appendChild(el("p", "empty", "응시 기록이 쌓이면 여기에 날짜별 통계가 그려져요.")); return; }
     if (statFocus && names.indexOf(statFocus) < 0) statFocus = "";
     // 범례 (누르면 그 과목만)
     legend.classList.toggle("has-focus", !!statFocus);
@@ -54,6 +69,7 @@
       item.addEventListener("click", function () { statFocus = on ? "" : name; statSel = ""; renderChart(); });
       legend.appendChild(item);
     });
+    srcChips();
     var shown = statFocus ? [statFocus] : names;
     // 과목·날짜별 값
     var series = {}, vals = [];
