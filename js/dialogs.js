@@ -80,6 +80,7 @@
   function openPicker(slot, mode) {
     pickerSlot = slot; pickerMode = mode;
     $("pickerTabs").classList.toggle("hidden", mode !== "edit");
+    $("liteOpen").classList.toggle("hidden", mode !== "edit");
     $("pickerFoot").classList.toggle("hidden", mode !== "edit");
     renderPicker();
     $("pickerBody").scrollTop = 0;

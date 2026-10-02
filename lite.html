@@ -167,6 +167,9 @@
     ask(cur.name + " 시험이 종료되었습니다", "확인", false, toPick, null, true);
   }
 
+  $("back").addEventListener("click", function (e) {      // 본 앱 안에서 떠 있을 때는 창만 닫음
+    if (window.parent !== window) { e.preventDefault(); try { window.parent.postMessage("lite-close", location.origin); } catch (x) {} }
+  });
   document.querySelectorAll(".opt").forEach(function (b) { b.addEventListener("click", function () { begin(b.getAttribute("data-k")); }); });
   $("toggleRemain").addEventListener("click", function () {
     showRemain = !showRemain; $("remain").classList.toggle("on", showRemain); this.textContent = showRemain ? "남은 시간 숨기기" : "남은 시간 보기";
