@@ -871,3 +871,5 @@
   .nou { font-size: 16px; font-weight: 700; color: var(--muted); margin-right: 2px; }
   .noedit { display: flex; justify-content: center; margin-top: 12px; }
   .noHint { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .nostack { display: flex; flex-direction: column; gap: 2px; }
+  .nostack .nobtn { width: 34px; height: 22px; font-size: 11px; line-height: 1; border-radius: 8px; }

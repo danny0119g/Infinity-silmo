@@ -102,7 +102,7 @@
   // [− 4 회 +] 칸. get(): 숫자 또는 null, set(v): 바꾸기. 돌려주는 refresh()는 바깥에서 값이 바뀐 뒤 화면을 갱신
   function buildNoBox(box, get, set) {
     box.textContent = "";
-    var wrap = el("div", "nobox"), mi = el("button", "nobtn", "−"), pl = el("button", "nobtn", "+"), inp = el("input", "noinp"), u = el("span", "nou", "회");
+    var wrap = el("div", "nobox"), mi = el("button", "nobtn", "▼"), pl = el("button", "nobtn", "▲"), inp = el("input", "noinp"), u = el("span", "nou", "회");
     mi.type = "button"; pl.type = "button"; mi.setAttribute("aria-label", "회차 줄이기"); pl.setAttribute("aria-label", "회차 늘리기");
     inp.type = "text"; inp.maxLength = 3; inp.setAttribute("inputmode", "numeric"); inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-label", "회차"); inp.placeholder = "-";
     function show() { var v = get(); inp.value = v == null ? "" : String(v); }
@@ -110,7 +110,8 @@
     pl.addEventListener("click", function () { set(Math.min(999, (get() || 0) + 1)); show(); });
     inp.addEventListener("input", function () { inp.value = inp.value.replace(/\D/g, ""); var n = Number(inp.value); set(inp.value && n >= 1 ? Math.min(999, n) : null); });
     inp.addEventListener("focus", function () { if (typeof exitFullscreen === "function") exitFullscreen(); });
-    wrap.appendChild(mi); wrap.appendChild(inp); wrap.appendChild(u); wrap.appendChild(pl); box.appendChild(wrap);
+    var st = el("div", "nostack"); st.appendChild(pl); st.appendChild(mi);      // 위(+) 아래(−) 버튼
+    wrap.appendChild(inp); wrap.appendChild(u); wrap.appendChild(st); box.appendChild(wrap);
     show();
     return { refresh: show };
   }
