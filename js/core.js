@@ -52,7 +52,7 @@
   })();
   var CLK_KEY = "examTimer.clockTheme.v1";
   function clockThemeGet() { try { return localStorage.getItem(CLK_KEY) === "classic" ? "classic" : "modern"; } catch (e) { return "modern"; } }
-  function clockThemeApply() { var v = clockThemeGet(); if (v === "classic") $("clock").setAttribute("data-clock", "classic"); else $("clock").removeAttribute("data-clock"); }
+  function clockThemeApply() { var v = clockThemeGet(), sw = $("clockTheme"); if (v === "classic") $("clock").setAttribute("data-clock", "classic"); else $("clock").removeAttribute("data-clock"); sw.classList.toggle("on", v === "classic"); sw.setAttribute("aria-checked", v === "classic" ? "true" : "false"); }
   clockThemeApply();
   $("clockTheme").addEventListener("click", function () { try { localStorage.setItem(CLK_KEY, clockThemeGet() === "classic" ? "modern" : "classic"); } catch (e) {} clockThemeApply(); });
 

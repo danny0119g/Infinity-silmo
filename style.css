@@ -553,6 +553,14 @@
   #abandon { background: rgba(216,38,28,.20); border-color: rgba(240,104,94,.55); color: var(--danger); }
   .tools { display: flex; gap: 8px; margin-left: auto; }
   .bl { display: flex; align-items: center; gap: 12px; }
+  .clkSw { position: relative; flex: none; width: 80px; height: 38px; padding: 0; border-radius: 19px; border: 1px solid var(--line2); background: var(--panel); color: var(--muted); cursor: pointer; display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: center; -webkit-tap-highlight-color: transparent; }
+  .clkSw .clkK { position: absolute; top: 3px; left: 3px; width: 36px; height: 30px; border-radius: 15px; border: 1.5px solid var(--accent); background: var(--hover); transform: translateX(0); transition: transform .3s cubic-bezier(.3,.8,.3,1), width .15s ease; pointer-events: none; }
+  .clkSw.on .clkK { transform: translateX(36px); }
+  .clkSw:active .clkK { width: 40px; }
+  .clkSw.on:active .clkK { transform: translateX(32px); }
+  .clkSw .ci { position: relative; width: 20px; height: 20px; display: block; transition: color .25s; pointer-events: none; }
+  .clkSw:not(.on) .ci:first-of-type, .clkSw.on .ci:last-of-type { color: var(--text); }
+
   #clock[data-clock="classic"] #clkModern, #clock:not([data-clock="classic"]) #clkClassic { display: none; }
   .pill.icon { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .pill.icon svg { width: 20px; height: 20px; display: block; }
