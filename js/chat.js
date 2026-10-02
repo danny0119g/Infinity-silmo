@@ -57,6 +57,9 @@
   function mkey(ms) { var b = Math.floor(ms).toString(36); while (b.length < 9) b = "0" + b; return "m" + b + rnd(3, CHAT_CHARS); }   // 시간순으로 정렬되는 글자 번호
   function cleanChat(v) { return String(v).replace(/\s+/g, " ").trim().slice(0, 60); }
   function validMsg(m) { return !!m && typeof m === "object" && typeof m.f === "string" && typeof m.t === "number" && (m.k === "m" || m.k === "ask" || m.k === "reply" || m.k === "sys"); }
+  var IMG_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/;
+  function okImg(v) { return (typeof v === "string" && v.length <= 60000 && IMG_RE.test(v)) ? v : ""; }
+  function normMsg(x) { var o = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t }; var im = okImg(x.i); if (im) o.i = im; return o; }
   function isReadMark(m) { return !!m && m.k === "m" && !m.x && typeof m.s === "string" && m.s.indexOf("r|") === 0; }   // 읽음 표시: 글자 없는 메시지(규칙 변경 없이 기존 칸 사용)
   function msgText(m) { return m.k === "ask" ? "" : (m.x || ""); }
   function placeNear(node, anchor) {
@@ -88,10 +91,15 @@
         sd.appendChild(bd); box.appendChild(sd);
         return;
       }
-      var tx = msgText(m);
-      if (!tx) return;
-      var d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : ""));
-      d.textContent = tx + (m.st === "fail" ? " (전송 안 됨)" : "");
+      var tx = msgText(m), im = (m.k === "m") ? m.i : "";
+      if (!tx && !im) return;
+      var d = el("div", "cm " + (m.f === me ? "me" : "them") + (m.st === "fail" ? " fail" : "") + (im ? " img" : ""));
+      if (im) {
+        var pic = el("img", "cmPic"); pic.src = im; pic.alt = "사진"; pic.addEventListener("load", function () { if (c.stick) box.scrollTop = box.scrollHeight; });
+        pic.addEventListener("click", function () { openImgView(im); });
+        d.appendChild(pic);
+        if (m.st === "fail") d.appendChild(el("div", "cmFail", "(전송 안 됨)"));
+      } else d.textContent = tx + (m.st === "fail" ? " (전송 안 됨)" : "");
       if (m.f === me && m.k === "m" && !m.st && k.charAt(0) === "m" && k > (c.peerRead || "")) {     // 상대가 아직 안 읽음: 말풍선 옆에 1
         var rw = el("div", "cmRow me");
         rw.appendChild(el("span", "cmRead", "1")); rw.appendChild(d); box.appendChild(rw);
@@ -166,7 +174,12 @@
     inp.type = "text"; inp.maxLength = 60; inp.placeholder = "메시지"; inp.setAttribute("autocomplete", "off");
     send.type = "button";
     head.appendChild(nm); head.appendChild(x);
-    row.appendChild(inp); row.appendChild(send);
+    var pic = el("button", "chatPic"), pf = el("input"); pic.type = "button"; pic.setAttribute("aria-label", "사진 보내기"); pic.innerHTML = PIC_ICON;
+    pf.type = "file"; pf.accept = "image/*"; pf.className = "hidden";
+    pic.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    pic.addEventListener("click", function (e) { e.stopPropagation(); pf.click(); });
+    pf.addEventListener("change", function () { var f = pf.files && pf.files[0]; pf.value = ""; if (f) sendImage(peer, f); });
+    row.appendChild(pic); row.appendChild(pf); row.appendChild(inp); row.appendChild(send);
     var grip = el("div", "chatGrip"); grip.setAttribute("aria-label", "채팅창 크기 조절");
     win.appendChild(head); win.appendChild(mb); win.appendChild(notice); win.appendChild(row); win.appendChild(grip);
     var c = { peer: peer, el: win, nameEl: nm, msgsEl: mb, row: row, notice: notice, input: inp, msgs: msgs, li: li, ended: false, timer: 0, sawServer: false, busy: false, lastSend: 0, opened: Date.now(), stick: true };
@@ -228,6 +241,57 @@
     var n = c.nameEl.textContent;
     return sys === "exam" ? n + "님이 실모를 치러 갔어요" : sys === "gone" ? n + "님이 방을 나갔어요" : n + "님이 대화를 닫았어요";
   }
+  var PIC_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 9"/></svg>';
+  function shrinkImage(file) {                        // 긴 변 ~560px JPEG로 줄여 서버 규칙 한도(6만 글자) 안에 맞춤
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        try {
+          var iw = img.naturalWidth, ih = img.naturalHeight; if (!iw || !ih) throw new Error("size");
+          var edge = 560, q = 0.62, out = "";
+          for (var tries = 0; tries < 8; tries++) {
+            var k = Math.min(1, edge / Math.max(iw, ih)), cv = document.createElement("canvas");
+            cv.width = Math.max(1, Math.round(iw * k)); cv.height = Math.max(1, Math.round(ih * k));
+            var g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+            out = cv.toDataURL("image/jpeg", q);
+            if (out.length <= 52000) break;
+            if (q > 0.45) q -= 0.08; else edge = Math.round(edge * 0.82);
+          }
+          URL.revokeObjectURL(url);
+          if (out.length > 59000 || !okImg(out)) reject(new Error("big")); else resolve(out);
+        } catch (e) { URL.revokeObjectURL(url); reject(e); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("load")); };
+      img.src = url;
+    });
+  }
+  function sendImage(peer, file) {
+    var c = chats[peer]; if (!c || c.ended || !room) return;
+    shrinkImage(file).then(function (data) {
+      c = chats[peer]; if (!c || c.ended || !room) return;
+      var ms = Date.now(); if (ms - c.lastSend < 350) return; c.lastSend = ms;
+      var key = mkey(ms), me = getDeviceId(), msg = { f: me, k: "m", x: "", i: data, t: Math.floor(ms / 1000) }, node = chatNode(room.code, peer);
+      c.msgs[key] = { f: me, k: "m", x: "", s: "", i: data, t: msg.t, st: "pending" }; c.hasImg = true; c.stick = true;
+      renderChatMsgs(c);
+      enqueue(function () {
+        return dbFetch(node + "/" + key, { method: "PUT", headers: JSONH, body: JSON.stringify(msg) })
+          .then(function () { notifyPush(peer, "사진을 보냈어요"); if (c.msgs[key]) { delete c.msgs[key].st; if (chats[peer] === c && !c.ended) renderChatMsgs(c); } })
+          .catch(function (err) {
+            if (c.msgs[key]) { c.msgs[key].st = "fail"; if (chats[peer] === c) renderChatMsgs(c); }
+            if (err && err.message === "http 401") notice("사진을 보내려면 서버 규칙을 업데이트해야 해요.");
+          });
+      });
+    }).catch(function () { notice("사진을 불러오지 못했어요."); });
+  }
+  var imgView = null;
+  function openImgView(src) {
+    if (!imgView) {
+      imgView = el("div", "imgView hidden"); var im = el("img"); imgView.appendChild(im);
+      imgView.addEventListener("click", function () { imgView.classList.add("hidden"); im.removeAttribute("src"); });
+      document.body.appendChild(imgView);
+    }
+    imgView.firstChild.src = src; imgView.classList.remove("hidden");
+  }
   function sendChat(peer, raw) {
     var c = chats[peer], text = cleanChat(raw);
     if (!c || c.ended || !text || !room) return false;
@@ -270,7 +334,7 @@
       }
       var old = c.msgs[k];
       if (!old || old.st) {
-        c.msgs[k] = { f: m.f, k: m.k, x: typeof m.x === "string" ? m.x.slice(0, 80) : "", s: typeof m.s === "string" ? m.s.slice(0, 30) : "", t: m.t };
+        c.msgs[k] = normMsg(m); if (c.msgs[k].i) c.hasImg = true;
         changed = true;
       }
     });
@@ -278,7 +342,7 @@
     if (sys) { endChat(peer, chatNoticeText(c, sys)); return; }
     if (mineSys) { endChat(peer, "다른 기기에서 대화를 닫았어요"); return; }
     var latest = "";                                                          // 내가 이 창을 보고 있으면 상대 메시지를 읽은 것으로 표시
-    Object.keys(d).forEach(function (k) { var m = d[k]; if (validMsg(m) && m.f === peer && m.k === "m" && m.x && k.charAt(0) === "m" && k > latest) latest = k; });
+    Object.keys(d).forEach(function (k) { var m = d[k]; if (validMsg(m) && m.f === peer && m.k === "m" && (m.x || okImg(m.i)) && k.charAt(0) === "m" && k > latest) latest = k; });
     if (latest && latest > (c.readSent || "") && document.visibilityState === "visible" && home.style.display !== "none") {
       c.readSent = latest;
       var rn = chatNode(room.code, peer) + "/rd" + me, rv = { f: me, k: "m", x: "", s: "r|" + latest, t: Math.floor(Date.now() / 1000) };
@@ -293,7 +357,9 @@
       var c = chats[peer];
       if (!c || c.ended || c.busy) return;
       c.busy = true;
-      dbFetch(chatNode(code, peer), { cache: "no-store" })
+      var last = ""; if (c.hasImg && c.sawServer) Object.keys(c.msgs).forEach(function (k) { if (k.charAt(0) === "m" && !c.msgs[k].st && k > last) last = k; });
+      var fo = { cache: "no-store" }; if (last) fo.query = "orderBy=" + encodeURIComponent('"$key"') + "&startAt=" + encodeURIComponent('"' + last + '"');
+      dbFetch(chatNode(code, peer), fo)
         .then(function (d) { c.busy = false; if (chats[peer] === c) mergeChat(peer, d); })
         .catch(function (err) { c.busy = false; if (err && err.message === "http 401") { if (!USE_V2) chatBlocked = true; if (chats[peer] === c) endChat(peer, "서버 규칙 업데이트가 필요해요"); } });
     });
@@ -342,7 +408,7 @@
         var x = d[k];
         if (!validMsg(x) || (x.f !== me && x.f !== peer)) return;
         if (x.k === "sys") { if (x.f !== me) over = true; return; }
-        msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
+        msgs[k] = normMsg(x);
       });
       if (over || !Object.keys(msgs).length) return;     // 이미 끝난 대화면 열지 않음
       var c = buildChat(peer, m.name, msgs, lastLis[peer]);
@@ -374,7 +440,7 @@
         var x = d[k];
         if (!validMsg(x) || (x.f !== me && x.f !== peer)) return;
         if (x.k === "sys") { if (x.t > sysT) sysT = x.t; return; }                         // 누가 닫았든(상대든 내 다른 기기든) 닫는 신호
-        msgs[k] = { f: x.f, k: x.k, x: typeof x.x === "string" ? x.x.slice(0, 80) : "", s: typeof x.s === "string" ? x.s.slice(0, 30) : "", t: x.t };
+        msgs[k] = normMsg(x);
         if (x.t > newest) newest = x.t;
       });
       var over = sysT > 0 && sysT >= newest;                                               // 닫는 신호가 가장 마지막 일이면 끝난 대화 (그 뒤에 새 대화가 시작됐다면 아님)

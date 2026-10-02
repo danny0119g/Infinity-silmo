@@ -349,6 +349,14 @@
   .bubIn.bad { border-color: #e5483f; box-shadow: 0 0 0 2px rgba(229,72,63,.25); }
   .chatRow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
   .chatIn { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--input); color: var(--text); }
+  .chatPic { flex: none; width: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--muted); }
+  .chatPic.pressing { border-color: var(--accent); }
+  .cm.img { padding: 4px; }
+  .cmPic { display: block; max-width: 100%; max-height: 220px; border-radius: 9px; cursor: zoom-in; }
+  .cmFail { margin: 2px 4px 0; font-size: 11px; }
+  .imgView { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.88); }
+  .imgView.hidden { display: none; }
+  .imgView img { max-width: 100%; max-height: 100%; border-radius: 6px; }
   .chatSend { flex: none; padding: 0 12px; border-radius: 9px; border: 0; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; }
   .chatSend.pressing { filter: brightness(1.12); }
   .chatNotice { height: 55px; display: flex; align-items: center; justify-content: center; padding: 0 12px; text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); border-top: 1px solid var(--line); }

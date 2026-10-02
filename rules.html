@@ -403,6 +403,9 @@ var FULL_STRICT = `{
                 "x": {
                   ".validate": "newData.isString() && newData.val().length <= 80"
                 },
+                "i": {
+                  ".validate": "newData.isString() && newData.val().length <= 60000 && newData.val().beginsWith('data:image/jpeg;base64,')"
+                },
                 "s": {
                   ".validate": "newData.isString() && newData.val().length <= 30"
                 },
@@ -688,6 +691,9 @@ var FULL_SIMPLE = `{
                 "x": {
                   ".validate": "newData.isString() && newData.val().length <= 80"
                 },
+                "i": {
+                  ".validate": "newData.isString() && newData.val().length <= 60000 && newData.val().beginsWith('data:image/jpeg;base64,')"
+                },
                 "s": {
                   ".validate": "newData.isString() && newData.val().length <= 30"
                 },
@@ -964,6 +970,9 @@ var V2_ONLY = `"v2": {
                 },
                 "x": {
                   ".validate": "newData.isString() && newData.val().length <= 80"
+                },
+                "i": {
+                  ".validate": "newData.isString() && newData.val().length <= 60000 && newData.val().beginsWith('data:image/jpeg;base64,')"
                 },
                 "s": {
                   ".validate": "newData.isString() && newData.val().length <= 30"
